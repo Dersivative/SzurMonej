@@ -6,6 +6,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -36,4 +38,12 @@ public class Child {
 
     @Column(name = "avatar_content_type")
     private String avatarContentType;
+
+    @OneToMany(mappedBy = "child")
+    @JsonIgnore
+    private List<ClassMembership> classMemberships = new ArrayList<>();
+
+    @OneToMany(mappedBy = "child")
+    @JsonIgnore
+    private List<FundraiserParticipant> fundraiserParticipations = new ArrayList<>();
 }
