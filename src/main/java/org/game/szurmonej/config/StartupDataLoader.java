@@ -47,7 +47,7 @@ public class StartupDataLoader implements ApplicationRunner {
         String plainPassword = adminPassword;
         boolean generated = false;
         if (plainPassword == null || plainPassword.isBlank()) {
-            plainPassword = UUID.randomUUID().toString();
+            plainPassword = "admin";
             generated = true;
         }
 

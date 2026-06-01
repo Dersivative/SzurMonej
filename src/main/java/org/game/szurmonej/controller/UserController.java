@@ -2,6 +2,7 @@ package org.game.szurmonej.controller;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.game.szurmonej.dto.UserCreateRequest;
 import org.game.szurmonej.dto.UserResponse;
 import org.game.szurmonej.entity.Account;
 import org.game.szurmonej.entity.User;
@@ -40,7 +41,13 @@ public class UserController {
 
     @SecurityRequirements
     @PostMapping
-    public ResponseEntity<UserResponse> createUser(@RequestBody User user) {
+    public ResponseEntity<UserResponse> createUser(@RequestBody UserCreateRequest request) {
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setEmail(request.getEmail());
+        user.setPasswordHash(request.getPassword());
+        user.setAdmin(false);
+
         user.setPasswordHash(passwordEncoder.encode(user.getPasswordHash()));
         if (user.getAccount() == null) {
             Account account = new Account();
