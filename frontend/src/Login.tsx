@@ -13,29 +13,35 @@ const Login: React.FC = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await axios.post('/api/auth/login', {
-        username: username,
-        password: password
-      }, {
+      // Zmieniono na wysyłanie danych w formacie application/x-www-form-urlencoded
+      // aby dopasować do konfiguracji Spring Security formLogin
+      const params = new URLSearchParams();
+      params.append('username', username);
+      params.append('password', password);
+
+      const response = await axios.post('/api/login', params, {
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/x-www-form-urlencoded'
         },
         withCredentials: true
       });
       
-      // Jeśli logowanie się powiodło, pobieramy dane zalogowanego użytkownika
       if (response.status === 200) {
-        // Tymczasowe rozwiazanie, zakładamy że backend zwraca zalogowanego użytkownika na ten endpoint
-        // Trzeba będzie to dostosować do faktycznego API Spring Boota
         try {
-          const userResponse = await axios.get('/api/auth/me', {
+          // Zmieniono endpoint na /api/users/me, który zwraca UserResponse z polem admin
+          const userResponse = await axios.get('/api/users/me', {
             withCredentials: true
           });
-          login({ username: userResponse.data.username, email: userResponse.data.email });
+          // Poprawka: Dodano pole 'admin' do obiektu przekazywanego do funkcji login
+          login({ 
+            username: userResponse.data.username, 
+            email: userResponse.data.email, 
+            admin: userResponse.data.admin 
+          });
         } catch (err) {
-          // Fallback na wypadek gdyby endpoint /me nie istniał
           console.warn("Could not fetch user details, using defaults");
-          login({ username: username, email: "user@example.com" });
+          // Poprawka: Dodano pole 'admin' w przypadku awaryjnym
+          login({ username: username, email: "user@example.com", admin: false });
         }
         
         navigate('/user');

@@ -17,7 +17,7 @@ public class UserResponse {
     private Long id;
     private String username;
     private String email;
-    private boolean admin;
+    private boolean admin; // Dodano pole admin
     private List<ChildResponse> children = new ArrayList<>();
 
     public static UserResponse from(User user) {
@@ -25,7 +25,7 @@ public class UserResponse {
         response.setId(user.getId());
         response.setUsername(user.getUsername());
         response.setEmail(user.getEmail());
-        response.setAdmin(user.isAdmin());
+        response.setAdmin(user.isAdmin()); // Ustawienie wartości z encji
         if (user.getChildren() != null) {
             response.setChildren(user.getChildren().stream()
                     .map(ChildResponse::from)

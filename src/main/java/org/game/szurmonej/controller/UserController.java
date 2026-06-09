@@ -5,12 +5,14 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.game.szurmonej.dto.ChildResponse;
 import org.game.szurmonej.dto.UserCreateRequest;
 import org.game.szurmonej.dto.UserResponse;
+import org.game.szurmonej.dto.UserWithChildrenResponse;
 import org.game.szurmonej.entity.Account;
 import org.game.szurmonej.entity.User;
 import org.game.szurmonej.repository.ChildRepository;
 import org.game.szurmonej.repository.UserRepository;
 import org.game.szurmonej.service.CurrentUserService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -44,6 +46,15 @@ public class UserController {
         return userRepository.findAll().stream()
                 .map(UserResponse::from)
                 .collect(Collectors.toList());
+    }
+
+    @GetMapping("/all")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<UserWithChildrenResponse>> getAllUsersWithChildren() {
+        List<UserWithChildrenResponse> users = userRepository.findAllWithChildren().stream()
+                .map(UserWithChildrenResponse::from)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(users);
     }
 
     @GetMapping("/me")

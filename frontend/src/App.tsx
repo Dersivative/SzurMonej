@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './AuthContext';
 import Login from './Login';
 import UserPage from './UserPage';
+import AdminPage from './AdminPage'; // Import nowej strony
 import NavBar from './NavBar';
 
 const App: React.FC = () => {
@@ -16,7 +17,7 @@ const App: React.FC = () => {
 };
 
 const Main: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAdmin } = useAuth();
 
   return (
     <>
@@ -26,6 +27,10 @@ const Main: React.FC = () => {
         <Route
           path="/user"
           element={isAuthenticated ? <UserPage /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/admin"
+          element={isAdmin ? <AdminPage /> : <Navigate to="/user" />} // Zabezpieczenie ścieżki
         />
         <Route
           path="/"
