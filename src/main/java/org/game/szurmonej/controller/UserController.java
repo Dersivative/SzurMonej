@@ -2,10 +2,12 @@ package org.game.szurmonej.controller;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.game.szurmonej.dto.ChildResponse;
 import org.game.szurmonej.dto.UserCreateRequest;
 import org.game.szurmonej.dto.UserResponse;
 import org.game.szurmonej.entity.Account;
 import org.game.szurmonej.entity.User;
+import org.game.szurmonej.repository.ChildRepository;
 import org.game.szurmonej.repository.UserRepository;
 import org.game.szurmonej.service.CurrentUserService;
 import org.springframework.http.ResponseEntity;
@@ -28,11 +30,13 @@ public class UserController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final CurrentUserService currentUserService;
+    private final ChildRepository childRepository;
 
-    public UserController(UserRepository userRepository, PasswordEncoder passwordEncoder, CurrentUserService currentUserService) {
+    public UserController(UserRepository userRepository, PasswordEncoder passwordEncoder, CurrentUserService currentUserService, ChildRepository childRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.currentUserService = currentUserService;
+        this.childRepository = childRepository;
     }
 
     @GetMapping
@@ -45,6 +49,15 @@ public class UserController {
     @GetMapping("/me")
     public ResponseEntity<UserResponse> me() {
         return ResponseEntity.ok(UserResponse.from(currentUserService.getCurrentUser()));
+    }
+
+    @GetMapping("/me/children")
+    public ResponseEntity<List<ChildResponse>> getChildrenForCurrentUser() {
+        User currentUser = currentUserService.getCurrentUser();
+        List<ChildResponse> children = childRepository.findByParents(currentUser).stream()
+                .map(ChildResponse::from)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(children);
     }
 
     @SecurityRequirements
