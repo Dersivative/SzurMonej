@@ -16,6 +16,7 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -23,6 +24,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Set;
+import java.util.HashSet;
 
 @Component
 public class StartupDataLoader implements ApplicationRunner {
@@ -57,6 +59,7 @@ public class StartupDataLoader implements ApplicationRunner {
     }
 
     @Override
+    @Transactional
     public void run(ApplicationArguments args) {
         Optional<User> existingAdmin = userRepository.findByUsername(adminUsername);
         if (existingAdmin.isEmpty()) {
@@ -109,14 +112,34 @@ public class StartupDataLoader implements ApplicationRunner {
             account.setAccountNumber(UUID.randomUUID().toString());
             account.setUser(treasurer);
             treasurer.setAccount(account);
-
+            
             userRepository.save(treasurer);
+
+            Child treasurerChild = new Child();
+            treasurerChild.setName("DzieckoSkarbnika" + i);
+            treasurerChild.setSurname("Skarbnikowski" + i);
+            treasurerChild.setDateOfBirth(LocalDate.of(2011, 1, 1));
+            
+            childRepository.save(treasurerChild);
+
+            // Use mutable HashSet instead of immutable Set.of()
+            treasurer.setChildren(new HashSet<>(Set.of(treasurerChild)));
+            treasurerChild.setParents(new HashSet<>(Set.of(treasurer)));
+            
+            userRepository.save(treasurer);
+            childRepository.save(treasurerChild);
 
             SchoolClass schoolClass = new SchoolClass();
             schoolClass.setLabel("Klasa " + i);
             schoolClass.setTreasurer(treasurer);
             schoolClassRepository.save(schoolClass);
             classes.add(schoolClass);
+            
+            ClassMembership membership = new ClassMembership();
+            membership.setChild(treasurerChild);
+            membership.setSchoolClass(schoolClass);
+            membership.setJoinedAt(LocalDate.now());
+            classMembershipRepository.save(membership);
         }
 
         // Create 10 Parents, each with 2 children
@@ -135,20 +158,19 @@ public class StartupDataLoader implements ApplicationRunner {
 
             userRepository.save(parent);
 
-            // Create 2 children
+            Set<Child> parentChildren = new HashSet<>();
             for (int j = 0; j < 2; j++) {
                 Child child = new Child();
                 child.setName("Dziecko" + childCounter);
                 child.setSurname("Nazwisko" + i);
                 child.setDateOfBirth(LocalDate.of(2010 + j, 1, 1));
+                
                 childRepository.save(child);
 
-                // Assign parent-child mapping using Set.of
-                parent.setChildren(parent.getChildren() == null ? Set.of(child) : 
-                    new java.util.HashSet<>(parent.getChildren()) {{ add(child); }});
-                // Note: user.setChildren may need hibernate sync, let's just update the set and save parent again.
+                // Use mutable HashSet
+                child.setParents(new HashSet<>(Set.of(parent)));
+                parentChildren.add(child);
 
-                // Assign to class: Each child in sequentially a different class
                 SchoolClass assignedClass = classes.get((childCounter - 1) % classes.size());
                 ClassMembership membership = new ClassMembership();
                 membership.setChild(child);
@@ -158,7 +180,8 @@ public class StartupDataLoader implements ApplicationRunner {
 
                 childCounter++;
             }
-            userRepository.save(parent); // save child references
+            parent.setChildren(parentChildren);
+            userRepository.save(parent);
         }
 
         log.info("Test data seeded successfully.");
