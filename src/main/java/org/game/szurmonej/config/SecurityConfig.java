@@ -71,6 +71,7 @@ public class SecurityConfig {
                         "/swagger-ui/**"
                     ).permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/enrollment-links/*").permitAll()
                     .anyRequest().authenticated()
                 )
                 .formLogin(form -> form
