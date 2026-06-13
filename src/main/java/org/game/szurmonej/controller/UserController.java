@@ -1,0 +1,123 @@
+package org.game.szurmonej.controller;
+
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.game.szurmonej.dto.ChildCreateRequest;
+import org.game.szurmonej.dto.ChildResponse;
+import org.game.szurmonej.dto.EnrollmentApplicationResponse;
+import org.game.szurmonej.dto.UserCreateRequest;
+import org.game.szurmonej.dto.UserResponse;
+import org.game.szurmonej.dto.UserWithChildrenResponse;
+import org.game.szurmonej.entity.Account;
+import org.game.szurmonej.entity.User;
+import org.game.szurmonej.repository.ChildRepository;
+import org.game.szurmonej.repository.UserRepository;
+import org.game.szurmonej.service.ClassEnrollmentService;
+import org.game.szurmonej.service.CurrentUserService;
+import org.game.szurmonej.service.ParentChildService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@Tag(name = "Users", description = "Użytkownicy (rodzice)")
+@RestController
+@RequestMapping("/api/users")
+public class UserController {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final CurrentUserService currentUserService;
+    private final ChildRepository childRepository;
+    private final ParentChildService parentChildService;
+    private final ClassEnrollmentService classEnrollmentService;
+
+    public UserController(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            CurrentUserService currentUserService,
+            ChildRepository childRepository,
+            ParentChildService parentChildService,
+            ClassEnrollmentService classEnrollmentService
+    ) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.currentUserService = currentUserService;
+        this.childRepository = childRepository;
+        this.parentChildService = parentChildService;
+        this.classEnrollmentService = classEnrollmentService;
+    }
+
+    @Transactional(readOnly = true)
+    @GetMapping
+    public List<UserResponse> getAllUsers() {
+        return userRepository.findAll().stream()
+                .map(UserResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    @GetMapping("/all")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<UserWithChildrenResponse>> getAllUsersWithChildren() {
+        List<UserWithChildrenResponse> users = userRepository.findAllWithChildren().stream()
+                .map(UserWithChildrenResponse::from)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(users);
+    }
+
+    @Transactional(readOnly = true)
+    @GetMapping("/me")
+    public ResponseEntity<UserResponse> me() {
+        return ResponseEntity.ok(UserResponse.from(currentUserService.getCurrentUser()));
+    }
+
+    @Transactional(readOnly = true)
+    @GetMapping("/me/children")
+    public ResponseEntity<List<ChildResponse>> getChildrenForCurrentUser() {
+        User currentUser = currentUserService.getCurrentUser();
+        List<ChildResponse> children = childRepository.findByParents(currentUser).stream()
+                .map(ChildResponse::from)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(children);
+    }
+
+    @PostMapping("/me/children")
+    public ResponseEntity<ChildResponse> addChildForCurrentUser(@RequestBody ChildCreateRequest request) {
+        return ResponseEntity.ok(ChildResponse.from(parentChildService.addChildToCurrentUser(request)));
+    }
+
+    @Transactional(readOnly = true)
+    @GetMapping("/me/enrollment-applications")
+    public ResponseEntity<List<EnrollmentApplicationResponse>> getEnrollmentApplicationsForCurrentUser() {
+        return ResponseEntity.ok(classEnrollmentService.getApplicationsForCurrentParent());
+    }
+
+    @SecurityRequirements
+    @PostMapping
+    public ResponseEntity<UserResponse> createUser(@RequestBody UserCreateRequest request) {
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setEmail(request.getEmail());
+        user.setPasswordHash(request.getPassword());
+        user.setAdmin(false);
+
+        user.setPasswordHash(passwordEncoder.encode(user.getPasswordHash()));
+        if (user.getAccount() == null) {
+            Account account = new Account();
+            account.setAccountNumber(UUID.randomUUID().toString());
+            account.setUser(user);
+            user.setAccount(account);
+        }
+        return ResponseEntity.ok(UserResponse.from(userRepository.save(user)));
+    }
+}
