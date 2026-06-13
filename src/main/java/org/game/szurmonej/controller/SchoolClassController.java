@@ -1,5 +1,6 @@
 package org.game.szurmonej.controller;
 
+import org.game.szurmonej.dto.SchoolClassResponse;
 import org.game.szurmonej.entity.SchoolClass;
 import org.game.szurmonej.repository.SchoolClassRepository;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/school-classes")
@@ -24,16 +26,20 @@ public class SchoolClassController {
     }
 
     @GetMapping
-    public List<SchoolClass> getAllSchoolClasses() {
-        return schoolClassRepository.findAll();
+    public List<SchoolClassResponse> getAllSchoolClasses() {
+        return schoolClassRepository.findAll().stream()
+                .map(SchoolClassResponse::from)
+                .collect(Collectors.toList());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<SchoolClass> getSchoolClass(@PathVariable Long id) {
+    public ResponseEntity<SchoolClassResponse> getSchoolClass(@PathVariable Long id) {
         Optional<SchoolClass> schoolClass = schoolClassRepository.findById(id);
-        return schoolClass.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+        return schoolClass.map(sc -> ResponseEntity.ok(SchoolClassResponse.from(sc)))
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    // Keep create endpoint returning entity for now to not break tests, ideally it should also be changed
     @PostMapping
     public SchoolClass createSchoolClass(@RequestBody SchoolClass schoolClass) {
         return schoolClassRepository.save(schoolClass);

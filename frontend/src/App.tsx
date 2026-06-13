@@ -3,7 +3,9 @@ import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './AuthContext';
 import Login from './Login';
 import UserPage from './UserPage';
-import AdminPage from './AdminPage'; // Import nowej strony
+import AdminPage from './AdminPage';
+import ClassTreasurerPage from './ClassTreasurerPage';
+import EnrollmentPage from './EnrollmentPage'; // Import nowej strony
 import NavBar from './NavBar';
 
 const App: React.FC = () => {
@@ -30,7 +32,15 @@ const Main: React.FC = () => {
         />
         <Route
           path="/admin"
-          element={isAdmin ? <AdminPage /> : <Navigate to="/user" />} // Zabezpieczenie ścieżki
+          element={isAdmin ? <AdminPage /> : <Navigate to="/user" />}
+        />
+        <Route
+          path="/class-management"
+          element={isAuthenticated ? <ClassTreasurerPage /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/enroll/:token"
+          element={isAuthenticated ? <EnrollmentPage /> : <Navigate to="/login" />}
         />
         <Route
           path="/"
