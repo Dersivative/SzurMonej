@@ -18,6 +18,7 @@ import org.game.szurmonej.service.ParentChildService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -56,6 +57,7 @@ public class UserController {
         this.classEnrollmentService = classEnrollmentService;
     }
 
+    @Transactional(readOnly = true)
     @GetMapping
     public List<UserResponse> getAllUsers() {
         return userRepository.findAll().stream()
@@ -63,6 +65,7 @@ public class UserController {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     @GetMapping("/all")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<UserWithChildrenResponse>> getAllUsersWithChildren() {
@@ -72,11 +75,13 @@ public class UserController {
         return ResponseEntity.ok(users);
     }
 
+    @Transactional(readOnly = true)
     @GetMapping("/me")
     public ResponseEntity<UserResponse> me() {
         return ResponseEntity.ok(UserResponse.from(currentUserService.getCurrentUser()));
     }
 
+    @Transactional(readOnly = true)
     @GetMapping("/me/children")
     public ResponseEntity<List<ChildResponse>> getChildrenForCurrentUser() {
         User currentUser = currentUserService.getCurrentUser();
@@ -91,6 +96,7 @@ public class UserController {
         return ResponseEntity.ok(ChildResponse.from(parentChildService.addChildToCurrentUser(request)));
     }
 
+    @Transactional(readOnly = true)
     @GetMapping("/me/enrollment-applications")
     public ResponseEntity<List<EnrollmentApplicationResponse>> getEnrollmentApplicationsForCurrentUser() {
         List<EnrollmentApplicationResponse> applications = classEnrollmentService.getApplicationsForCurrentParent().stream()

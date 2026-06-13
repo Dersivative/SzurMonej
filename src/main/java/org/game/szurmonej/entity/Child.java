@@ -1,5 +1,6 @@
 package org.game.szurmonej.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -9,7 +10,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "children")
@@ -34,6 +34,7 @@ public class Child {
     private LocalDate dateOfBirth;
 
     @Lob
+    @Basic(fetch = FetchType.LAZY)
     private byte[] avatar;
 
     @Column(name = "avatar_content_type")
@@ -45,5 +46,5 @@ public class Child {
 
     @OneToMany(mappedBy = "child")
     @JsonIgnore
-    private List<FundraiserParticipant> fundraiserParticipations = new ArrayList<>();
+    private List<FundraiserParticipant> fundraiserParticipants = new ArrayList<>();
 }

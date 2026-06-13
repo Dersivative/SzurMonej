@@ -5,9 +5,12 @@ import org.game.szurmonej.entity.Child;
 import org.game.szurmonej.entity.User;
 import org.game.szurmonej.repository.ChildRepository;
 import org.game.szurmonej.repository.UserRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.util.HashSet;
 
 @Service
@@ -57,13 +60,16 @@ public class ParentChildService {
 
     private void validateChildCreateRequest(ChildCreateRequest request) {
         if (request.getName() == null || request.getName().isBlank()) {
-            throw new IllegalArgumentException("Child name is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Imię dziecka jest wymagane");
         }
         if (request.getSurname() == null || request.getSurname().isBlank()) {
-            throw new IllegalArgumentException("Child surname is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nazwisko dziecka jest wymagane");
         }
         if (request.getDateOfBirth() == null) {
-            throw new IllegalArgumentException("Child date of birth is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Data urodzenia jest wymagana");
+        }
+        if (request.getDateOfBirth().isAfter(LocalDate.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Data urodzenia nie może być z przyszłości");
         }
     }
 }

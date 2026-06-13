@@ -5,7 +5,8 @@ import Login from './Login';
 import UserPage from './UserPage';
 import AdminPage from './AdminPage';
 import ClassTreasurerPage from './ClassTreasurerPage';
-import EnrollmentPage from './EnrollmentPage'; // Import nowej strony
+import EnrollmentPage from './EnrollmentPage';
+import AddChildPage from './AddChildPage'; // Import nowej strony
 import NavBar from './NavBar';
 
 const App: React.FC = () => {
@@ -29,6 +30,10 @@ const Main: React.FC = () => {
         <Route
           path="/user"
           element={isAuthenticated ? <UserPage /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/add-child"
+          element={isAuthenticated ? <AddChildPage /> : <Navigate to="/login" />}
         />
         <Route
           path="/admin"
