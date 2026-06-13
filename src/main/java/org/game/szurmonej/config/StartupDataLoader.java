@@ -15,10 +15,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StreamUtils;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Optional;
 import java.util.UUID;
 import java.time.LocalDate;
@@ -38,6 +43,8 @@ public class StartupDataLoader implements ApplicationRunner {
     private final SchoolClassRepository schoolClassRepository;
     private final ClassMembershipRepository classMembershipRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ResourceLoader resourceLoader;
+    private byte[] defaultAvatarBytes;
 
     @Value("${app.admin.username:admin}")
     private String adminUsername;
@@ -48,21 +55,25 @@ public class StartupDataLoader implements ApplicationRunner {
     @Value("${app.admin.password:}")
     private String adminPassword;
 
-    public StartupDataLoader(UserRepository userRepository, 
+    public StartupDataLoader(UserRepository userRepository,
                              ChildRepository childRepository,
                              SchoolClassRepository schoolClassRepository,
                              ClassMembershipRepository classMembershipRepository,
-                             PasswordEncoder passwordEncoder) {
+                             PasswordEncoder passwordEncoder,
+                             ResourceLoader resourceLoader) {
         this.userRepository = userRepository;
         this.childRepository = childRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.classMembershipRepository = classMembershipRepository;
         this.passwordEncoder = passwordEncoder;
+        this.resourceLoader = resourceLoader;
     }
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
+        loadDefaultAvatar();
+        
         Optional<User> existingAdmin = userRepository.findByUsername(adminUsername);
         if (existingAdmin.isEmpty()) {
             String plainPassword = adminPassword;
@@ -121,6 +132,8 @@ public class StartupDataLoader implements ApplicationRunner {
             treasurerChild.setName("DzieckoSkarbnika" + i);
             treasurerChild.setSurname("Skarbnikowski" + i);
             treasurerChild.setDateOfBirth(LocalDate.of(2011, 1, 1));
+            treasurerChild.setAvatar(defaultAvatarBytes);
+            treasurerChild.setAvatarContentType("image/png");
             
             childRepository.save(treasurerChild);
 
@@ -166,6 +179,8 @@ public class StartupDataLoader implements ApplicationRunner {
                 child.setName("Dziecko" + childCounter);
                 child.setSurname("Nazwisko" + i);
                 child.setDateOfBirth(LocalDate.of(2010 + j, 1, 1));
+                child.setAvatar(defaultAvatarBytes);
+                child.setAvatarContentType("image/png");
                 
                 childRepository.save(child);
 
@@ -187,5 +202,17 @@ public class StartupDataLoader implements ApplicationRunner {
         }
 
         log.info("Test data seeded successfully.");
+    }
+
+    private void loadDefaultAvatar() {
+        try {
+            Resource resource = resourceLoader.getResource("classpath:avatar.png");
+            try (InputStream inputStream = resource.getInputStream()) {
+                this.defaultAvatarBytes = StreamUtils.copyToByteArray(inputStream);
+            }
+        } catch (IOException e) {
+            log.error("Could not load default avatar from classpath:avatar.png. Default avatar will not be set.", e);
+            this.defaultAvatarBytes = null;
+        }
     }
 }

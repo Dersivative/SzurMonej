@@ -39,8 +39,6 @@ public class EnrollmentLinkController {
             @PathVariable String token,
             @RequestBody EnrollmentApplicationRequest request
     ) {
-        return ResponseEntity.ok(
-                EnrollmentApplicationResponse.from(classEnrollmentService.submitApplication(token, request))
-        );
+        return ResponseEntity.ok(classEnrollmentService.submitApplication(token, request));
     }
 }

@@ -4,6 +4,7 @@ import org.game.szurmonej.dto.SchoolClassResponse;
 import org.game.szurmonej.entity.SchoolClass;
 import org.game.szurmonej.repository.SchoolClassRepository;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,6 +26,7 @@ public class SchoolClassController {
         this.schoolClassRepository = schoolClassRepository;
     }
 
+    @Transactional(readOnly = true)
     @GetMapping
     public List<SchoolClassResponse> getAllSchoolClasses() {
         return schoolClassRepository.findAll().stream()
@@ -32,6 +34,7 @@ public class SchoolClassController {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     @GetMapping("/{id}")
     public ResponseEntity<SchoolClassResponse> getSchoolClass(@PathVariable Long id) {
         Optional<SchoolClass> schoolClass = schoolClassRepository.findById(id);

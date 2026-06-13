@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Tag(name = "Class enrollment", description = "Zarządzanie zapisem do klasy (skarbnik)")
 @RestController
@@ -54,11 +53,7 @@ public class SchoolClassEnrollmentController {
             @PathVariable Long classId,
             @RequestParam(required = false) EnrollmentStatus status
     ) {
-        List<EnrollmentApplicationResponse> applications = classEnrollmentService
-                .getApplicationsForClass(classId, status).stream()
-                .map(EnrollmentApplicationResponse::from)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(applications);
+        return ResponseEntity.ok(classEnrollmentService.getApplicationsForClass(classId, status));
     }
 
     @Operation(summary = "Zaakceptuj zgłoszenie zapisu")
@@ -67,9 +62,7 @@ public class SchoolClassEnrollmentController {
             @PathVariable Long classId,
             @PathVariable Long applicationId
     ) {
-        return ResponseEntity.ok(
-                EnrollmentApplicationResponse.from(classEnrollmentService.approveApplication(classId, applicationId))
-        );
+        return ResponseEntity.ok(classEnrollmentService.approveApplication(classId, applicationId));
     }
 
     @Operation(summary = "Odrzuć zgłoszenie zapisu")
@@ -78,9 +71,7 @@ public class SchoolClassEnrollmentController {
             @PathVariable Long classId,
             @PathVariable Long applicationId
     ) {
-        return ResponseEntity.ok(
-                EnrollmentApplicationResponse.from(classEnrollmentService.rejectApplication(classId, applicationId))
-        );
+        return ResponseEntity.ok(classEnrollmentService.rejectApplication(classId, applicationId));
     }
 
     @Operation(summary = "Usuń dziecko z klasy (skarbnik lub admin)")
