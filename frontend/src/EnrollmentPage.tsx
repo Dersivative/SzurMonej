@@ -75,7 +75,9 @@ const EnrollmentPage: React.FC = () => {
             await axios.post(`/api/enrollment-links/${token}/applications`, request);
             setSuccess(`Twoja prośba o zapisanie dziecka do klasy "${preview?.schoolClassName}" została wysłana do skarbnika. Otrzymasz powiadomienie po jej rozpatrzeniu.`);
         } catch (err: any) {
-            if (err.response?.data) {
+            if (err.response?.data?.message) {
+                setError(`Błąd: ${err.response.data.message}`);
+            } else if (typeof err.response?.data === 'string') {
                 setError(`Błąd: ${err.response.data}`);
             } else {
                 setError('Wystąpił nieoczekiwany błąd podczas wysyłania prośby.');

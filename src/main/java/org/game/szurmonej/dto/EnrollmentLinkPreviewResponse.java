@@ -10,13 +10,19 @@ import org.game.szurmonej.entity.ClassEnrollmentLink;
 @NoArgsConstructor
 public class EnrollmentLinkPreviewResponse {
 
-    private Long classId;
-    private String classLabel;
+    private Long schoolClassId;
+    private String schoolClassName;
+    private String treasurerName;
 
     public static EnrollmentLinkPreviewResponse from(ClassEnrollmentLink link) {
         EnrollmentLinkPreviewResponse response = new EnrollmentLinkPreviewResponse();
-        response.setClassId(link.getSchoolClass().getId());
-        response.setClassLabel(link.getSchoolClass().getLabel());
+        response.setSchoolClassId(link.getSchoolClass().getId());
+        response.setSchoolClassName(link.getSchoolClass().getLabel());
+        
+        if (link.getSchoolClass().getTreasurer() != null) {
+            response.setTreasurerName(link.getSchoolClass().getTreasurer().getUsername());
+        }
+
         return response;
     }
 }

@@ -18,8 +18,10 @@ import org.game.szurmonej.repository.ClassEnrollmentLinkRepository;
 import org.game.szurmonej.repository.ClassMembershipRepository;
 import org.game.szurmonej.repository.SchoolClassRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -250,7 +252,7 @@ public class ClassEnrollmentService {
 
     private void assertNotAnActiveMemberOfAnyClass(Long childId) {
         if (membershipRepository.existsByChild_IdAndLeftAtIsNull(childId)) {
-            throw new IllegalArgumentException("Child is already an active member of another class");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Dziecko jest już aktywnym członkiem innej klasy");
         }
     }
 

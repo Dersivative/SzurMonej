@@ -115,9 +115,15 @@ const ClassTreasurerPage: React.FC = () => {
         try {
             await axios.post(`/api/school-classes/${managedClass.id}/enrollment-applications/${applicationId}/approve`);
             fetchData(); // Refresh list
-        } catch (err) {
+        } catch (err: any) {
             console.error('Błąd podczas zatwierdzania wniosku', err);
-            alert('Nie udało się zatwierdzić wniosku.');
+            if (err.response?.data?.message) {
+                alert(`Błąd: ${err.response.data.message}`);
+            } else if (typeof err.response?.data === 'string') {
+                alert(`Błąd: ${err.response.data}`);
+            } else {
+                alert('Nie udało się zatwierdzić wniosku ze względu na nieoczekiwany błąd.');
+            }
         }
     };
 
