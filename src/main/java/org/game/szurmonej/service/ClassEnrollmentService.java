@@ -127,6 +127,10 @@ public class ClassEnrollmentService {
         application.setStatus(EnrollmentStatus.PENDING);
         application.setRequestedAt(Instant.now());
 
+        // Deactivate the link after successful submission
+        link.setActive(false);
+        linkRepository.save(link);
+
         return applicationRepository.save(application);
     }
 
