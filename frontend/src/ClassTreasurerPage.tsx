@@ -189,9 +189,21 @@ const ClassTreasurerPage: React.FC = () => {
                     <ul style={{ listStyleType: 'none', padding: 0 }}>
                         {managedClass.children.map(child => (
                             <li key={child.id} style={{ borderBottom: '1px solid #eee', padding: '10px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div>
-                                    <strong>{child.name} {child.surname}</strong>
-                                    {child.dateOfBirth && <span style={{ marginLeft: '10px', color: '#666', fontSize: '0.9em' }}>(ur. {child.dateOfBirth})</span>}
+                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                    <img 
+                                        src={`/api/children/${child.id}/avatar`} 
+                                        alt={`Awatar ${child.name}`} 
+                                        style={{ width: '50px', height: '50px', borderRadius: '50%', marginRight: '15px', objectFit: 'cover' }}
+                                        onError={(e) => {
+                                            const target = e.target as HTMLImageElement;
+                                            target.onerror = null;
+                                            target.src = 'https://via.placeholder.com/50';
+                                        }}
+                                    />
+                                    <div>
+                                        <strong>{child.name} {child.surname}</strong>
+                                        {child.dateOfBirth && <div style={{ color: '#666', fontSize: '0.9em' }}>(ur. {child.dateOfBirth})</div>}
+                                    </div>
                                 </div>
                                 <button onClick={() => handleRemoveMember(child.id)} style={{ backgroundColor: 'lightcoral', padding: '5px 10px' }}>Usuń z klasy</button>
                             </li>

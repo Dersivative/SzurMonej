@@ -99,10 +99,7 @@ public class UserController {
     @Transactional(readOnly = true)
     @GetMapping("/me/enrollment-applications")
     public ResponseEntity<List<EnrollmentApplicationResponse>> getEnrollmentApplicationsForCurrentUser() {
-        List<EnrollmentApplicationResponse> applications = classEnrollmentService.getApplicationsForCurrentParent().stream()
-                .map(EnrollmentApplicationResponse::from)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(applications);
+        return ResponseEntity.ok(classEnrollmentService.getApplicationsForCurrentParent());
     }
 
     @SecurityRequirements

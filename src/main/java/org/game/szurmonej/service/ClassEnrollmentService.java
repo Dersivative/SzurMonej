@@ -1,6 +1,7 @@
 package org.game.szurmonej.service;
 
 import org.game.szurmonej.dto.EnrollmentApplicationRequest;
+import org.game.szurmonej.dto.EnrollmentApplicationResponse;
 import org.game.szurmonej.dto.EnrollmentLinkPreviewResponse;
 import org.game.szurmonej.dto.EnrollmentLinkResponse;
 import org.game.szurmonej.entity.Child;
@@ -27,6 +28,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class ClassEnrollmentService {
@@ -108,7 +110,7 @@ public class ClassEnrollmentService {
     }
 
     @Transactional
-    public ClassEnrollmentApplication submitApplication(String token, EnrollmentApplicationRequest request) {
+    public EnrollmentApplicationResponse submitApplication(String token, EnrollmentApplicationRequest request) {
         if (request.getChildId() == null) {
             throw new IllegalArgumentException("childId is required");
         }
@@ -133,28 +135,35 @@ public class ClassEnrollmentService {
         link.setActive(false);
         linkRepository.save(link);
 
-        return applicationRepository.save(application);
+        return EnrollmentApplicationResponse.from(applicationRepository.save(application));
     }
 
     @Transactional(readOnly = true)
-    public List<ClassEnrollmentApplication> getApplicationsForCurrentParent() {
+    public List<EnrollmentApplicationResponse> getApplicationsForCurrentParent() {
         User parent = currentUserService.getCurrentUser();
-        return applicationRepository.findByParent_Id(parent.getId());
+        return applicationRepository.findByParent_Id(parent.getId()).stream()
+                .map(EnrollmentApplicationResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public List<ClassEnrollmentApplication> getApplicationsForClass(Long classId, EnrollmentStatus status) {
+    public List<EnrollmentApplicationResponse> getApplicationsForClass(Long classId, EnrollmentStatus status) {
         SchoolClass schoolClass = getSchoolClass(classId);
         assertTreasurer(schoolClass, currentUserService.getCurrentUser());
 
+        List<ClassEnrollmentApplication> applications;
         if (status != null) {
-            return applicationRepository.findBySchoolClass_IdAndStatus(classId, status);
+            applications = applicationRepository.findBySchoolClass_IdAndStatus(classId, status);
+        } else {
+            applications = applicationRepository.findBySchoolClass_Id(classId);
         }
-        return applicationRepository.findBySchoolClass_Id(classId);
+        return applications.stream()
+                .map(EnrollmentApplicationResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Transactional
-    public ClassEnrollmentApplication approveApplication(Long classId, Long applicationId) {
+    public EnrollmentApplicationResponse approveApplication(Long classId, Long applicationId) {
         SchoolClass schoolClass = getSchoolClass(classId);
         User treasurer = currentUserService.getCurrentUser();
         assertTreasurer(schoolClass, treasurer);
@@ -174,11 +183,11 @@ public class ClassEnrollmentService {
         application.setReviewedAt(Instant.now());
         application.setReviewedBy(treasurer);
 
-        return applicationRepository.save(application);
+        return EnrollmentApplicationResponse.from(applicationRepository.save(application));
     }
 
     @Transactional
-    public ClassEnrollmentApplication rejectApplication(Long classId, Long applicationId) {
+    public EnrollmentApplicationResponse rejectApplication(Long classId, Long applicationId) {
         SchoolClass schoolClass = getSchoolClass(classId);
         User treasurer = currentUserService.getCurrentUser();
         assertTreasurer(schoolClass, treasurer);
@@ -190,7 +199,7 @@ public class ClassEnrollmentService {
         application.setReviewedAt(Instant.now());
         application.setReviewedBy(treasurer);
 
-        return applicationRepository.save(application);
+        return EnrollmentApplicationResponse.from(applicationRepository.save(application));
     }
 
     @Transactional
