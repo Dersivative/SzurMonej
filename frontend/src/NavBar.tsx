@@ -43,20 +43,26 @@ const NavBar: React.FC = () => {
     <nav style={{
       display: 'flex',
       justifyContent: 'space-between',
-      padding: '10px',
-      backgroundColor: '#f0f0f0',
-      borderBottom: '1px solid #ccc'
+      alignItems: 'center',
+      padding: '10px 20px',
+      backgroundColor: '#f8f9fa',
+      borderBottom: '1px solid #dee2e6'
     }}>
       <div>
-        {isAuthenticated && <Link to="/user" style={{ marginRight: '15px' }}>Moje konto</Link>}
-        {isAdmin && <Link to="/admin" style={{ marginRight: '15px' }}>Panel Admina</Link>}
-        {isTreasurer && <Link to="/class-management">Zarządzaj klasą</Link>}
+        {isAuthenticated && <Link to="/user" style={{ marginRight: '15px', textDecoration: 'none', color: '#007bff' }}>Moje konto</Link>}
+        {isAdmin && <Link to="/admin" style={{ marginRight: '15px', textDecoration: 'none', color: '#007bff' }}>Panel Admina</Link>}
+        {isTreasurer && <Link to="/class-management" style={{ textDecoration: 'none', color: '#007bff' }}>Zarządzaj klasą</Link>}
       </div>
       <div>
-        {isAuthenticated && (
-          <button onClick={handleLogout}>
-            Wyloguj
-          </button>
+        {isAuthenticated && user && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <div style={{ padding: '8px 12px', backgroundColor: '#e9ecef', borderRadius: '5px', fontWeight: 'bold' }}>
+              Stan konta: {user.balance.toFixed(2)} PLN
+            </div>
+            <button onClick={handleLogout} style={{ padding: '8px 12px' }}>
+              Wyloguj
+            </button>
+          </div>
         )}
       </div>
     </nav>

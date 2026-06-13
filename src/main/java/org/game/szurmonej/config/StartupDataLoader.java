@@ -2,6 +2,7 @@ package org.game.szurmonej.config;
 
 import org.game.szurmonej.entity.Account;
 import org.game.szurmonej.entity.User;
+import org.game.szurmonej.repository.AccountRepository;
 import org.game.szurmonej.repository.UserRepository;
 import org.game.szurmonej.repository.ChildRepository;
 import org.game.szurmonej.repository.SchoolClassRepository;
@@ -24,6 +25,7 @@ import org.springframework.util.StreamUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
 import java.time.LocalDate;
@@ -42,6 +44,7 @@ public class StartupDataLoader implements ApplicationRunner {
     private final ChildRepository childRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final ClassMembershipRepository classMembershipRepository;
+    private final AccountRepository accountRepository;
     private final PasswordEncoder passwordEncoder;
     private final ResourceLoader resourceLoader;
     private byte[] defaultAvatarBytes;
@@ -59,12 +62,14 @@ public class StartupDataLoader implements ApplicationRunner {
                              ChildRepository childRepository,
                              SchoolClassRepository schoolClassRepository,
                              ClassMembershipRepository classMembershipRepository,
+                             AccountRepository accountRepository,
                              PasswordEncoder passwordEncoder,
                              ResourceLoader resourceLoader) {
         this.userRepository = userRepository;
         this.childRepository = childRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.classMembershipRepository = classMembershipRepository;
+        this.accountRepository = accountRepository;
         this.passwordEncoder = passwordEncoder;
         this.resourceLoader = resourceLoader;
     }
@@ -92,6 +97,7 @@ public class StartupDataLoader implements ApplicationRunner {
             Account account = new Account();
             account.setAccountNumber(UUID.randomUUID().toString());
             account.setUser(admin);
+            account.setBalance(new BigDecimal("500.00"));
             admin.setAccount(account);
 
             userRepository.save(admin);
@@ -124,6 +130,7 @@ public class StartupDataLoader implements ApplicationRunner {
             Account account = new Account();
             account.setAccountNumber(UUID.randomUUID().toString());
             account.setUser(treasurer);
+            account.setBalance(new BigDecimal("500.00"));
             treasurer.setAccount(account);
             
             userRepository.save(treasurer);
@@ -169,6 +176,7 @@ public class StartupDataLoader implements ApplicationRunner {
             Account account = new Account();
             account.setAccountNumber(UUID.randomUUID().toString());
             account.setUser(parent);
+            account.setBalance(new BigDecimal("500.00"));
             parent.setAccount(account);
 
             userRepository.save(parent);

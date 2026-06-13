@@ -2,61 +2,72 @@ package org.game.szurmonej.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.game.szurmonej.dto.FundraiserActionRequest;
+import org.game.szurmonej.dto.FundraiserCreateRequest;
+import org.game.szurmonej.dto.FundraiserResponse;
 import org.game.szurmonej.dto.MoneyOperationResponse;
-import org.game.szurmonej.dto.RefundRequest;
-import org.game.szurmonej.entity.Fundraiser;
-import org.game.szurmonej.repository.FundraiserRepository;
 import org.game.szurmonej.service.AccountService;
+import org.game.szurmonej.service.FundraiserService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
-@Tag(name = "Fundraisers", description = "Zbiórki klasowe")
+@Tag(name = "Fundraisers", description = "Zbiórki w ramach klasy")
 @RestController
-@RequestMapping("/api/fundraisers")
+@RequestMapping()
 public class FundraiserController {
 
-    private final FundraiserRepository fundraiserRepository;
+    private final FundraiserService fundraiserService;
     private final AccountService accountService;
 
-    public FundraiserController(FundraiserRepository fundraiserRepository, AccountService accountService) {
-        this.fundraiserRepository = fundraiserRepository;
+    public FundraiserController(FundraiserService fundraiserService, AccountService accountService) {
+        this.fundraiserService = fundraiserService;
         this.accountService = accountService;
     }
 
-    @GetMapping
-    public List<Fundraiser> getAllFundraisers() {
-        return fundraiserRepository.findAll();
+    @Operation(summary = "Pobierz wszystkie zbiórki dla danej klasy")
+    @GetMapping("/api/school-classes/{classId}/fundraisers")
+    public ResponseEntity<List<FundraiserResponse>> getFundraisersForClass(@PathVariable Long classId) {
+        return ResponseEntity.ok(fundraiserService.getFundraisersForClass(classId));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<Fundraiser> getFundraiser(@PathVariable Long id) {
-        Optional<Fundraiser> fundraiser = fundraiserRepository.findById(id);
-        return fundraiser.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
-    }
-
-    @PostMapping
-    public Fundraiser createFundraiser(@RequestBody Fundraiser fundraiser) {
-        return fundraiserRepository.save(fundraiser);
-    }
-
-    @Operation(summary = "Zwrot ze konta zbiórki na konto rodzica (tylko skarbnik klasy)")
-    @PostMapping("/{id}/refund")
-    public ResponseEntity<MoneyOperationResponse> refund(
-            @PathVariable Long id,
-            @RequestBody RefundRequest request
+    @Operation(summary = "Stwórz nową zbiórkę dla klasy (tylko skarbnik)")
+    @PostMapping("/api/school-classes/{classId}/fundraisers")
+    public ResponseEntity<FundraiserResponse> createFundraiser(
+            @PathVariable Long classId,
+            @RequestBody FundraiserCreateRequest request
     ) {
-        return ResponseEntity.ok(accountService.refundFromFundraiser(
-                id,
-                request.getTargetUserId(),
-                request.getAmount()
-        ));
+        return ResponseEntity.ok(fundraiserService.createFundraiser(request, classId));
+    }
+
+    @Operation(summary = "Pobierz wszystkie zbiórki dla danego dziecka")
+    @GetMapping("/api/children/{childId}/fundraisers")
+    public ResponseEntity<List<FundraiserResponse>> getFundraisersForChild(@PathVariable Long childId) {
+        return ResponseEntity.ok(fundraiserService.getFundraisersForChild(childId));
+    }
+
+    @Operation(summary = "Pobierz szczegóły jednej zbiórki (tylko skarbnik/admin)")
+    @GetMapping("/api/fundraisers/{fundraiserId}")
+    public ResponseEntity<FundraiserResponse> getFundraiserDetails(@PathVariable Long fundraiserId) {
+        return ResponseEntity.ok(fundraiserService.getFundraiserDetails(fundraiserId));
+    }
+
+    @Operation(summary = "Wpłata na zbiórkę przez skarbnika")
+    @PostMapping("/api/fundraisers/{fundraiserId}/deposit")
+    public ResponseEntity<MoneyOperationResponse> deposit(
+            @PathVariable Long fundraiserId,
+            @RequestBody FundraiserActionRequest request
+    ) {
+        return ResponseEntity.ok(accountService.depositToFundraiser(fundraiserId, request.getAmount(), request.getNote()));
+    }
+
+    @Operation(summary = "Wypłata ze zbiórki przez skarbnika")
+    @PostMapping("/api/fundraisers/{fundraiserId}/withdraw")
+    public ResponseEntity<MoneyOperationResponse> withdraw(
+            @PathVariable Long fundraiserId,
+            @RequestBody FundraiserActionRequest request
+    ) {
+        return ResponseEntity.ok(accountService.withdrawFromFundraiser(fundraiserId, request.getAmount(), request.getNote()));
     }
 }

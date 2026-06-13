@@ -15,6 +15,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +41,9 @@ public class Fundraiser {
     private String title;
 
     private String description;
+
+    @Column(nullable = false)
+    private BigDecimal goalAmount;
 
     @Column(name = "started_at")
     private LocalDate startedAt;

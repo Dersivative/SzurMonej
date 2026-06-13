@@ -1,6 +1,7 @@
 package org.game.szurmonej.service;
 
 import org.game.szurmonej.dto.MoneyOperationResponse;
+import org.game.szurmonej.dto.TransferToFundraiserRequest;
 import org.game.szurmonej.entity.FundraiserParticipant;
 import org.game.szurmonej.entity.User;
 import org.game.szurmonej.exception.ForbiddenOperationException;
@@ -100,12 +101,13 @@ class AccountServiceTest {
     void transferToFundraiser_movesMoneyAndCreatesContribution() {
         loginAs(scenario.parent());
 
-        MoneyOperationResponse response = accountService.transferToFundraiser(
-                scenario.fundraiser().getId(),
-                scenario.child().getId(),
-                new BigDecimal("40.00"),
-                "składka"
-        );
+        TransferToFundraiserRequest request = new TransferToFundraiserRequest();
+        request.setFundraiserId(scenario.fundraiser().getId());
+        request.setChildId(scenario.child().getId());
+        request.setAmount(new BigDecimal("40.00"));
+        request.setNote("składka");
+
+        MoneyOperationResponse response = accountService.transferToFundraiser(request);
 
         assertThat(response.getSourceBalance()).isEqualByComparingTo("60.00");
         assertThat(response.getTargetBalance()).isEqualByComparingTo("40.00");
@@ -123,12 +125,12 @@ class AccountServiceTest {
         otherParticipant.setAddedAt(java.time.LocalDate.now());
         participantRepository.save(otherParticipant);
 
-        MoneyOperationResponse response = accountService.transferToFundraiser(
-                scenario.fundraiser().getId(),
-                scenario.otherChild().getId(),
-                new BigDecimal("10.00"),
-                null
-        );
+        TransferToFundraiserRequest request = new TransferToFundraiserRequest();
+        request.setFundraiserId(scenario.fundraiser().getId());
+        request.setChildId(scenario.otherChild().getId());
+        request.setAmount(new BigDecimal("10.00"));
+
+        MoneyOperationResponse response = accountService.transferToFundraiser(request);
 
         assertThat(response.getContributionId()).isNotNull();
         assertThat(response.getSourceBalance()).isEqualByComparingTo("90.00");
@@ -138,35 +140,36 @@ class AccountServiceTest {
     void transferToFundraiser_throwsWhenInsufficientFunds() {
         loginAs(scenario.parent());
 
-        assertThatThrownBy(() -> accountService.transferToFundraiser(
-                scenario.fundraiser().getId(),
-                scenario.child().getId(),
-                new BigDecimal("500.00"),
-                null
-        )).isInstanceOf(InsufficientFundsException.class);
+        TransferToFundraiserRequest request = new TransferToFundraiserRequest();
+        request.setFundraiserId(scenario.fundraiser().getId());
+        request.setChildId(scenario.child().getId());
+        request.setAmount(new BigDecimal("500.00"));
+
+        assertThatThrownBy(() -> accountService.transferToFundraiser(request))
+                .isInstanceOf(InsufficientFundsException.class);
     }
 
     @Test
     void transferToFundraiser_throwsWhenParticipantMissing() {
         loginAs(scenario.parent());
 
-        assertThatThrownBy(() -> accountService.transferToFundraiser(
-                scenario.fundraiser().getId(),
-                99999L,
-                new BigDecimal("10.00"),
-                null
-        )).isInstanceOf(ResourceNotFoundException.class);
+        TransferToFundraiserRequest request = new TransferToFundraiserRequest();
+        request.setFundraiserId(scenario.fundraiser().getId());
+        request.setChildId(99999L);
+        request.setAmount(new BigDecimal("10.00"));
+
+        assertThatThrownBy(() -> accountService.transferToFundraiser(request))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
     void refundFromFundraiser_onlyTreasurerCanRefund() {
         loginAs(scenario.parent());
-        accountService.transferToFundraiser(
-                scenario.fundraiser().getId(),
-                scenario.child().getId(),
-                new BigDecimal("30.00"),
-                null
-        );
+        TransferToFundraiserRequest request = new TransferToFundraiserRequest();
+        request.setFundraiserId(scenario.fundraiser().getId());
+        request.setChildId(scenario.child().getId());
+        request.setAmount(new BigDecimal("30.00"));
+        accountService.transferToFundraiser(request);
 
         loginAs(scenario.otherParent());
         assertThatThrownBy(() -> accountService.refundFromFundraiser(

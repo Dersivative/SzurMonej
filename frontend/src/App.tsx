@@ -7,7 +7,9 @@ import AdminPage from './AdminPage';
 import ClassTreasurerPage from './ClassTreasurerPage';
 import EnrollmentPage from './EnrollmentPage';
 import AddChildPage from './AddChildPage';
-import CreateClassPage from './CreateClassPage'; // Import nowej strony
+import CreateClassPage from './CreateClassPage';
+import ChildFundraisersPage from './ChildFundraisersPage';
+import FundraiserDetailsPage from './FundraiserDetailsPage'; // Import nowej strony
 import NavBar from './NavBar';
 
 const App: React.FC = () => {
@@ -39,6 +41,14 @@ const Main: React.FC = () => {
         <Route
           path="/create-class"
           element={isAuthenticated ? <CreateClassPage /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/child/:childId/fundraisers"
+          element={isAuthenticated ? <ChildFundraisersPage /> : <Navigate to="/login" />}
+        />
+        <Route
+          path="/fundraiser/:fundraiserId"
+          element={isAuthenticated ? <FundraiserDetailsPage /> : <Navigate to="/login" />}
         />
         <Route
           path="/admin"
