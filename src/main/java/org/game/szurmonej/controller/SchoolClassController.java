@@ -3,6 +3,7 @@ package org.game.szurmonej.controller;
 import org.game.szurmonej.dto.SchoolClassResponse;
 import org.game.szurmonej.entity.SchoolClass;
 import org.game.szurmonej.repository.SchoolClassRepository;
+import org.game.szurmonej.service.CurrentUserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,15 +22,25 @@ import java.util.stream.Collectors;
 public class SchoolClassController {
 
     private final SchoolClassRepository schoolClassRepository;
+    private final CurrentUserService currentUserService;
 
-    public SchoolClassController(SchoolClassRepository schoolClassRepository) {
+    public SchoolClassController(SchoolClassRepository schoolClassRepository, CurrentUserService currentUserService) {
         this.schoolClassRepository = schoolClassRepository;
+        this.currentUserService = currentUserService;
     }
 
     @Transactional(readOnly = true)
     @GetMapping
     public List<SchoolClassResponse> getAllSchoolClasses() {
         return schoolClassRepository.findAll().stream()
+                .map(SchoolClassResponse::from)
+                .collect(Collectors.toList());
+    }
+    
+    @Transactional(readOnly = true)
+    @GetMapping("/my-classes")
+    public List<SchoolClassResponse> getMyClasses() {
+        return schoolClassRepository.findByTreasurer(currentUserService.getCurrentUser()).stream()
                 .map(SchoolClassResponse::from)
                 .collect(Collectors.toList());
     }

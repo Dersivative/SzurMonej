@@ -10,22 +10,56 @@ interface Child {
   schoolClassName?: string;
 }
 
+interface SchoolClass {
+    id: number;
+    label: string;
+}
+
+interface SchoolClassApplication {
+    id: number;
+    proposedName: string;
+    status: string;
+}
+
 const UserPage: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
   const [children, setChildren] = useState<Child[]>([]);
+  const [managedClasses, setManagedClasses] = useState<SchoolClass[]>([]);
+  const [application, setApplication] = useState<SchoolClassApplication | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (isAuthenticated) {
-      axios.get<Child[]>('/api/users/me/children')
-        .then(response => {
-          setChildren(response.data);
-          setLoading(false);
-        })
-        .catch(error => {
-          console.error('Failed to fetch children', error);
-          setLoading(false);
-        });
+        const fetchAllData = async () => {
+            setLoading(true);
+            try {
+                const childrenPromise = axios.get<Child[]>('/api/users/me/children');
+                const applicationPromise = axios.get<SchoolClassApplication>('/api/school-class-applications/me/pending');
+                const managedClassesPromise = axios.get<SchoolClass[]>('/api/school-classes/my-classes');
+                
+                const [childrenResponse, applicationResponse, managedClassesResponse] = await Promise.allSettled([
+                    childrenPromise,
+                    applicationPromise,
+                    managedClassesPromise
+                ]);
+
+                if (childrenResponse.status === 'fulfilled') {
+                    setChildren(childrenResponse.value.data);
+                }
+                if (managedClassesResponse.status === 'fulfilled') {
+                    setManagedClasses(managedClassesResponse.value.data);
+                }
+                if (applicationResponse.status === 'fulfilled') {
+                    setApplication(applicationResponse.value.data);
+                }
+
+            } catch (error) {
+                console.error('Failed to fetch user data', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchAllData();
     }
   }, [isAuthenticated]);
 
@@ -38,7 +72,40 @@ const UserPage: React.FC = () => {
       <h1>Witaj, {user?.username}!</h1>
       <p>Twój adres email: {user?.email}</p>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '30px', marginBottom: '15px' }}>
+      <div style={{ marginTop: '30px', marginBottom: '30px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        
+        {/* Sekcja zarządzania klasami */}
+        {managedClasses.length > 0 && (
+            <div>
+                <h3>Zarządzasz klasami:</h3>
+                {managedClasses.map(cls => (
+                    <Link key={cls.id} to={`/class-management`} style={{ textDecoration: 'none' }}>
+                         <div style={{ padding: '15px', backgroundColor: '#e9f7ef', border: '1px solid #1abc9c', borderRadius: '5px', textAlign: 'center', cursor: 'pointer', marginBottom: '10px' }}>
+                            <h4 style={{ margin: 0, color: '#16a085' }}>{cls.label}</h4>
+                            <p style={{ margin: '5px 0 0', color: '#16a085' }}>Przejdź do panelu zarządzania</p>
+                        </div>
+                    </Link>
+                ))}
+            </div>
+        )}
+
+        {/* Sekcja oczekującego wniosku */}
+        {application && (
+            <div style={{ padding: '15px', backgroundColor: '#fef9e7', border: '1px solid #f1c40f', borderRadius: '5px', textAlign: 'center' }}>
+                <h3 style={{ margin: 0, color: '#f39c12' }}>Wniosek w trakcie weryfikacji</h3>
+                <p style={{ margin: '5px 0 0', color: '#f39c12' }}>Twój wniosek o utworzenie klasy "{application.proposedName}" czeka na zatwierdzenie przez administratora.</p>
+            </div>
+        )}
+
+        {/* Sekcja tworzenia nowej klasy */}
+        <Link to="/create-class" style={{ textDecoration: 'none' }}>
+            <div style={{ padding: '15px', backgroundColor: '#eaf2f8', border: '1px solid #3498db', borderRadius: '5px', textAlign: 'center', cursor: 'pointer' }}>
+                <h3 style={{ margin: 0, color: '#2980b9' }}>+ Złóż wniosek o nową klasę</h3>
+            </div>
+        </Link>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
         <h2 style={{ margin: 0 }}>Twoje dzieci:</h2>
         <Link 
           to="/add-child" 
@@ -65,11 +132,10 @@ const UserPage: React.FC = () => {
                 src={`/api/children/${child.id}/avatar`} 
                 alt={`Awatar ${child.name}`} 
                 style={{ width: '60px', height: '60px', borderRadius: '50%', marginRight: '15px', objectFit: 'cover' }}
-                // Prosty fallback, jeśli obrazek nie istnieje
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
-                  target.onerror = null; // Zapobiega pętli błędów
-                  target.src = 'https://via.placeholder.com/60'; // Domyślny obrazek
+                  target.onerror = null;
+                  target.src = 'https://via.placeholder.com/60';
                 }}
               />
               <div>
