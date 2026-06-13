@@ -3,10 +3,18 @@ import { useAuth } from './AuthContext';
 import { Navigate } from 'react-router-dom';
 import axios from 'axios';
 
+interface Child {
+    id: number;
+    name: string;
+    surname: string;
+    dateOfBirth?: string;
+}
+
 interface SchoolClass {
     id: number;
     label: string;
     treasurer: { id: number; username: string };
+    children?: Child[];
 }
 
 interface EnrollmentLink {
@@ -152,6 +160,23 @@ const ClassTreasurerPage: React.FC = () => {
                         <p>Obecnie nie masz aktywnego linku do zapisów.</p>
                         <button onClick={handleGenerateLink}>Generuj link</button>
                     </div>
+                )}
+            </div>
+
+            {/* Section for Class Members */}
+            <div style={{ border: '1px solid #ccc', padding: '15px', marginBottom: '20px', borderRadius: '5px' }}>
+                <h2>Dzieci przypisane do klasy ({managedClass.children?.length || 0})</h2>
+                {managedClass.children && managedClass.children.length > 0 ? (
+                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px' }}>
+                        {managedClass.children.map(child => (
+                            <li key={child.id} style={{ padding: '5px 0' }}>
+                                <strong>{child.name} {child.surname}</strong>
+                                {child.dateOfBirth && <span style={{ marginLeft: '10px', color: '#666', fontSize: '0.9em' }}>(ur. {child.dateOfBirth})</span>}
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <p>Brak dzieci przypisanych do tej klasy.</p>
                 )}
             </div>
 
