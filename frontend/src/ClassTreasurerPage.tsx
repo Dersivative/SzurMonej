@@ -132,6 +132,19 @@ const ClassTreasurerPage: React.FC = () => {
         }
     };
 
+    const handleRemoveMember = async (childId: number) => {
+        if (!managedClass) return;
+        if (!window.confirm("Czy na pewno chcesz usunąć to dziecko z klasy?")) return;
+        
+        try {
+            await axios.delete(`/api/school-classes/${managedClass.id}/members/${childId}`);
+            fetchData(); // Refresh list
+        } catch (err) {
+            console.error('Błąd podczas usuwania dziecka z klasy', err);
+            alert('Nie udało się usunąć dziecka z klasy.');
+        }
+    };
+
     if (!isAuthenticated) {
         return <Navigate to="/user" />;
     }
@@ -167,11 +180,14 @@ const ClassTreasurerPage: React.FC = () => {
             <div style={{ border: '1px solid #ccc', padding: '15px', marginBottom: '20px', borderRadius: '5px' }}>
                 <h2>Dzieci przypisane do klasy ({managedClass.children?.length || 0})</h2>
                 {managedClass.children && managedClass.children.length > 0 ? (
-                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px' }}>
+                    <ul style={{ listStyleType: 'none', padding: 0 }}>
                         {managedClass.children.map(child => (
-                            <li key={child.id} style={{ padding: '5px 0' }}>
-                                <strong>{child.name} {child.surname}</strong>
-                                {child.dateOfBirth && <span style={{ marginLeft: '10px', color: '#666', fontSize: '0.9em' }}>(ur. {child.dateOfBirth})</span>}
+                            <li key={child.id} style={{ borderBottom: '1px solid #eee', padding: '10px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <strong>{child.name} {child.surname}</strong>
+                                    {child.dateOfBirth && <span style={{ marginLeft: '10px', color: '#666', fontSize: '0.9em' }}>(ur. {child.dateOfBirth})</span>}
+                                </div>
+                                <button onClick={() => handleRemoveMember(child.id)} style={{ backgroundColor: 'lightcoral', padding: '5px 10px' }}>Usuń z klasy</button>
                             </li>
                         ))}
                     </ul>

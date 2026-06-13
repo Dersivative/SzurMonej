@@ -6,6 +6,8 @@ import axios from 'axios';
 interface Child {
   id: number;
   name: string;
+  surname?: string;
+  schoolClassName?: string;
 }
 
 const UserPage: React.FC = () => {
@@ -40,9 +42,16 @@ const UserPage: React.FC = () => {
       {loading ? (
         <p>Ładowanie...</p>
       ) : children.length > 0 ? (
-        <ul>
+        <ul style={{ listStyleType: 'none', padding: 0 }}>
           {children.map(child => (
-            <li key={child.id}>{child.name}</li>
+            <li key={child.id} style={{ marginBottom: '10px', padding: '10px', border: '1px solid #ccc', borderRadius: '5px' }}>
+              <strong>{child.name} {child.surname}</strong>
+              {child.schoolClassName ? (
+                  <span style={{ marginLeft: '10px', color: 'green', fontWeight: 'bold' }}>- Klasa: {child.schoolClassName}</span>
+              ) : (
+                  <span style={{ marginLeft: '10px', color: 'gray' }}>- Brak przypisanej klasy</span>
+              )}
+            </li>
           ))}
         </ul>
       ) : (

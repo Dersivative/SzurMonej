@@ -116,7 +116,7 @@ public class ClassEnrollmentService {
         Child child = getChildOwnedByParent(request.getChildId(), parent);
         SchoolClass schoolClass = link.getSchoolClass();
 
-        assertNoActiveMembership(schoolClass.getId(), child.getId());
+        assertNotAnActiveMemberOfAnyClass(child.getId());
         assertNoPendingApplication(schoolClass.getId(), child.getId());
 
         ClassEnrollmentApplication application = new ClassEnrollmentApplication();
@@ -160,7 +160,7 @@ public class ClassEnrollmentService {
         ClassEnrollmentApplication application = getApplicationForClass(classId, applicationId);
         assertPending(application);
 
-        assertNoActiveMembership(classId, application.getChild().getId());
+        assertNotAnActiveMemberOfAnyClass(application.getChild().getId());
 
         ClassMembership membership = new ClassMembership();
         membership.setSchoolClass(schoolClass);
@@ -189,6 +189,22 @@ public class ClassEnrollmentService {
         application.setReviewedBy(treasurer);
 
         return applicationRepository.save(application);
+    }
+
+    @Transactional
+    public void removeClassMember(Long classId, Long childId) {
+        SchoolClass schoolClass = getSchoolClass(classId);
+        User currentUser = currentUserService.getCurrentUser();
+        
+        if (!currentUser.isAdmin()) {
+            assertTreasurer(schoolClass, currentUser);
+        }
+
+        ClassMembership membership = membershipRepository.findBySchoolClass_IdAndChild_IdAndLeftAtIsNull(classId, childId)
+                .orElseThrow(() -> new ResourceNotFoundException("Active class membership not found"));
+
+        membership.setLeftAt(LocalDate.now());
+        membershipRepository.save(membership);
     }
 
     private SchoolClass getSchoolClass(Long classId) {
@@ -232,9 +248,9 @@ public class ClassEnrollmentService {
         }
     }
 
-    private void assertNoActiveMembership(Long classId, Long childId) {
-        if (membershipRepository.findBySchoolClass_IdAndChild_IdAndLeftAtIsNull(classId, childId).isPresent()) {
-            throw new IllegalArgumentException("Child is already an active member of this class");
+    private void assertNotAnActiveMemberOfAnyClass(Long childId) {
+        if (membershipRepository.existsByChild_IdAndLeftAtIsNull(childId)) {
+            throw new IllegalArgumentException("Child is already an active member of another class");
         }
     }
 

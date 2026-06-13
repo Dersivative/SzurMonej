@@ -82,4 +82,14 @@ public class SchoolClassEnrollmentController {
                 EnrollmentApplicationResponse.from(classEnrollmentService.rejectApplication(classId, applicationId))
         );
     }
+
+    @Operation(summary = "Usuń dziecko z klasy (skarbnik lub admin)")
+    @DeleteMapping("/{classId}/members/{childId}")
+    public ResponseEntity<Void> removeMember(
+            @PathVariable Long classId,
+            @PathVariable Long childId
+    ) {
+        classEnrollmentService.removeClassMember(classId, childId);
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -11,6 +11,8 @@ public class ChildResponse {
     private String name;
     private String surname;
     private LocalDate dateOfBirth;
+    private String schoolClassName;
+    private Long schoolClassId;
 
     public static ChildResponse from(Child child) {
         ChildResponse response = new ChildResponse();
@@ -18,6 +20,17 @@ public class ChildResponse {
         response.setName(child.getName());
         response.setSurname(child.getSurname());
         response.setDateOfBirth(child.getDateOfBirth());
+        
+        if (child.getClassMemberships() != null) {
+            child.getClassMemberships().stream()
+                .filter(membership -> membership.getLeftAt() == null)
+                .findFirst()
+                .ifPresent(membership -> {
+                    response.setSchoolClassName(membership.getSchoolClass().getLabel());
+                    response.setSchoolClassId(membership.getSchoolClass().getId());
+                });
+        }
+
         return response;
     }
 }
