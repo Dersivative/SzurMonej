@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class UserWithChildrenResponse {
     private Long id;
-    private String username;
+    private String fullName;
     private String email;
     private List<ChildResponse> children;
 
@@ -19,6 +19,6 @@ public class UserWithChildrenResponse {
         List<ChildResponse> children = user.getChildren().stream()
                 .map(ChildResponse::from)
                 .collect(Collectors.toList());
-        return new UserWithChildrenResponse(user.getId(), user.getUsername(), user.getEmail(), children);
+        return new UserWithChildrenResponse(user.getId(), user.getFullName(), user.getEmail(), children);
     }
 }

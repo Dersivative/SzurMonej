@@ -57,9 +57,6 @@ public class StartupDataLoader implements ApplicationRunner {
     private final EntityManager entityManager;
     private byte[] defaultAvatarBytes;
 
-    @Value("${app.admin.username:admin}")
-    private String adminUsername;
-
     @Value("${app.admin.email:admin@example.com}")
     private String adminEmail;
 
@@ -93,7 +90,7 @@ public class StartupDataLoader implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         loadDefaultAvatar();
         
-        Optional<User> existingAdmin = userRepository.findByUsername(adminUsername);
+        Optional<User> existingAdmin = userRepository.findByEmail(adminEmail);
         if (existingAdmin.isEmpty()) {
             String plainPassword = adminPassword;
             boolean generated = false;
@@ -103,8 +100,9 @@ public class StartupDataLoader implements ApplicationRunner {
             }
 
             User admin = new User();
-            admin.setUsername(adminUsername);
             admin.setEmail(adminEmail);
+            admin.setFirstName("Admin");
+            admin.setLastName("User");
             admin.setPasswordHash(passwordEncoder.encode(plainPassword));
             admin.setAdmin(true);
 
@@ -117,15 +115,15 @@ public class StartupDataLoader implements ApplicationRunner {
             userRepository.save(admin);
 
             if (generated) {
-                log.info("Created admin user '{}' with generated password: {}", adminUsername, plainPassword);
+                log.info("Created admin user with email '{}' and generated password: {}", adminEmail, plainPassword);
             } else {
-                log.info("Created admin user '{}'", adminUsername);
+                log.info("Created admin user with email '{}'", adminEmail);
             }
         } else {
-            log.info("Admin user '{}' already exists.", adminUsername);
+            log.info("Admin user with email '{}' already exists.", adminEmail);
         }
 
-        if (userRepository.findByUsername("Rodzic1").isPresent()) {
+        if (userRepository.findByEmail("rodzic1@example.com").isPresent()) {
             log.info("Test data already exists, skipping test data seeding.");
             return;
         }
@@ -135,8 +133,9 @@ public class StartupDataLoader implements ApplicationRunner {
         List<SchoolClass> classes = new ArrayList<>();
         for (int i = 1; i <= 2; i++) {
             User treasurer = new User();
-            treasurer.setUsername("Skarbnik" + i);
             treasurer.setEmail("skarbnik" + i + "@example.com");
+            treasurer.setFirstName("Skarbnik" + i);
+            treasurer.setLastName("Skarbnikowski");
             treasurer.setPasswordHash(passwordEncoder.encode("rodzic"));
             treasurer.setAdmin(false);
 
@@ -179,8 +178,9 @@ public class StartupDataLoader implements ApplicationRunner {
         int childCounter = 1;
         for (int i = 1; i <= 2; i++) {
             User parent = new User();
-            parent.setUsername("Rodzic" + i);
             parent.setEmail("rodzic" + i + "@example.com");
+            parent.setFirstName("Rodzic" + i);
+            parent.setLastName("Rodzicielski");
             parent.setPasswordHash(passwordEncoder.encode("rodzic"));
             parent.setAdmin(false);
 
@@ -219,7 +219,6 @@ public class StartupDataLoader implements ApplicationRunner {
             userRepository.save(parent);
         }
 
-        // --- Create a fundraiser for Skarbnik1's class ---
         log.info("Flushing and clearing entity manager before creating fundraiser...");
         entityManager.flush();
         entityManager.clear();

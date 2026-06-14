@@ -15,6 +15,7 @@ import org.game.szurmonej.repository.UserRepository;
 import org.game.szurmonej.service.ClassEnrollmentService;
 import org.game.szurmonej.service.CurrentUserService;
 import org.game.szurmonej.service.ParentChildService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,7 +25,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -104,14 +107,18 @@ public class UserController {
 
     @SecurityRequirements
     @PostMapping
-    public ResponseEntity<UserResponse> createUser(@RequestBody UserCreateRequest request) {
+    public ResponseEntity<UserResponse> createUser(@Valid @RequestBody UserCreateRequest request) {
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Użytkownik o tym adresie email już istnieje.");
+        }
+
         User user = new User();
-        user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
-        user.setPasswordHash(request.getPassword());
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setAdmin(false);
 
-        user.setPasswordHash(passwordEncoder.encode(user.getPasswordHash()));
         if (user.getAccount() == null) {
             Account account = new Account();
             account.setAccountNumber(UUID.randomUUID().toString());

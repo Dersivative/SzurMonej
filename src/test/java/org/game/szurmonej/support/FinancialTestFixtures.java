@@ -47,9 +47,9 @@ public final class FinancialTestFixtures {
         Child child = saveChild(childRepository, "Adam", "Kowalski");
         Child otherChild = saveChild(childRepository, "Ewa", "Nowak");
 
-        User parent = saveUser(userRepository, passwordEncoder, "rodzic1", "pass123");
-        User otherParent = saveUser(userRepository, passwordEncoder, "rodzic2", "pass123");
-        User treasurer = saveUser(userRepository, passwordEncoder, "skarbnik", "pass123");
+        User parent = saveUser(userRepository, passwordEncoder, "rodzic1@example.com", "pass123", "Rodzic", "Jeden");
+        User otherParent = saveUser(userRepository, passwordEncoder, "rodzic2@example.com", "pass123", "Rodzic", "Dwa");
+        User treasurer = saveUser(userRepository, passwordEncoder, "skarbnik@example.com", "pass123", "Skarbnik", "Klasowy");
 
         createUserAccount(accountRepository, parent, new BigDecimal("100.00"));
         createUserAccount(accountRepository, otherParent, BigDecimal.ZERO);
@@ -93,12 +93,15 @@ public final class FinancialTestFixtures {
     private static User saveUser(
             UserRepository repository,
             PasswordEncoder passwordEncoder,
-            String username,
-            String rawPassword
+            String email,
+            String rawPassword,
+            String firstName,
+            String lastName
     ) {
         User user = new User();
-        user.setUsername(username);
-        user.setEmail(username + "@example.com");
+        user.setEmail(email);
+        user.setFirstName(firstName);
+        user.setLastName(lastName);
         user.setPasswordHash(passwordEncoder.encode(rawPassword));
         user.setAdmin(false);
         return repository.save(user);

@@ -1,22 +1,12 @@
 package org.game.szurmonej.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import jakarta.validation.constraints.Email;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -32,11 +22,15 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String username;
+    @Email
+    @Column(unique = true, nullable = false)
     private String email;
 
+    private String firstName;
+    private String lastName;
+
     @JsonIgnore
-    @Column(name = "password_hash")
+    @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
     private boolean isAdmin;
@@ -56,4 +50,9 @@ public class User {
     @OneToMany(mappedBy = "treasurer")
     @JsonIgnore
     private List<SchoolClass> treasurerOfClasses = new ArrayList<>();
+    
+    // Helper method for display name
+    public String getFullName() {
+        return firstName + " " + lastName;
+    }
 }

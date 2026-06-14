@@ -11,5 +11,5 @@ import lombok.Setter;
 @AllArgsConstructor
 public class TreasurerResponse {
     private Long id;
-    private String username;
+    private String fullName;
 }

@@ -50,7 +50,7 @@ public class AuthController {
             HttpServletResponse httpResponse
     ) {
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);

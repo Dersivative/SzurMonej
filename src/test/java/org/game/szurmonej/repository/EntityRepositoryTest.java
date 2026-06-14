@@ -43,8 +43,9 @@ public class EntityRepositoryTest {
         childRepository.save(child2);
 
         User parent = new User();
-        parent.setUsername("rodzic1");
         parent.setEmail("rodzic1@example.com");
+        parent.setFirstName("Rodzic");
+        parent.setLastName("Jeden");
         parent.setPasswordHash("tajnehaslo");
         parent.setAdmin(false);
         parent.setChildren(Set.of(child1, child2));
@@ -58,7 +59,7 @@ public class EntityRepositoryTest {
         assertThat(count).isEqualTo(1);
 
         User savedParent = userRepository.findAll().get(0);
-        assertThat(savedParent.getUsername()).isEqualTo("rodzic1");
+        assertThat(savedParent.getEmail()).isEqualTo("rodzic1@example.com");
         assertThat(savedParent.getChildren()).hasSize(2);
     }
 

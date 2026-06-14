@@ -23,17 +23,17 @@ public class CurrentUserService {
             throw new IllegalStateException("Not authenticated");
         }
 
-        String username;
+        String email;
         Object principal = authentication.getPrincipal();
         if (principal instanceof UserDetails userDetails) {
-            username = userDetails.getUsername();
+            email = userDetails.getUsername(); // Spring Security uses getUsername() to store the identifier
         } else if (principal instanceof String principalName && !"anonymousUser".equals(principalName)) {
-            username = principalName;
+            email = principalName;
         } else {
             throw new IllegalStateException("Not authenticated");
         }
 
-        return userRepository.findByUsername(username)
+        return userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found in database"));
     }
 }

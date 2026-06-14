@@ -193,7 +193,7 @@ class AccountServiceTest {
 
     private void loginAs(User user) {
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                user.getUsername(),
+                user.getEmail(),
                 null,
                 List.of(new SimpleGrantedAuthority("ROLE_USER"))
         );

@@ -3,11 +3,11 @@ import axios from 'axios';
 
 interface User {
     id: number;
-    username: string;
     email: string;
+    fullName: string;
     balance: number;
     isTreasurer: boolean;
-    isAdmin: boolean; // Add isAdmin flag
+    isAdmin: boolean;
     children: { id: number; name: string; surname: string }[];
 }
 

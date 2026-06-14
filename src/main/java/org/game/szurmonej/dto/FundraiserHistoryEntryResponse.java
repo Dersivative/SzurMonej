@@ -22,7 +22,7 @@ public class FundraiserHistoryEntryResponse {
 
     public static FundraiserHistoryEntryResponse from(Contribution contribution) {
         String description = String.format("Wpłata od %s (za: %s %s)",
-                contribution.getPayerAccount().getUser().getUsername(),
+                contribution.getPayerAccount().getUser().getFullName(),
                 contribution.getParticipant().getChild().getName(),
                 contribution.getParticipant().getChild().getSurname());
         if (contribution.getNote() != null && !contribution.getNote().isBlank()) {
