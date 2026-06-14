@@ -6,6 +6,7 @@ import org.game.szurmonej.dto.FundraiserActionRequest;
 import org.game.szurmonej.dto.FundraiserCreateRequest;
 import org.game.szurmonej.dto.FundraiserResponse;
 import org.game.szurmonej.dto.MoneyOperationResponse;
+import org.game.szurmonej.dto.UpdateGoalRequest;
 import org.game.szurmonej.service.AccountService;
 import org.game.szurmonej.service.FundraiserService;
 import org.springframework.http.ResponseEntity;
@@ -51,6 +52,15 @@ public class FundraiserController {
     @GetMapping("/api/fundraisers/{fundraiserId}")
     public ResponseEntity<FundraiserResponse> getFundraiserDetails(@PathVariable Long fundraiserId) {
         return ResponseEntity.ok(fundraiserService.getFundraiserDetails(fundraiserId));
+    }
+
+    @Operation(summary = "Zaktualizuj kwotę docelową zbiórki")
+    @PatchMapping("/api/fundraisers/{fundraiserId}/goal")
+    public ResponseEntity<FundraiserResponse> updateGoal(
+            @PathVariable Long fundraiserId,
+            @RequestBody UpdateGoalRequest request
+    ) {
+        return ResponseEntity.ok(fundraiserService.updateGoal(fundraiserId, request.getNewGoalAmount()));
     }
 
     @Operation(summary = "Wpłata na zbiórkę przez skarbnika")

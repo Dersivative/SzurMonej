@@ -125,6 +125,32 @@ public class FundraiserService {
         return FundraiserResponse.from(fundraiser, contributions, historyEntries);
     }
 
+    @Transactional
+    public FundraiserResponse updateGoal(Long fundraiserId, BigDecimal newGoalAmount) {
+        User currentUser = currentUserService.getCurrentUser();
+        Fundraiser fundraiser = fundraiserRepository.findById(fundraiserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono zbiórki."));
+
+        if (!fundraiser.getSchoolClass().getTreasurer().getId().equals(currentUser.getId())) {
+            throw new ForbiddenOperationException("Tylko skarbnik może zaktualizować kwotę docelową.");
+        }
+
+        if (fundraiser.getStatus() != FundraiserStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Można aktualizować tylko aktywne zbiórki.");
+        }
+
+        if (newGoalAmount == null || newGoalAmount.compareTo(fundraiser.getGoalAmount()) <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nowa kwota docelowa musi być większa od obecnej.");
+        }
+
+        fundraiser.setGoalAmount(newGoalAmount);
+        Fundraiser updatedFundraiser = fundraiserRepository.save(fundraiser);
+
+        List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_Id(fundraiserId);
+        List<AccountHistoryEntry> historyEntries = historyRepository.findByAccount_Fundraiser_Id(fundraiserId);
+        return FundraiserResponse.from(updatedFundraiser, contributions, historyEntries);
+    }
+
     @Transactional(readOnly = true)
     public List<FundraiserResponse> getFundraisersForChild(Long childId) {
         User currentUser = currentUserService.getCurrentUser();
@@ -138,6 +164,14 @@ public class FundraiserService {
         List<Fundraiser> fundraisers = fundraiserRepository.findByParticipants_Child_Id(childId);
 
         return fundraisers.stream().map(fundraiser -> {
+            List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_Id(fundraiser.getId());
+            List<AccountHistoryEntry> historyEntries = historyRepository.findByAccount_Fundraiser_Id(fundraiser.getId());
+            
+            BigDecimal totalContributedByChild = contributions.stream()
+                .filter(c -> c.getParticipant().getChild().getId().equals(childId))
+                .map(Contribution::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
             BigDecimal suggestedAmount = BigDecimal.ZERO;
             if (fundraiser.getStatus() == FundraiserStatus.RECONCILING) {
                 FundraiserParticipant participant = participantRepository.findByFundraiser_IdAndChild_Id(fundraiser.getId(), childId).orElse(null);
@@ -148,12 +182,11 @@ public class FundraiserService {
                 long numberOfChildrenInClass = fundraiser.getSchoolClass().getMemberships().stream()
                         .filter(m -> m.getLeftAt() == null).count();
                 if (numberOfChildrenInClass > 0) {
-                    suggestedAmount = fundraiser.getGoalAmount().divide(new BigDecimal(numberOfChildrenInClass), 2, RoundingMode.CEILING);
+                    BigDecimal perChildGoal = fundraiser.getGoalAmount().divide(new BigDecimal(numberOfChildrenInClass), 2, RoundingMode.CEILING);
+                    suggestedAmount = perChildGoal.subtract(totalContributedByChild);
                 }
             }
 
-            List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_Id(fundraiser.getId());
-            List<AccountHistoryEntry> historyEntries = historyRepository.findByAccount_Fundraiser_Id(fundraiser.getId());
             return FundraiserResponse.from(fundraiser, suggestedAmount, contributions, historyEntries);
         }).collect(Collectors.toList());
     }
@@ -203,12 +236,11 @@ public class FundraiserService {
 
         List<AccountHistoryEntry> historyEntries = historyRepository.findByAccount_Fundraiser_Id(fundraiserId);
         
-        // Correctly calculate net amount spent by the treasurer
         BigDecimal totalSpent = historyEntries.stream()
                 .filter(entry -> "WITHDRAWAL_TREASURER".equals(entry.getType()) || "DEPOSIT_TREASURER".equals(entry.getType()))
                 .map(AccountHistoryEntry::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
-                .negate(); // Sum of withdrawals (negative) and deposits (positive) will be negative if more was spent.
+                .negate();
 
         fundraiser.setGoalAmount(totalSpent);
         fundraiser.setStatus(FundraiserStatus.RECONCILING);

@@ -35,6 +35,7 @@ const FundraiserDetailsPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [actionAmount, setActionAmount] = useState('');
     const [actionNote, setActionNote] = useState('');
+    const [newGoalAmount, setNewGoalAmount] = useState('');
     const [actionError, setActionError] = useState<string | null>(null);
     const [showFinishConfirmation, setShowFinishConfirmation] = useState(false);
 
@@ -75,6 +76,33 @@ const FundraiserDetailsPage: React.FC = () => {
             } else {
                 setActionError('Wystąpił nieoczekiwany błąd.');
             }
+        }
+    };
+
+    const handleUpdateGoal = async () => {
+        if (!newGoalAmount) {
+            setActionError('Nowa kwota jest wymagana.');
+            return;
+        }
+        setActionError(null);
+        try {
+            await axios.patch(`/api/fundraisers/${fundraiserId}/goal`, {
+                newGoalAmount: parseFloat(newGoalAmount)
+            });
+            setNewGoalAmount('');
+            fetchData();
+        } catch (err: any) {
+            console.error("Update Goal Error:", err.response || err);
+            let errorMessage = 'Wystąpił nieoczekiwany błąd.';
+            if (err.response) {
+                errorMessage = `Błąd serwera: ${err.response.status} - ${err.response.data.message || err.response.statusText}`;
+            } else if (err.request) {
+                errorMessage = 'Brak odpowiedzi od serwera. Sprawdź połączenie internetowe.';
+            } else {
+                errorMessage = `Błąd aplikacji: ${err.message}`;
+            }
+            setActionError(errorMessage);
+            alert(errorMessage);
         }
     };
 
@@ -182,6 +210,12 @@ const FundraiserDetailsPage: React.FC = () => {
                         <div style={{ display: 'flex', gap: '10px' }}>
                             <button onClick={() => handleAction('deposit')} style={{ flex: 1, padding: '10px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>Wpłać</button>
                             <button onClick={() => handleAction('withdraw')} style={{ flex: 1, padding: '10px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px' }}>Wypłać</button>
+                        </div>
+                        <div style={{ marginTop: '20px' }}>
+                            <input type="number" placeholder="Nowa kwota docelowa" value={newGoalAmount} onChange={e => setNewGoalAmount(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px', boxSizing: 'border-box' }} />
+                            <button onClick={handleUpdateGoal} style={{ width: '100%', padding: '10px', backgroundColor: '#17a2b8', color: 'white', border: 'none', borderRadius: '4px' }}>
+                                Zaktualizuj kwotę docelową
+                            </button>
                         </div>
                         <button onClick={() => setShowFinishConfirmation(true)} style={{ width: '100%', padding: '10px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', marginTop: '10px' }}>
                             Zakończ zbiórkę
