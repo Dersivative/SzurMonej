@@ -13,6 +13,7 @@ public class ChildResponse {
     private LocalDate dateOfBirth;
     private String schoolClassName;
     private Long schoolClassId;
+    private Long membershipId; // Add this field
 
     public static ChildResponse from(Child child) {
         ChildResponse response = new ChildResponse();

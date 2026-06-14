@@ -36,8 +36,11 @@ public class SchoolClassResponse {
         List<ChildResponse> childrenResponse = schoolClass.getMemberships() != null ?
                 schoolClass.getMemberships().stream()
                         .filter(membership -> membership.getLeftAt() == null)
-                        .map(ClassMembership::getChild)
-                        .map(ChildResponse::from)
+                        .map(membership -> {
+                            ChildResponse childResponse = ChildResponse.from(membership.getChild());
+                            childResponse.setMembershipId(membership.getId()); // Add membershipId
+                            return childResponse;
+                        })
                         .collect(Collectors.toList()) :
                 Collections.emptyList();
 

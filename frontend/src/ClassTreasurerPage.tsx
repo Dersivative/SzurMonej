@@ -9,6 +9,7 @@ interface Child {
     name: string;
     surname: string;
     dateOfBirth?: string;
+    membershipId: number; // Add membershipId
 }
 
 interface SchoolClass {
@@ -137,13 +138,18 @@ const ClassTreasurerPage: React.FC = () => {
         } catch (err) { alert('Nie udało się odrzucić wniosku.'); }
     };
 
-    const handleRemoveMember = async (childId: number) => {
-        if (!managedClass) return;
+    const handleRemoveMember = async (membershipId: number) => {
         if (!window.confirm("Czy na pewno chcesz usunąć to dziecko z klasy?")) return;
         try {
-            await axios.delete(`/api/school-classes/${managedClass.id}/members/${childId}`);
+            await axios.delete(`/api/class-memberships/${membershipId}`);
             fetchData();
-        } catch (err) { alert('Nie udało się usunąć dziecka z klasy.'); }
+        } catch (err: any) {
+            if (err.response?.data?.message) {
+                alert(`Błąd: ${err.response.data.message}`);
+            } else {
+                alert('Nie udało się usunąć dziecka z klasy.');
+            }
+        }
     };
 
     if (!isAuthenticated) return <Navigate to="/user" />;
@@ -226,7 +232,7 @@ const ClassTreasurerPage: React.FC = () => {
                                         {child.dateOfBirth && <div style={{ color: '#666', fontSize: '0.9em' }}>(ur. {child.dateOfBirth})</div>}
                                     </div>
                                 </div>
-                                <button onClick={() => handleRemoveMember(child.id)} style={{ backgroundColor: 'lightcoral', padding: '5px 10px' }}>Usuń z klasy</button>
+                                <button onClick={() => handleRemoveMember(child.membershipId)} style={{ backgroundColor: 'lightcoral', padding: '5px 10px' }}>Usuń z klasy</button>
                             </li>
                         ))}
                     </ul>
