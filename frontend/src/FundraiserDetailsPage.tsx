@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from './AuthContext';
 
-axios.defaults.withCredentials = true; // Ensure cookies are sent with every request
+axios.defaults.withCredentials = true;
 
 interface FundraiserDetails {
     id: number;
@@ -20,10 +20,12 @@ interface FundraiserDetails {
         credit: number | null;
     }[];
     history: {
+        id: number;
         date: string;
         description: string;
         amount: number;
         type: string;
+        hasAttachment: boolean;
     }[];
 }
 
@@ -38,6 +40,8 @@ const FundraiserDetailsPage: React.FC = () => {
     const [newGoalAmount, setNewGoalAmount] = useState('');
     const [actionError, setActionError] = useState<string | null>(null);
     const [showFinishConfirmation, setShowFinishConfirmation] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null);
 
     const fetchData = useCallback(async () => {
         if (!fundraiserId) return;
@@ -71,11 +75,7 @@ const FundraiserDetailsPage: React.FC = () => {
             setActionNote('');
             fetchData();
         } catch (err: any) {
-            if (err.response?.data?.message) {
-                setActionError(err.response.data.message);
-            } else {
-                setActionError('Wystąpił nieoczekiwany błąd.');
-            }
+            setActionError(err.response?.data?.message || 'Wystąpił nieoczekiwany błąd.');
         }
     };
 
@@ -151,8 +151,8 @@ const FundraiserDetailsPage: React.FC = () => {
             } else {
                 detailedMessage += `Błąd w aplikacji frontendowej: ${err.message}`;
             }
-            setActionError(detailedMessage); // Display the detailed error in the UI
-            alert(detailedMessage); // Also show it in an alert for immediate visibility
+            setActionError(detailedMessage);
+            alert(detailedMessage);
         }
     };
 
@@ -175,6 +175,29 @@ const FundraiserDetailsPage: React.FC = () => {
         }
     };
 
+    const handleUploadClick = (historyId: number) => {
+        setSelectedHistoryId(historyId);
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file || !selectedHistoryId) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            await axios.post(`/api/attachments/upload/${selectedHistoryId}`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            alert('Dowód został pomyślnie wgrany.');
+            fetchData();
+        } catch (err: any) {
+            alert(`Błąd podczas wgrywania pliku: ${err.response?.data?.message || 'Nieznany błąd'}`);
+        }
+    };
+
     if (loading) return <div>Ładowanie...</div>;
     if (error) return <div style={{ color: 'red' }}>{error}</div>;
     if (!fundraiser) return <div>Nie znaleziono zbiórki.</div>;
@@ -184,6 +207,7 @@ const FundraiserDetailsPage: React.FC = () => {
     };
 
     const allDebtsPaid = fundraiser.participants.every(p => !p.debt || p.debt === 0);
+    const isTreasurer = user?.isTreasurer;
 
     return (
         <div style={{ padding: '20px', maxWidth: '800px', margin: 'auto' }}>
@@ -201,7 +225,7 @@ const FundraiserDetailsPage: React.FC = () => {
 
             {actionError && <div style={{ color: 'red', marginTop: '10px', padding: '10px', border: '1px solid red', borderRadius: '4px', whiteSpace: 'pre-wrap' }}>{actionError}</div>}
 
-            {fundraiser.status === 'ACTIVE' && user?.isTreasurer && (
+            {fundraiser.status === 'ACTIVE' && isTreasurer && (
                 <div style={{ display: 'flex', gap: '20px', margin: '30px 0' }}>
                     <div style={{ flex: 1, padding: '20px', border: '1px solid #ccc', borderRadius: '8px', backgroundColor: '#f8f9fa' }}>
                         <h4>Akcje Skarbnika</h4>
@@ -252,7 +276,7 @@ const FundraiserDetailsPage: React.FC = () => {
                             </li>
                         ))}
                     </ul>
-                    {user?.isTreasurer && allDebtsPaid && (
+                    {isTreasurer && allDebtsPaid && (
                         <button onClick={handleSettle} style={{ marginTop: '20px', padding: '10px 15px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>
                             Zakończ rozliczanie i zwróć nadpłaty
                         </button>
@@ -262,18 +286,28 @@ const FundraiserDetailsPage: React.FC = () => {
 
             <div>
                 <h3>Historia operacji</h3>
+                <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />
                 <ul style={{ listStyleType: 'none', padding: 0 }}>
-                    {fundraiser.history.map((entry, index) => (
-                        <li key={index} style={{ borderBottom: '1px solid #eee', padding: '12px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    {fundraiser.history.map((entry) => (
+                        <li key={entry.id} style={{ borderBottom: '1px solid #eee', padding: '12px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
                                 <strong>{entry.description}</strong>
                                 <div style={{ fontSize: '0.8em', color: 'gray' }}>
                                     {new Date(entry.date).toLocaleString()} - <span style={{ fontStyle: 'italic' }}>{entry.type}</span>
                                 </div>
                             </div>
-                            <span style={{ color: entry.amount > 0 ? 'green' : 'red', fontWeight: 'bold', fontSize: '1.1em' }}>
-                                {entry.amount > 0 ? '+' : ''}{entry.amount.toFixed(2)} PLN
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                <span style={{ color: entry.amount > 0 ? 'green' : 'red', fontWeight: 'bold', fontSize: '1.1em', marginRight: '20px' }}>
+                                    {entry.amount > 0 ? '+' : ''}{entry.amount.toFixed(2)} PLN
+                                </span>
+                                {isTreasurer && (entry.type === 'Wpłata skarbnika' || entry.type === 'Wypłata skarbnika') && (
+                                    entry.hasAttachment ? (
+                                        <a href={`/api/attachments/download/${entry.id}`} target="_blank" rel="noopener noreferrer">Pobierz dowód</a>
+                                    ) : (
+                                        <button onClick={() => handleUploadClick(entry.id)}>Wgraj dowód</button>
+                                    )
+                                )}
+                            </div>
                         </li>
                     ))}
                 </ul>
