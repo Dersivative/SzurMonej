@@ -106,15 +106,19 @@ const ChildFundraisersPage: React.FC = () => {
                                 </Link>
                             </div>
                         ) : f.status === 'ACTIVE' ? (
-                            <div>
-                                <p>Sugerowana składka: <strong>{f.suggestedContribution.toFixed(2)} PLN</strong></p>
-                                <button 
-                                    onClick={() => handlePay(f.id, f.suggestedContribution)}
-                                    style={{ padding: '10px 15px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}
-                                >
-                                    Wpłać sugerowaną kwotę
-                                </button>
-                            </div>
+                            f.suggestedContribution > 0 ? (
+                                <div>
+                                    <p>Sugerowana składka: <strong>{f.suggestedContribution.toFixed(2)} PLN</strong></p>
+                                    <button 
+                                        onClick={() => handlePay(f.id, f.suggestedContribution)}
+                                        style={{ padding: '10px 15px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}
+                                    >
+                                        Wpłać sugerowaną kwotę
+                                    </button>
+                                </div>
+                            ) : (
+                                <p style={{ color: 'green', fontWeight: 'bold' }}>Twoja składka na tę zbiórkę jest opłacona.</p>
+                            )
                         ) : (
                              <p style={{ color: 'green', fontWeight: 'bold' }}>Zbiórka zakończona.</p>
                         )}

@@ -189,14 +189,8 @@ public class AccountService {
         debit(fundraiserAccount, amount);
         credit(targetAccount, amount);
         
-        // Also credit the treasurer's account
-        Account treasurerAccount = accountRepository.findByUser_Id(currentUser.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Treasurer account not found"));
-        credit(treasurerAccount, amount);
-        
         accountRepository.save(fundraiserAccount);
         accountRepository.save(targetAccount);
-        accountRepository.save(treasurerAccount);
 
         AccountHistoryEntry historyEntry = new AccountHistoryEntry();
         historyEntry.setAccount(fundraiserAccount);

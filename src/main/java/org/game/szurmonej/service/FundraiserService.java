@@ -139,12 +139,17 @@ public class FundraiserService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Można aktualizować tylko aktywne zbiórki.");
         }
 
-        if (newGoalAmount == null || newGoalAmount.compareTo(fundraiser.getGoalAmount()) <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nowa kwota docelowa musi być większa od obecnej.");
+        if (newGoalAmount == null || newGoalAmount.compareTo(BigDecimal.ZERO) < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nowa kwota docelowa nie może być ujemna.");
         }
 
+        BigDecimal oldGoalAmount = fundraiser.getGoalAmount();
         fundraiser.setGoalAmount(newGoalAmount);
         Fundraiser updatedFundraiser = fundraiserRepository.save(fundraiser);
+
+        if (newGoalAmount.compareTo(oldGoalAmount) < 0) {
+            refundOverpayments(updatedFundraiser);
+        }
 
         List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_Id(fundraiserId);
         List<AccountHistoryEntry> historyEntries = historyRepository.findByAccount_Fundraiser_Id(fundraiserId);
@@ -184,6 +189,9 @@ public class FundraiserService {
                 if (numberOfChildrenInClass > 0) {
                     BigDecimal perChildGoal = fundraiser.getGoalAmount().divide(new BigDecimal(numberOfChildrenInClass), 2, RoundingMode.CEILING);
                     suggestedAmount = perChildGoal.subtract(totalContributedByChild);
+                    if (suggestedAmount.compareTo(BigDecimal.ZERO) < 0) {
+                        suggestedAmount = BigDecimal.ZERO;
+                    }
                 }
             }
 
@@ -205,10 +213,15 @@ public class FundraiserService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Zbiórka nie jest aktywna.");
         }
 
+        // First, refund any overpayments
+        refundOverpayments(fundraiser);
+
+        // Then, withdraw the remaining balance
         BigDecimal currentBalance = accountService.getBalance(fundraiser.getAccount());
         if (currentBalance.compareTo(BigDecimal.ZERO) > 0) {
             accountService.withdrawFromFundraiser(fundraiserId, currentBalance, "Zakończenie zbiórki - wypłata środków");
         }
+
         fundraiser.setStatus(FundraiserStatus.FINISHED);
         fundraiser.setFinishedAt(LocalDate.now());
         fundraiserRepository.save(fundraiser);
@@ -343,5 +356,59 @@ public class FundraiserService {
         fundraiser.setStatus(FundraiserStatus.FINISHED);
         fundraiser.setFinishedAt(LocalDate.now());
         fundraiserRepository.save(fundraiser);
+    }
+
+    private void refundOverpayments(Fundraiser fundraiser) {
+        List<FundraiserParticipant> participants = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiser.getId());
+        if (participants.isEmpty()) {
+            return;
+        }
+
+        BigDecimal newPerChildGoal = fundraiser.getGoalAmount().divide(new BigDecimal(participants.size()), 2, RoundingMode.CEILING);
+
+        List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_Id(fundraiser.getId());
+        Map<Long, BigDecimal> participantContributions = contributions.stream()
+                .collect(Collectors.groupingBy(c -> c.getParticipant().getId(),
+                        Collectors.mapping(Contribution::getAmount, Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))));
+
+        BigDecimal totalOverpayment = BigDecimal.ZERO;
+        List<FundraiserParticipant> overpayingParticipants = new ArrayList<>();
+
+        for (FundraiserParticipant participant : participants) {
+            BigDecimal contributedAmount = participantContributions.getOrDefault(participant.getId(), BigDecimal.ZERO);
+            BigDecimal overpayment = contributedAmount.subtract(newPerChildGoal);
+
+            if (overpayment.compareTo(BigDecimal.ZERO) > 0) {
+                totalOverpayment = totalOverpayment.add(overpayment);
+                overpayingParticipants.add(participant);
+            }
+        }
+
+        BigDecimal availableBalance = accountService.getBalance(fundraiser.getAccount());
+        if (availableBalance.compareTo(totalOverpayment) >= 0) {
+            // Full refunds are possible
+            for (FundraiserParticipant participant : overpayingParticipants) {
+                BigDecimal contributedAmount = participantContributions.getOrDefault(participant.getId(), BigDecimal.ZERO);
+                BigDecimal overpayment = contributedAmount.subtract(newPerChildGoal);
+                User parent = participant.getChild().getParents().stream().findFirst().orElseThrow();
+                accountService.refundFromFundraiser(fundraiser.getId(), parent.getId(), overpayment, "Automatyczny zwrot nadpłaty");
+            }
+        } else {
+            // Partial refunds
+            for (FundraiserParticipant participant : overpayingParticipants) {
+                BigDecimal contributedAmount = participantContributions.getOrDefault(participant.getId(), BigDecimal.ZERO);
+                BigDecimal overpayment = contributedAmount.subtract(newPerChildGoal);
+                
+                BigDecimal refundShare = overpayment.divide(totalOverpayment, 2, RoundingMode.FLOOR);
+                BigDecimal refundAmount = availableBalance.multiply(refundShare);
+
+                User parent = participant.getChild().getParents().stream().findFirst().orElseThrow();
+                accountService.refundFromFundraiser(fundraiser.getId(), parent.getId(), refundAmount, "Częściowy zwrot nadpłaty");
+
+                BigDecimal remainingCredit = overpayment.subtract(refundAmount);
+                participant.setCredit(remainingCredit);
+                participantRepository.save(participant);
+            }
+        }
     }
 }
