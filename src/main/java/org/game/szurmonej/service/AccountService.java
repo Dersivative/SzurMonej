@@ -1,20 +1,16 @@
 package org.game.szurmonej.service;
 
 import org.game.szurmonej.dto.MoneyOperationResponse;
-import org.game.szurmonej.entity.Account;
-import org.game.szurmonej.entity.Contribution;
-import org.game.szurmonej.entity.Fundraiser;
-import org.game.szurmonej.entity.FundraiserParticipant;
-import org.game.szurmonej.entity.User;
+import org.game.szurmonej.dto.TransferToFundraiserRequest;
+import org.game.szurmonej.entity.*;
 import org.game.szurmonej.exception.ForbiddenOperationException;
 import org.game.szurmonej.exception.InsufficientFundsException;
 import org.game.szurmonej.exception.ResourceNotFoundException;
-import org.game.szurmonej.repository.AccountRepository;
-import org.game.szurmonej.repository.ContributionRepository;
-import org.game.szurmonej.repository.FundraiserParticipantRepository;
-import org.game.szurmonej.repository.FundraiserRepository;
+import org.game.szurmonej.repository.*;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -26,6 +22,7 @@ public class AccountService {
     private final ContributionRepository contributionRepository;
     private final FundraiserRepository fundraiserRepository;
     private final FundraiserParticipantRepository participantRepository;
+    private final AccountHistoryEntryRepository historyRepository;
     private final CurrentUserService currentUserService;
 
     public AccountService(
@@ -33,13 +30,20 @@ public class AccountService {
             ContributionRepository contributionRepository,
             FundraiserRepository fundraiserRepository,
             FundraiserParticipantRepository participantRepository,
+            AccountHistoryEntryRepository historyRepository, 
             CurrentUserService currentUserService
     ) {
         this.accountRepository = accountRepository;
         this.contributionRepository = contributionRepository;
         this.fundraiserRepository = fundraiserRepository;
         this.participantRepository = participantRepository;
+        this.historyRepository = historyRepository;
         this.currentUserService = currentUserService;
+    }
+
+    @Transactional(readOnly = true)
+    public BigDecimal getBalance(Account account) {
+        return account.getBalance();
     }
 
     @Transactional
@@ -51,19 +55,14 @@ public class AccountService {
         assertUserAccount(account);
 
         account.setBalance(account.getBalance().add(amount));
-        accountRepository.save(account);
+        Account savedAccount = accountRepository.save(account);
 
-        return MoneyOperationResponse.singleAccount(account.getId(), account.getBalance());
+        return MoneyOperationResponse.singleAccount(savedAccount.getId(), savedAccount.getBalance());
     }
 
     @Transactional
-    public MoneyOperationResponse transferToFundraiser(
-            Long fundraiserId,
-            Long childId,
-            BigDecimal amount,
-            String note
-    ) {
-        validatePositiveAmount(amount);
+    public MoneyOperationResponse transferToFundraiser(TransferToFundraiserRequest request) {
+        validatePositiveAmount(request.getAmount());
         User currentUser = currentUserService.getCurrentUser();
 
         Account payerAccount = accountRepository.findByUser_Id(currentUser.getId())
@@ -71,59 +70,117 @@ public class AccountService {
         assertUserAccount(payerAccount);
         assertAccountOwner(payerAccount, currentUser);
 
-        Fundraiser fundraiser = fundraiserRepository.findById(fundraiserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Fundraiser not found: " + fundraiserId));
-        Account fundraiserAccount = fundraiser.getAccount();
-        if (fundraiserAccount == null) {
-            throw new ResourceNotFoundException("Fundraiser account not found");
+        Fundraiser fundraiser = fundraiserRepository.findById(request.getFundraiserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Fundraiser not found: " + request.getFundraiserId()));
+        
+        if (fundraiser.getStatus() == FundraiserStatus.RECONCILING && !"Spłata długu".equals(request.getNote())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Zbiórka jest w trakcie rozliczania. Można tylko spłacać dług.");
         }
+        
+        Account fundraiserAccount = accountRepository.findByFundraiser_Id(fundraiser.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Fundraiser account not found"));
 
         FundraiserParticipant participant = participantRepository
-                .findByFundraiser_IdAndChild_Id(fundraiserId, childId)
+                .findByFundraiser_IdAndChild_Id(request.getFundraiserId(), request.getChildId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Child is not a participant of this fundraiser"));
         if (participant.getRemovedAt() != null) {
             throw new IllegalArgumentException("Child is no longer an active participant");
         }
 
-        debit(payerAccount, amount);
-        credit(fundraiserAccount, amount);
-        accountRepository.save(payerAccount);
-        accountRepository.save(fundraiserAccount);
+        debit(payerAccount, request.getAmount());
+        credit(fundraiserAccount, request.getAmount());
+        
+        Account savedPayerAccount = accountRepository.save(payerAccount);
+        Account savedFundraiserAccount = accountRepository.save(fundraiserAccount);
 
         Contribution contribution = new Contribution();
         contribution.setParticipant(participant);
-        contribution.setAmount(amount);
+        contribution.setAmount(request.getAmount());
         contribution.setPaidAt(LocalDateTime.now());
-        contribution.setPayerAccount(payerAccount);
-        contribution.setNote(note);
+        contribution.setPayerAccount(savedPayerAccount);
+        contribution.setNote(request.getNote());
         contribution = contributionRepository.save(contribution);
 
         return MoneyOperationResponse.transfer(
-                payerAccount.getId(),
-                payerAccount.getBalance(),
-                fundraiserAccount.getId(),
-                fundraiserAccount.getBalance(),
+                savedPayerAccount.getId(),
+                savedPayerAccount.getBalance(),
+                savedFundraiserAccount.getId(),
+                savedFundraiserAccount.getBalance(),
                 contribution.getId()
         );
     }
 
     @Transactional
-    public MoneyOperationResponse refundFromFundraiser(Long fundraiserId, Long targetUserId, BigDecimal amount) {
+    public MoneyOperationResponse depositToFundraiser(Long fundraiserId, BigDecimal amount, String note) {
         validatePositiveAmount(amount);
         User currentUser = currentUserService.getCurrentUser();
+        Fundraiser fundraiser = assertTreasurerAndGetFundraiser(fundraiserId, currentUser);
+        Account fundraiserAccount = accountRepository.findByFundraiser_Id(fundraiser.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Fundraiser account not found"));
+        Account treasurerAccount = accountRepository.findByUser_Id(currentUser.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Treasurer account not found"));
 
-        Fundraiser fundraiser = fundraiserRepository.findById(fundraiserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Fundraiser not found: " + fundraiserId));
+        debit(treasurerAccount, amount);
+        credit(fundraiserAccount, amount);
+        Account savedTreasurerAccount = accountRepository.save(treasurerAccount);
+        Account savedFundraiserAccount = accountRepository.save(fundraiserAccount);
+        
+        AccountHistoryEntry historyEntry = new AccountHistoryEntry();
+        historyEntry.setAccount(savedFundraiserAccount);
+        historyEntry.setAmount(amount);
+        historyEntry.setDate(LocalDateTime.now());
+        historyEntry.setDescription("Wpłata skarbnika: " + note);
+        historyEntry.setType("DEPOSIT_TREASURER");
+        historyRepository.save(historyEntry);
 
-        if (!fundraiser.getSchoolClass().getTreasurer().getId().equals(currentUser.getId())) {
-            throw new ForbiddenOperationException("Only the class treasurer can refund from this fundraiser");
-        }
+        return MoneyOperationResponse.transfer(
+                savedTreasurerAccount.getId(),
+                savedTreasurerAccount.getBalance(),
+                savedFundraiserAccount.getId(),
+                savedFundraiserAccount.getBalance(),
+                null
+        );
+    }
 
+    @Transactional
+    public MoneyOperationResponse withdrawFromFundraiser(Long fundraiserId, BigDecimal amount, String note) {
+        validatePositiveAmount(amount);
+        User currentUser = currentUserService.getCurrentUser();
+        Fundraiser fundraiser = assertTreasurerAndGetFundraiser(fundraiserId, currentUser);
+        Account fundraiserAccount = accountRepository.findByFundraiser_Id(fundraiser.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Fundraiser account not found"));
+        Account treasurerAccount = accountRepository.findByUser_Id(currentUser.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Treasurer account not found"));
+
+        debit(fundraiserAccount, amount);
+        credit(treasurerAccount, amount);
+        Account savedFundraiserAccount = accountRepository.save(fundraiserAccount);
+        Account savedTreasurerAccount = accountRepository.save(treasurerAccount);
+
+        AccountHistoryEntry historyEntry = new AccountHistoryEntry();
+        historyEntry.setAccount(savedFundraiserAccount);
+        historyEntry.setAmount(amount.negate());
+        historyEntry.setDate(LocalDateTime.now());
+        historyEntry.setDescription("Wypłata skarbnika: " + note);
+        historyEntry.setType("WITHDRAWAL_TREASURER");
+        historyRepository.save(historyEntry);
+
+        return MoneyOperationResponse.transfer(
+                savedTreasurerAccount.getId(),
+                savedTreasurerAccount.getBalance(),
+                savedFundraiserAccount.getId(),
+                savedFundraiserAccount.getBalance(),
+                null
+        );
+    }
+
+    @Transactional
+    public MoneyOperationResponse refundFromFundraiser(Long fundraiserId, Long targetUserId, BigDecimal amount, String note) {
+        validatePositiveAmount(amount);
+        User currentUser = currentUserService.getCurrentUser();
+        Fundraiser fundraiser = assertTreasurerAndGetFundraiser(fundraiserId, currentUser);
         Account fundraiserAccount = fundraiser.getAccount();
-        if (fundraiserAccount == null) {
-            throw new ResourceNotFoundException("Fundraiser account not found");
-        }
 
         Account targetAccount = accountRepository.findByUser_Id(targetUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Target user account not found"));
@@ -131,8 +188,17 @@ public class AccountService {
 
         debit(fundraiserAccount, amount);
         credit(targetAccount, amount);
+        
         accountRepository.save(fundraiserAccount);
         accountRepository.save(targetAccount);
+
+        AccountHistoryEntry historyEntry = new AccountHistoryEntry();
+        historyEntry.setAccount(fundraiserAccount);
+        historyEntry.setAmount(amount.negate());
+        historyEntry.setDate(LocalDateTime.now());
+        historyEntry.setDescription(note);
+        historyEntry.setType("REFUND");
+        historyRepository.save(historyEntry);
 
         return MoneyOperationResponse.transfer(
                 fundraiserAccount.getId(),
@@ -141,6 +207,24 @@ public class AccountService {
                 targetAccount.getBalance(),
                 null
         );
+    }
+
+    @Transactional
+    public void depositToUser(Long userId, BigDecimal amount, String note) {
+        validatePositiveAmount(amount);
+        Account userAccount = accountRepository.findByUser_Id(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User account not found for user: " + userId));
+        credit(userAccount, amount);
+        accountRepository.save(userAccount);
+    }
+
+    private Fundraiser assertTreasurerAndGetFundraiser(Long fundraiserId, User user) {
+        Fundraiser fundraiser = fundraiserRepository.findById(fundraiserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Fundraiser not found: " + fundraiserId));
+        if (!fundraiser.getSchoolClass().getTreasurer().getId().equals(user.getId()) && !user.isAdmin()) {
+            throw new ForbiddenOperationException("Only the class treasurer or admin can manage this fundraiser");
+        }
+        return fundraiser;
     }
 
     private void validatePositiveAmount(BigDecimal amount) {

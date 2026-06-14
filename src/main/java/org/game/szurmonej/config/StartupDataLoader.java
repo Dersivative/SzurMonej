@@ -2,11 +2,16 @@ package org.game.szurmonej.config;
 
 import org.game.szurmonej.entity.Account;
 import org.game.szurmonej.entity.User;
+import org.game.szurmonej.repository.AccountRepository;
+import org.game.szurmonej.repository.FundraiserRepository;
 import org.game.szurmonej.repository.UserRepository;
 import org.game.szurmonej.repository.ChildRepository;
 import org.game.szurmonej.repository.SchoolClassRepository;
 import org.game.szurmonej.repository.ClassMembershipRepository;
+import org.game.szurmonej.repository.FundraiserParticipantRepository;
 import org.game.szurmonej.entity.Child;
+import org.game.szurmonej.entity.Fundraiser;
+import org.game.szurmonej.entity.FundraiserParticipant;
 import org.game.szurmonej.entity.SchoolClass;
 import org.game.szurmonej.entity.ClassMembership;
 import org.slf4j.Logger;
@@ -22,8 +27,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StreamUtils;
 
+import jakarta.persistence.EntityManager;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
 import java.time.LocalDate;
@@ -42,8 +49,12 @@ public class StartupDataLoader implements ApplicationRunner {
     private final ChildRepository childRepository;
     private final SchoolClassRepository schoolClassRepository;
     private final ClassMembershipRepository classMembershipRepository;
+    private final AccountRepository accountRepository;
+    private final FundraiserRepository fundraiserRepository;
+    private final FundraiserParticipantRepository fundraiserParticipantRepository;
     private final PasswordEncoder passwordEncoder;
     private final ResourceLoader resourceLoader;
+    private final EntityManager entityManager;
     private byte[] defaultAvatarBytes;
 
     @Value("${app.admin.username:admin}")
@@ -59,14 +70,22 @@ public class StartupDataLoader implements ApplicationRunner {
                              ChildRepository childRepository,
                              SchoolClassRepository schoolClassRepository,
                              ClassMembershipRepository classMembershipRepository,
+                             AccountRepository accountRepository,
+                             FundraiserRepository fundraiserRepository,
+                             FundraiserParticipantRepository fundraiserParticipantRepository,
                              PasswordEncoder passwordEncoder,
-                             ResourceLoader resourceLoader) {
+                             ResourceLoader resourceLoader,
+                             EntityManager entityManager) {
         this.userRepository = userRepository;
         this.childRepository = childRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.classMembershipRepository = classMembershipRepository;
+        this.accountRepository = accountRepository;
+        this.fundraiserRepository = fundraiserRepository;
+        this.fundraiserParticipantRepository = fundraiserParticipantRepository;
         this.passwordEncoder = passwordEncoder;
         this.resourceLoader = resourceLoader;
+        this.entityManager = entityManager;
     }
 
     @Override
@@ -92,6 +111,7 @@ public class StartupDataLoader implements ApplicationRunner {
             Account account = new Account();
             account.setAccountNumber(UUID.randomUUID().toString());
             account.setUser(admin);
+            account.setBalance(new BigDecimal("500.00"));
             admin.setAccount(account);
 
             userRepository.save(admin);
@@ -112,9 +132,8 @@ public class StartupDataLoader implements ApplicationRunner {
 
         log.info("Seeding test data...");
 
-        // Create 4 Treasurers and 4 Classes
         List<SchoolClass> classes = new ArrayList<>();
-        for (int i = 1; i <= 4; i++) {
+        for (int i = 1; i <= 2; i++) {
             User treasurer = new User();
             treasurer.setUsername("Skarbnik" + i);
             treasurer.setEmail("skarbnik" + i + "@example.com");
@@ -124,6 +143,7 @@ public class StartupDataLoader implements ApplicationRunner {
             Account account = new Account();
             account.setAccountNumber(UUID.randomUUID().toString());
             account.setUser(treasurer);
+            account.setBalance(new BigDecimal("500.00"));
             treasurer.setAccount(account);
             
             userRepository.save(treasurer);
@@ -137,7 +157,6 @@ public class StartupDataLoader implements ApplicationRunner {
             
             childRepository.save(treasurerChild);
 
-            // Use mutable HashSet instead of immutable Set.of()
             treasurer.setChildren(new HashSet<>(Set.of(treasurerChild)));
             treasurerChild.setParents(new HashSet<>(Set.of(treasurer)));
             
@@ -157,9 +176,8 @@ public class StartupDataLoader implements ApplicationRunner {
             classMembershipRepository.save(membership);
         }
 
-        // Create 10 Parents, each with 2 children
         int childCounter = 1;
-        for (int i = 1; i <= 10; i++) {
+        for (int i = 1; i <= 2; i++) {
             User parent = new User();
             parent.setUsername("Rodzic" + i);
             parent.setEmail("rodzic" + i + "@example.com");
@@ -169,6 +187,7 @@ public class StartupDataLoader implements ApplicationRunner {
             Account account = new Account();
             account.setAccountNumber(UUID.randomUUID().toString());
             account.setUser(parent);
+            account.setBalance(new BigDecimal("500.00"));
             parent.setAccount(account);
 
             userRepository.save(parent);
@@ -184,7 +203,6 @@ public class StartupDataLoader implements ApplicationRunner {
                 
                 childRepository.save(child);
 
-                // Use mutable HashSet
                 child.setParents(new HashSet<>(Set.of(parent)));
                 parentChildren.add(child);
 
@@ -200,6 +218,40 @@ public class StartupDataLoader implements ApplicationRunner {
             parent.setChildren(parentChildren);
             userRepository.save(parent);
         }
+
+        // --- Create a fundraiser for Skarbnik1's class ---
+        log.info("Flushing and clearing entity manager before creating fundraiser...");
+        entityManager.flush();
+        entityManager.clear();
+        
+        SchoolClass class1 = schoolClassRepository.findById(classes.get(0).getId()).orElseThrow();
+        log.info("Found class '{}' with {} members.", class1.getLabel(), class1.getMemberships().size());
+        
+        Fundraiser fundraiser = new Fundraiser();
+        fundraiser.setTitle("Zbiórka na wycieczkę");
+        fundraiser.setDescription("Zbiórka na wycieczkę do Warszawy");
+        fundraiser.setGoalAmount(new BigDecimal("600.00"));
+        fundraiser.setSchoolClass(class1);
+        fundraiser.setStartedAt(LocalDate.now());
+
+        Account fundraiserAccount = new Account();
+        fundraiserAccount.setAccountNumber(UUID.randomUUID().toString());
+        fundraiserAccount.setFundraiser(fundraiser);
+        fundraiser.setAccount(fundraiserAccount);
+
+        fundraiserRepository.save(fundraiser);
+
+        log.info("Creating fundraiser participants for fundraiser '{}'...", fundraiser.getTitle());
+        class1.getMemberships().stream()
+            .filter(m -> m.getLeftAt() == null)
+            .forEach(membership -> {
+                log.info("Adding child '{}' to fundraiser.", membership.getChild().getName());
+                FundraiserParticipant participant = new FundraiserParticipant();
+                participant.setFundraiser(fundraiser);
+                participant.setChild(membership.getChild());
+                participant.setAddedAt(LocalDate.now());
+                fundraiserParticipantRepository.save(participant);
+            });
 
         log.info("Test data seeded successfully.");
     }

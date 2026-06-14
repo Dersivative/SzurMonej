@@ -1,94 +1,58 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
-import axios from 'axios';
 
 const Login: React.FC = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const { login } = useAuth();
-  const navigate = useNavigate();
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState<string | null>(null);
+    const navigate = useNavigate();
+    const auth = useAuth();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      // Zmieniono na wysyłanie danych w formacie application/x-www-form-urlencoded
-      // aby dopasować do konfiguracji Spring Security formLogin
-      const params = new URLSearchParams();
-      params.append('username', username);
-      params.append('password', password);
-
-      const response = await axios.post('/api/login', params, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        withCredentials: true
-      });
-      
-      if (response.status === 200) {
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
         try {
-          // Zmieniono endpoint na /api/users/me, który zwraca UserResponse z polem admin
-          const userResponse = await axios.get('/api/users/me', {
-            withCredentials: true
-          });
-          // Poprawka: Dodano pole 'admin' do obiektu przekazywanego do funkcji login
-          login({ 
-            username: userResponse.data.username, 
-            email: userResponse.data.email, 
-            admin: userResponse.data.admin 
-          });
+            await axios.post('/api/login', new URLSearchParams({ username, password }));
+            await auth.fetchUser(); // This will fetch user and set treasurer status
+            navigate('/user');
         } catch (err) {
-          console.warn("Could not fetch user details, using defaults");
-          // Poprawka: Dodano pole 'admin' w przypadku awaryjnym
-          login({ username: username, email: "user@example.com", admin: false });
+            setError('Nieprawidłowa nazwa użytkownika lub hasło.');
         }
-        
-        navigate('/user');
-      }
-    } catch (err: any) {
-      console.error(err);
-      if (err.response) {
-        setError(`Błędne dane logowania. Status: ${err.response.status}`);
-      } else {
-        setError(`Błędne dane logowania. Błąd sieci lub serwera.`);
-      }
-    }
-  };
+    };
 
-  return (
-    <div style={{ padding: '20px', maxWidth: '300px', margin: '0 auto' }}>
-      <h2>Logowanie</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      <form onSubmit={handleLogin}>
-        <div style={{ marginBottom: '10px' }}>
-          <label htmlFor="username">Nazwa użytkownika:</label>
-          <input
-            type="text"
-            id="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            style={{ width: '100%', padding: '5px' }}
-            required
-          />
+    return (
+        <div style={{ maxWidth: '400px', margin: '50px auto', padding: '20px', border: '1px solid #ccc', borderRadius: '8px' }}>
+            <h2>Logowanie</h2>
+            <form onSubmit={handleSubmit}>
+                <div style={{ marginBottom: '15px' }}>
+                    <label>Nazwa użytkownika:</label>
+                    <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        required
+                        style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
+                    />
+                </div>
+                <div style={{ marginBottom: '15px' }}>
+                    <label>Hasło:</label>
+                    <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
+                    />
+                </div>
+                {error && <p style={{ color: 'red' }}>{error}</p>}
+                <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}>
+                    Zaloguj się
+                </button>
+            </form>
         </div>
-        <div style={{ marginBottom: '10px' }}>
-          <label htmlFor="password">Hasło:</label>
-          <input
-            type="password"
-            id="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={{ width: '100%', padding: '5px' }}
-            required
-          />
-        </div>
-        <button type="submit" style={{ width: '100%', padding: '10px' }}>
-          Zaloguj
-        </button>
-      </form>
-    </div>
-  );
+    );
 };
 
 export default Login;

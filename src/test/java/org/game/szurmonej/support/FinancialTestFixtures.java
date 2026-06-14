@@ -29,6 +29,7 @@ public final class FinancialTestFixtures {
             User treasurer,
             Child child,
             Child otherChild,
+            SchoolClass schoolClass,
             Fundraiser fundraiser,
             FundraiserParticipant participant
     ) {
@@ -78,7 +79,7 @@ public final class FinancialTestFixtures {
         participant.setAddedAt(LocalDate.now());
         participant = participantRepository.save(participant);
 
-        return new FinancialScenario(parent, otherParent, treasurer, child, otherChild, fundraiser, participant);
+        return new FinancialScenario(parent, otherParent, treasurer, child, otherChild, schoolClass, fundraiser, participant);
     }
 
     private static Child saveChild(ChildRepository repository, String name, String surname) {

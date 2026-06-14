@@ -74,7 +74,6 @@ const UserPage: React.FC = () => {
 
       <div style={{ marginTop: '30px', marginBottom: '30px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         
-        {/* Sekcja zarządzania klasami */}
         {managedClasses.length > 0 && (
             <div>
                 <h3>Zarządzasz klasami:</h3>
@@ -89,7 +88,6 @@ const UserPage: React.FC = () => {
             </div>
         )}
 
-        {/* Sekcja oczekującego wniosku */}
         {application && (
             <div style={{ padding: '15px', backgroundColor: '#fef9e7', border: '1px solid #f1c40f', borderRadius: '5px', textAlign: 'center' }}>
                 <h3 style={{ margin: 0, color: '#f39c12' }}>Wniosek w trakcie weryfikacji</h3>
@@ -97,7 +95,6 @@ const UserPage: React.FC = () => {
             </div>
         )}
 
-        {/* Sekcja tworzenia nowej klasy */}
         <Link to="/create-class" style={{ textDecoration: 'none' }}>
             <div style={{ padding: '15px', backgroundColor: '#eaf2f8', border: '1px solid #3498db', borderRadius: '5px', textAlign: 'center', cursor: 'pointer' }}>
                 <h3 style={{ margin: 0, color: '#2980b9' }}>+ Złóż wniosek o nową klasę</h3>
@@ -127,27 +124,31 @@ const UserPage: React.FC = () => {
       ) : children.length > 0 ? (
         <ul style={{ listStyleType: 'none', padding: 0 }}>
           {children.map(child => (
-            <li key={child.id} style={{ display: 'flex', alignItems: 'center', marginBottom: '10px', padding: '10px', border: '1px solid #ccc', borderRadius: '5px' }}>
-              <img 
-                src={`/api/children/${child.id}/avatar`} 
-                alt={`Awatar ${child.name}`} 
-                style={{ width: '60px', height: '60px', borderRadius: '50%', marginRight: '15px', objectFit: 'cover' }}
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.onerror = null;
-                  target.src = 'https://via.placeholder.com/60';
-                }}
-              />
-              <div>
-                <strong>{child.name} {child.surname}</strong>
-                <div>
-                  {child.schoolClassName ? (
-                      <span style={{ color: 'green', fontWeight: 'bold' }}>Klasa: {child.schoolClassName}</span>
-                  ) : (
-                      <span style={{ color: 'gray' }}>Brak przypisanej klasy</span>
-                  )}
-                </div>
-              </div>
+            <li key={child.id} style={{ marginBottom: '10px' }}>
+                <Link to={`/child/${child.id}/fundraisers`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', padding: '10px', border: '1px solid #ccc', borderRadius: '5px', cursor: 'pointer' }}>
+                        <img 
+                            src={`/api/children/${child.id}/avatar`} 
+                            alt={`Awatar ${child.name}`} 
+                            style={{ width: '60px', height: '60px', borderRadius: '50%', marginRight: '15px', objectFit: 'cover' }}
+                            onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.onerror = null;
+                            target.src = 'https://via.placeholder.com/60';
+                            }}
+                        />
+                        <div>
+                            <strong>{child.name} {child.surname}</strong>
+                            <div>
+                            {child.schoolClassName ? (
+                                <span style={{ color: 'green', fontWeight: 'bold' }}>Klasa: {child.schoolClassName}</span>
+                            ) : (
+                                <span style={{ color: 'gray' }}>Brak przypisanej klasy</span>
+                            )}
+                            </div>
+                        </div>
+                    </div>
+                </Link>
             </li>
           ))}
         </ul>

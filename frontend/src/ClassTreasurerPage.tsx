@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import axios from 'axios';
+import CreateFundraiser from './CreateFundraiser';
 
 interface Child {
     id: number;
     name: string;
     surname: string;
     dateOfBirth?: string;
+    membershipId: number; // Add membershipId
 }
 
 interface SchoolClass {
@@ -32,13 +34,28 @@ interface EnrollmentApplication {
     requestedAt: string;
 }
 
+interface Fundraiser {
+    id: number;
+    title: string;
+    description: string;
+    goalAmount: number;
+    currentAmount: number;
+    participants: {
+        childId: number;
+        childName: string;
+        totalContribution: number;
+    }[];
+}
+
 const ClassTreasurerPage: React.FC = () => {
     const { user, isAuthenticated } = useAuth();
     const [managedClass, setManagedClass] = useState<SchoolClass | null>(null);
     const [enrollmentLink, setEnrollmentLink] = useState<EnrollmentLink | null>(null);
     const [applications, setApplications] = useState<EnrollmentApplication[]>([]);
+    const [fundraisers, setFundraisers] = useState<Fundraiser[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isCreateFundraiserOpen, setCreateFundraiserOpen] = useState(false);
 
     const fetchData = useCallback(async () => {
         if (!user) return;
@@ -46,9 +63,7 @@ const ClassTreasurerPage: React.FC = () => {
         setError(null);
 
         try {
-            // 1. Find the class managed by the user
             const classesResponse = await axios.get<SchoolClass[]>('/api/school-classes');
-            // Assuming we check by username since id might not be in the user object from AuthContext
             const myClass = classesResponse.data.find(c => c.treasurer.username === user.username);
 
             if (!myClass) {
@@ -56,23 +71,17 @@ const ClassTreasurerPage: React.FC = () => {
                 setLoading(false);
                 return;
             }
-
             setManagedClass(myClass);
 
-            // 2. Fetch enrollment link
-            try {
-                const linkResponse = await axios.get<EnrollmentLink>(`/api/school-classes/${myClass.id}/enrollment-link`);
-                setEnrollmentLink(linkResponse.data);
-            } catch (err: any) {
-                // Ignore 404 if no active link exists
-                if (err.response?.status !== 404) {
-                    console.error('Błąd pobierania linku', err);
-                }
-            }
+            const [linkResponse, appsResponse, fundraisersResponse] = await Promise.allSettled([
+                axios.get<EnrollmentLink>(`/api/school-classes/${myClass.id}/enrollment-link`),
+                axios.get<EnrollmentApplication[]>(`/api/school-classes/${myClass.id}/enrollment-applications?status=PENDING`),
+                axios.get<Fundraiser[]>(`/api/school-classes/${myClass.id}/fundraisers`)
+            ]);
 
-            // 3. Fetch pending applications
-            const appsResponse = await axios.get<EnrollmentApplication[]>(`/api/school-classes/${myClass.id}/enrollment-applications?status=PENDING`);
-            setApplications(appsResponse.data);
+            if (linkResponse.status === 'fulfilled') setEnrollmentLink(linkResponse.value.data);
+            if (appsResponse.status === 'fulfilled') setApplications(appsResponse.value.data);
+            if (fundraisersResponse.status === 'fulfilled') setFundraisers(fundraisersResponse.value.data);
 
         } catch (err) {
             console.error('Błąd podczas pobierania danych klasy', err);
@@ -114,16 +123,10 @@ const ClassTreasurerPage: React.FC = () => {
         if (!managedClass) return;
         try {
             await axios.post(`/api/school-classes/${managedClass.id}/enrollment-applications/${applicationId}/approve`);
-            fetchData(); // Refresh list
+            fetchData();
         } catch (err: any) {
-            console.error('Błąd podczas zatwierdzania wniosku', err);
-            if (err.response?.data?.message) {
-                alert(`Błąd: ${err.response.data.message}`);
-            } else if (typeof err.response?.data === 'string') {
-                alert(`Błąd: ${err.response.data}`);
-            } else {
-                alert('Nie udało się zatwierdzić wniosku ze względu na nieoczekiwany błąd.');
-            }
+            if (err.response?.data?.message) alert(`Błąd: ${err.response.data.message}`);
+            else alert('Nie udało się zatwierdzić wniosku.');
         }
     };
 
@@ -131,39 +134,64 @@ const ClassTreasurerPage: React.FC = () => {
         if (!managedClass) return;
         try {
             await axios.post(`/api/school-classes/${managedClass.id}/enrollment-applications/${applicationId}/reject`);
-            fetchData(); // Refresh list
-        } catch (err) {
-            console.error('Błąd podczas odrzucania wniosku', err);
-            alert('Nie udało się odrzucić wniosku.');
-        }
+            fetchData();
+        } catch (err) { alert('Nie udało się odrzucić wniosku.'); }
     };
 
-    const handleRemoveMember = async (childId: number) => {
-        if (!managedClass) return;
+    const handleRemoveMember = async (membershipId: number) => {
         if (!window.confirm("Czy na pewno chcesz usunąć to dziecko z klasy?")) return;
-        
         try {
-            await axios.delete(`/api/school-classes/${managedClass.id}/members/${childId}`);
-            fetchData(); // Refresh list
-        } catch (err) {
-            console.error('Błąd podczas usuwania dziecka z klasy', err);
-            alert('Nie udało się usunąć dziecka z klasy.');
+            await axios.delete(`/api/class-memberships/${membershipId}`);
+            fetchData();
+        } catch (err: any) {
+            if (err.response?.data?.message) {
+                alert(`Błąd: ${err.response.data.message}`);
+            } else {
+                alert('Nie udało się usunąć dziecka z klasy.');
+            }
         }
     };
 
-    if (!isAuthenticated) {
-        return <Navigate to="/user" />;
-    }
-
+    if (!isAuthenticated) return <Navigate to="/user" />;
     if (loading) return <div>Ładowanie danych klasy...</div>;
     if (error) return <div style={{ color: 'red' }}>{error}</div>;
     if (!managedClass) return <div>Brak przypisanej klasy.</div>;
 
     return (
         <div style={{ padding: '20px' }}>
+            {isCreateFundraiserOpen && (
+                <CreateFundraiser 
+                    classId={managedClass.id}
+                    onSuccess={fetchData}
+                    onClose={() => setCreateFundraiserOpen(false)}
+                />
+            )}
+
             <h1>Zarządzanie klasą: {managedClass.label}</h1>
 
-            {/* Section for Enrollment Link */}
+            <div style={{ border: '1px solid #ccc', padding: '15px', marginBottom: '20px', borderRadius: '5px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                    <h2 style={{ margin: 0 }}>Zbiórki klasowe ({fundraisers.length})</h2>
+                    <button onClick={() => setCreateFundraiserOpen(true)} style={{ backgroundColor: '#28a745', color: 'white', padding: '8px 16px' }}>+ Nowa zbiórka</button>
+                </div>
+                {fundraisers.length > 0 ? (
+                    fundraisers.map(f => (
+                        <Link to={`/fundraiser/${f.id}`} key={f.id} style={{ textDecoration: 'none', color: 'inherit' }}>
+                            <div style={{ borderTop: '1px solid #eee', paddingTop: '10px', marginTop: '10px', cursor: 'pointer' }}>
+                                <h4>{f.title}</h4>
+                                <p>{f.description}</p>
+                                <div style={{ backgroundColor: '#e9ecef', borderRadius: '5px', height: '20px', width: '100%', overflow: 'hidden', marginBottom: '5px' }}>
+                                    <div style={{ backgroundColor: '#28a745', height: '100%', width: `${Math.min((f.currentAmount / f.goalAmount) * 100, 100)}%` }}></div>
+                                </div>
+                                <small>Zebrano: {f.currentAmount.toFixed(2)} PLN z {f.goalAmount.toFixed(2)} PLN</small>
+                            </div>
+                        </Link>
+                    ))
+                ) : (
+                    <p>Brak aktywnych zbiórek.</p>
+                )}
+            </div>
+
             <div style={{ border: '1px solid #ccc', padding: '15px', marginBottom: '20px', borderRadius: '5px' }}>
                 <h2>Link do zapisu</h2>
                 {enrollmentLink ? (
@@ -182,7 +210,6 @@ const ClassTreasurerPage: React.FC = () => {
                 )}
             </div>
 
-            {/* Section for Class Members */}
             <div style={{ border: '1px solid #ccc', padding: '15px', marginBottom: '20px', borderRadius: '5px' }}>
                 <h2>Dzieci przypisane do klasy ({managedClass.children?.length || 0})</h2>
                 {managedClass.children && managedClass.children.length > 0 ? (
@@ -205,7 +232,7 @@ const ClassTreasurerPage: React.FC = () => {
                                         {child.dateOfBirth && <div style={{ color: '#666', fontSize: '0.9em' }}>(ur. {child.dateOfBirth})</div>}
                                     </div>
                                 </div>
-                                <button onClick={() => handleRemoveMember(child.id)} style={{ backgroundColor: 'lightcoral', padding: '5px 10px' }}>Usuń z klasy</button>
+                                <button onClick={() => handleRemoveMember(child.membershipId)} style={{ backgroundColor: 'lightcoral', padding: '5px 10px' }}>Usuń z klasy</button>
                             </li>
                         ))}
                     </ul>
@@ -214,7 +241,6 @@ const ClassTreasurerPage: React.FC = () => {
                 )}
             </div>
 
-            {/* Section for Enrollment Applications */}
             <div style={{ border: '1px solid #ccc', padding: '15px', borderRadius: '5px' }}>
                 <h2>Oczekujące wnioski o zapis ({applications.length})</h2>
                 {applications.length > 0 ? (
