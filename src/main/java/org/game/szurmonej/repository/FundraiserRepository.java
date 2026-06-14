@@ -9,5 +9,5 @@ import java.util.List;
 @Repository
 public interface FundraiserRepository extends JpaRepository<Fundraiser, Long> {
     List<Fundraiser> findBySchoolClass_Id(Long schoolClassId);
-    List<Fundraiser> findBySchoolClass_Memberships_Child_Id(Long childId);
+    List<Fundraiser> findByParticipants_Child_Id(Long childId);
 }

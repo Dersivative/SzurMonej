@@ -5,6 +5,7 @@ import org.game.szurmonej.repository.UserRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CurrentUserService {
@@ -15,6 +16,7 @@ public class CurrentUserService {
         this.userRepository = userRepository;
     }
 
+    @Transactional(readOnly = true)
     public User getCurrentUser() {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {

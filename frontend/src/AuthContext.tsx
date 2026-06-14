@@ -1,68 +1,86 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { ReactNode } from 'react';
+import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import axios from 'axios';
 
 interface User {
-  username: string;
-  email: string;
-  admin: boolean;
-  balance: number;
+    id: number;
+    username: string;
+    email: string;
+    balance: number;
+    isTreasurer: boolean;
+    isAdmin: boolean; // Add isAdmin flag
+    children: { id: number; name: string; surname: string }[];
 }
 
 interface AuthContextType {
-  user: User | null;
-  login: (userData: User) => void;
-  logout: () => void;
-  isAuthenticated: boolean;
-  isAdmin: boolean;
-  isTreasurer: boolean;
-  setIsTreasurer: (isTreasurer: boolean) => void;
+    isAuthenticated: boolean;
+    user: User | null;
+    loading: boolean;
+    login: (user: User) => void;
+    logout: () => void;
+    fetchUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isTreasurer, setIsTreasurer] = useState(false);
-  const [loading, setLoading] = useState(true);
+    const [user, setUser] = useState<User | null>(null);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const checkUser = async () => {
-      try {
-        const response = await axios.get('/api/users/me', { withCredentials: true });
-        if (response.data) {
-          setUser(response.data);
+    const fetchUser = async () => {
+        try {
+            const response = await axios.get('/api/users/me');
+            if (response.data) {
+                const classesResponse = await axios.get('/api/school-classes/my-classes');
+                const isTreasurer = classesResponse.data.length > 0;
+                
+                const userWithStatus = { ...response.data, isTreasurer, isAdmin: response.data.admin };
+                
+                setUser(userWithStatus);
+                setIsAuthenticated(true);
+            } else {
+                setUser(null);
+                setIsAuthenticated(false);
+            }
+        } catch (error) {
+            setUser(null);
+            setIsAuthenticated(false);
+        } finally {
+            setLoading(false);
         }
-      } catch (error) {
-        console.log('Not logged in');
-      } finally {
-        setLoading(false);
-      }
     };
 
-    checkUser();
-  }, []);
+    useEffect(() => {
+        fetchUser();
+    }, []);
 
-  const login = (userData: User) => {
-    setUser(userData);
-  };
+    const login = (newUser: User) => {
+        setUser(newUser);
+        setIsAuthenticated(true);
+    };
 
-  const logout = () => {
-    setUser(null);
-    setIsTreasurer(false);
-  };
+    const logout = async () => {
+        try {
+            await axios.post('/api/logout');
+        } catch (error) {
+            console.error("Logout failed", error);
+        } finally {
+            setUser(null);
+            setIsAuthenticated(false);
+        }
+    };
 
-  return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, isAdmin: user?.admin ?? false, isTreasurer, setIsTreasurer }}>
-      {!loading && children}
-    </AuthContext.Provider>
-  );
+    return (
+        <AuthContext.Provider value={{ isAuthenticated, user, loading, login, logout, fetchUser }}>
+            {children}
+        </AuthContext.Provider>
+    );
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+    const context = useContext(AuthContext);
+    if (context === undefined) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
 };

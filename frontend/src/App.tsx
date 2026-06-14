@@ -9,8 +9,9 @@ import EnrollmentPage from './EnrollmentPage';
 import AddChildPage from './AddChildPage';
 import CreateClassPage from './CreateClassPage';
 import ChildFundraisersPage from './ChildFundraisersPage';
-import FundraiserDetailsPage from './FundraiserDetailsPage'; // Import nowej strony
+import FundraiserDetailsPage from './FundraiserDetailsPage';
 import NavBar from './NavBar';
+import ProtectedRoute from './ProtectedRoute';
 
 const App: React.FC = () => {
   return (
@@ -23,48 +24,32 @@ const App: React.FC = () => {
 };
 
 const Main: React.FC = () => {
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { user } = useAuth();
 
   return (
     <>
       <NavBar />
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route
-          path="/user"
-          element={isAuthenticated ? <UserPage /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/add-child"
-          element={isAuthenticated ? <AddChildPage /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/create-class"
-          element={isAuthenticated ? <CreateClassPage /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/child/:childId/fundraisers"
-          element={isAuthenticated ? <ChildFundraisersPage /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/fundraiser/:fundraiserId"
-          element={isAuthenticated ? <FundraiserDetailsPage /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/admin"
-          element={isAdmin ? <AdminPage /> : <Navigate to="/user" />}
-        />
-        <Route
-          path="/class-management"
-          element={isAuthenticated ? <ClassTreasurerPage /> : <Navigate to="/login" />}
-        />
-        <Route
-          path="/enroll/:token"
-          element={isAuthenticated ? <EnrollmentPage /> : <Navigate to="/login" />}
-        />
+        
+        <Route element={<ProtectedRoute />}>
+          <Route path="/user" element={<UserPage />} />
+          <Route path="/add-child" element={<AddChildPage />} />
+          <Route path="/create-class" element={<CreateClassPage />} />
+          <Route path="/child/:childId/fundraisers" element={<ChildFundraisersPage />} />
+          <Route path="/fundraiser/:fundraiserId" element={<FundraiserDetailsPage />} />
+          <Route path="/class-management" element={<ClassTreasurerPage />} />
+          <Route path="/enroll/:token" element={<EnrollmentPage />} />
+          
+          <Route
+            path="/admin"
+            element={user?.isAdmin ? <AdminPage /> : <Navigate to="/user" />}
+          />
+        </Route>
+
         <Route
           path="/"
-          element={<Navigate to={isAuthenticated ? "/user" : "/login"} />}
+          element={<Navigate to="/user" />}
         />
       </Routes>
     </>

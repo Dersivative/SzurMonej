@@ -70,4 +70,33 @@ public class FundraiserController {
     ) {
         return ResponseEntity.ok(accountService.withdrawFromFundraiser(fundraiserId, request.getAmount(), request.getNote()));
     }
+
+    @Operation(summary = "Wypłać wszystkie środki i zakończ zbiórkę")
+    @PostMapping("/api/fundraisers/{fundraiserId}/withdraw-all")
+    public ResponseEntity<Void> withdrawAll(@PathVariable Long fundraiserId) {
+        fundraiserService.withdrawAll(fundraiserId);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Rozlicz zbiórkę")
+    @PostMapping("/api/fundraisers/{fundraiserId}/reconcile")
+    public ResponseEntity<Void> reconcile(@PathVariable Long fundraiserId, @RequestBody(required = false) FundraiserActionRequest request) {
+        String note = (request != null && request.getNote() != null) ? request.getNote() : "Rozliczenie zbiórki";
+        fundraiserService.reconcileFundraiser(fundraiserId, note);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Spłać dług w ramach zbiórki")
+    @PostMapping("/api/fundraisers/{fundraiserId}/children/{childId}/pay-debt")
+    public ResponseEntity<Void> payDebt(@PathVariable Long fundraiserId, @PathVariable Long childId) {
+        fundraiserService.payDebt(fundraiserId, childId);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Zakończ rozliczanie zbiórki")
+    @PostMapping("/api/fundraisers/{fundraiserId}/settle")
+    public ResponseEntity<Void> settle(@PathVariable Long fundraiserId) {
+        fundraiserService.settleFundraiser(fundraiserId);
+        return ResponseEntity.ok().build();
+    }
 }

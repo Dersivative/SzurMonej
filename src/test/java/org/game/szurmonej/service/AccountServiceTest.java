@@ -175,14 +175,16 @@ class AccountServiceTest {
         assertThatThrownBy(() -> accountService.refundFromFundraiser(
                 scenario.fundraiser().getId(),
                 scenario.parent().getId(),
-                new BigDecimal("10.00")
+                new BigDecimal("10.00"),
+                "Test refund"
         )).isInstanceOf(ForbiddenOperationException.class);
 
         loginAs(scenario.treasurer());
         MoneyOperationResponse response = accountService.refundFromFundraiser(
                 scenario.fundraiser().getId(),
                 scenario.parent().getId(),
-                new BigDecimal("10.00")
+                new BigDecimal("10.00"),
+                "Test refund"
         );
 
         assertThat(response.getSourceBalance()).isEqualByComparingTo("20.00");

@@ -1,20 +1,10 @@
 package org.game.szurmonej.entity;
 
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -48,8 +38,12 @@ public class Fundraiser {
     @Column(name = "started_at")
     private LocalDate startedAt;
 
-    @Column(name = "ended_at")
-    private LocalDate endedAt;
+    @Column(name = "finished_at")
+    private LocalDate finishedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private FundraiserStatus status = FundraiserStatus.ACTIVE;
 
     @OneToMany(mappedBy = "fundraiser", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<FundraiserParticipant> participants = new ArrayList<>();
