@@ -20,7 +20,7 @@ public class EnrollmentLinkPreviewResponse {
         response.setSchoolClassName(link.getSchoolClass().getLabel());
         
         if (link.getSchoolClass().getTreasurer() != null) {
-            response.setTreasurerName(link.getSchoolClass().getTreasurer().getUsername());
+            response.setTreasurerName(link.getSchoolClass().getTreasurer().getFullName());
         }
 
         return response;

@@ -59,7 +59,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityContextRepository securityContextRepository) throws Exception {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .csrf(AbstractHttpConfigurer::disable) // Disable CSRF protection
+            .csrf(AbstractHttpConfigurer::disable)
             .securityContext(context -> context.securityContextRepository(securityContextRepository))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
@@ -76,6 +76,7 @@ public class SecurityConfig {
             )
             .formLogin(form -> form
                 .loginProcessingUrl("/api/login")
+                .usernameParameter("email") // Use email for login
                 .successHandler((request, response, authentication) -> response.setStatus(HttpStatus.OK.value()))
                 .failureHandler((request, response, exception) -> response.setStatus(HttpStatus.UNAUTHORIZED.value()))
             )

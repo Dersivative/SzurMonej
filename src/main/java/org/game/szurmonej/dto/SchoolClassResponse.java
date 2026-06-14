@@ -30,7 +30,7 @@ public class SchoolClassResponse {
         if (schoolClass.getTreasurer() != null) {
             treasurerResponse = new TreasurerResponse(
                 schoolClass.getTreasurer().getId(),
-                schoolClass.getTreasurer().getUsername()
+                schoolClass.getTreasurer().getFullName()
             );
         }
         List<ChildResponse> childrenResponse = schoolClass.getMemberships() != null ?

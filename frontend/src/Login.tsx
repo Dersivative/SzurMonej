@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 
 const Login: React.FC = () => {
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const navigate = useNavigate();
@@ -14,11 +14,11 @@ const Login: React.FC = () => {
         e.preventDefault();
         setError(null);
         try {
-            await axios.post('/api/login', new URLSearchParams({ username, password }));
-            await auth.fetchUser(); // This will fetch user and set treasurer status
+            await axios.post('/api/login', new URLSearchParams({ email, password }));
+            await auth.fetchUser();
             navigate('/user');
         } catch (err) {
-            setError('Nieprawidłowa nazwa użytkownika lub hasło.');
+            setError('Nieprawidłowy email lub hasło.');
         }
     };
 
@@ -27,11 +27,11 @@ const Login: React.FC = () => {
             <h2>Logowanie</h2>
             <form onSubmit={handleSubmit}>
                 <div style={{ marginBottom: '15px' }}>
-                    <label>Nazwa użytkownika:</label>
+                    <label>Email:</label>
                     <input
-                        type="text"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         required
                         style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
                     />
@@ -51,6 +51,9 @@ const Login: React.FC = () => {
                     Zaloguj się
                 </button>
             </form>
+            <p style={{ textAlign: 'center', marginTop: '15px' }}>
+                Nie masz konta? <Link to="/register">Zarejestruj się</Link>
+            </p>
         </div>
     );
 };

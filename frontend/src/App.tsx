@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import Login from './Login';
+import RegistrationPage from './RegistrationPage';
 import UserPage from './UserPage';
 import AdminPage from './AdminPage';
 import ClassTreasurerPage from './ClassTreasurerPage';
@@ -31,6 +32,7 @@ const Main: React.FC = () => {
       <NavBar />
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<RegistrationPage />} />
         
         <Route element={<ProtectedRoute />}>
           <Route path="/user" element={<UserPage />} />

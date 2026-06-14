@@ -9,13 +9,13 @@ interface Child {
     name: string;
     surname: string;
     dateOfBirth?: string;
-    membershipId: number; // Add membershipId
+    membershipId: number;
 }
 
 interface SchoolClass {
     id: number;
     label: string;
-    treasurer: { id: number; username: string };
+    treasurer: { id: number; fullName: string };
     children?: Child[];
 }
 
@@ -30,7 +30,7 @@ interface EnrollmentApplication {
     id: number;
     status: string;
     child: { id: number; name: string; surname: string };
-    parent: { id: number; username: string; email: string };
+    parent: { id: number; fullName: string; email: string };
     requestedAt: string;
 }
 
@@ -64,7 +64,7 @@ const ClassTreasurerPage: React.FC = () => {
 
         try {
             const classesResponse = await axios.get<SchoolClass[]>('/api/school-classes');
-            const myClass = classesResponse.data.find(c => c.treasurer.username === user.username);
+            const myClass = classesResponse.data.find(c => c.treasurer.id === user.id);
 
             if (!myClass) {
                 setError('Nie znaleziono klasy przypisanej do Twojego konta jako skarbnik.');
@@ -249,7 +249,7 @@ const ClassTreasurerPage: React.FC = () => {
                             <li key={app.id} style={{ borderBottom: '1px solid #eee', padding: '10px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>
                                     <strong>Dziecko:</strong> {app.child.name} {app.child.surname}<br/>
-                                    <strong>Rodzic:</strong> {app.parent.username} ({app.parent.email})<br/>
+                                    <strong>Rodzic:</strong> {app.parent.fullName} ({app.parent.email})<br/>
                                     <span style={{ fontSize: '0.8em', color: 'gray' }}>Złożono: {new Date(app.requestedAt).toLocaleString()}</span>
                                 </div>
                                 <div>
