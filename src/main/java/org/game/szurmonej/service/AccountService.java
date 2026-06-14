@@ -76,7 +76,7 @@ public class AccountService {
         if (fundraiser.getStatus() == FundraiserStatus.RECONCILING && !"Spłata długu".equals(request.getNote())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Zbiórka jest w trakcie rozliczania. Można tylko spłacać dług.");
         }
-
+        
         Account fundraiserAccount = accountRepository.findByFundraiser_Id(fundraiser.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Fundraiser account not found"));
 
@@ -188,8 +188,15 @@ public class AccountService {
 
         debit(fundraiserAccount, amount);
         credit(targetAccount, amount);
+        
+        // Also credit the treasurer's account
+        Account treasurerAccount = accountRepository.findByUser_Id(currentUser.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Treasurer account not found"));
+        credit(treasurerAccount, amount);
+        
         accountRepository.save(fundraiserAccount);
         accountRepository.save(targetAccount);
+        accountRepository.save(treasurerAccount);
 
         AccountHistoryEntry historyEntry = new AccountHistoryEntry();
         historyEntry.setAccount(fundraiserAccount);

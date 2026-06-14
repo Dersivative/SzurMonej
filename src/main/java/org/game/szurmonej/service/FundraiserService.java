@@ -202,11 +202,13 @@ public class FundraiserService {
         }
 
         List<AccountHistoryEntry> historyEntries = historyRepository.findByAccount_Fundraiser_Id(fundraiserId);
+        
+        // Correctly calculate net amount spent by the treasurer
         BigDecimal totalSpent = historyEntries.stream()
-                .filter(entry -> entry.getAmount().compareTo(BigDecimal.ZERO) < 0)
+                .filter(entry -> "WITHDRAWAL_TREASURER".equals(entry.getType()) || "DEPOSIT_TREASURER".equals(entry.getType()))
                 .map(AccountHistoryEntry::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add)
-                .abs();
+                .negate(); // Sum of withdrawals (negative) and deposits (positive) will be negative if more was spent.
 
         fundraiser.setGoalAmount(totalSpent);
         fundraiser.setStatus(FundraiserStatus.RECONCILING);
