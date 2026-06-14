@@ -59,6 +59,9 @@ class FundraiserServiceTest {
     private AccountRepository accountRepository;
 
     @Autowired
+    private ClassMembershipRepository classMembershipRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     private FinancialTestFixtures.FinancialScenario scenario;
@@ -77,7 +80,8 @@ class FundraiserServiceTest {
                 fundraiserRepository,
                 participantRepository,
                 accountRepository,
-                passwordEncoder
+                passwordEncoder,
+                classMembershipRepository
         );
     }
 
@@ -186,14 +190,14 @@ class FundraiserServiceTest {
         request2.setAmount(new BigDecimal("200.00"));
         accountService.transferToFundraiser(request2);
         
-        // 2. Treasurer withdraws 380, leaving 20 in the fundraiser account.
+        // 2. Treasurer withdraws 360, leaving 40 in the fundraiser account.
         loginAs(scenario.treasurer());
-        accountService.withdrawFromFundraiser(scenario.fundraiser().getId(), new BigDecimal("380.00"), "Withdrawal");
+        accountService.withdrawFromFundraiser(scenario.fundraiser().getId(), new BigDecimal("360.00"), "Withdrawal");
         
-        // 3. Treasurer decreases goal to 400. New cost per child is ~133.33.
-        // Overpayment per paying parent is ~66.67. Total refund needed is ~133.34.
-        // Fundraiser account only has 20.
-        fundraiserService.updateGoal(scenario.fundraiser().getId(), new BigDecimal("400.00"));
+        // 3. Treasurer decreases goal to 420. New cost per child is 140.
+        // Overpayment per paying parent is 60. Total refund needed is 120.
+        // Fundraiser account only has 40.
+        fundraiserService.updateGoal(scenario.fundraiser().getId(), new BigDecimal("420.00"));
 
         // 4. Verification
         var fundraiserAccount = accountRepository.findByFundraiser_Id(scenario.fundraiser().getId()).orElseThrow();
@@ -202,16 +206,16 @@ class FundraiserServiceTest {
         var parent1Account = accountRepository.findByUser_Id(scenario.parent().getId()).orElseThrow();
         var parent2Account = accountRepository.findByUser_Id(scenario.otherParent().getId()).orElseThrow();
         
-        // The 20 PLN should be split between the two overpaying parents
-        assertThat(parent1Account.getBalance()).isEqualByComparingTo("10.00"); // Initial 0 + 10 refund
-        assertThat(parent2Account.getBalance()).isEqualByComparingTo("10.00"); // Initial 0 + 10 refund
+        // The 40 PLN should be split between the two overpaying parents (20 each)
+        assertThat(parent1Account.getBalance()).isEqualByComparingTo("320.00"); // 500 - 200 + 20
+        assertThat(parent2Account.getBalance()).isEqualByComparingTo("320.00"); // 500 - 200 + 20
 
         var participant1 = participantRepository.findByFundraiser_IdAndChild_Id(scenario.fundraiser().getId(), scenario.child().getId()).orElseThrow();
         var participant2 = participantRepository.findByFundraiser_IdAndChild_Id(scenario.fundraiser().getId(), scenario.otherChild().getId()).orElseThrow();
         
         // Verify remaining credit
-        assertThat(participant1.getCredit()).isEqualByComparingTo("56.67"); // 66.67 - 10 refund
-        assertThat(participant2.getCredit()).isEqualByComparingTo("56.67"); // 66.67 - 10 refund
+        assertThat(participant1.getCredit()).isEqualByComparingTo("40.00"); // 60 - 20 refund
+        assertThat(participant2.getCredit()).isEqualByComparingTo("40.00"); // 60 - 20 refund
     }
 
     @Test
@@ -277,8 +281,10 @@ class FundraiserServiceTest {
     
     @Test
     void payDebt_throwsWhenUserIsNotParentOfTheChild() {
-        loginAs(scenario.otherParent());
+        loginAs(scenario.treasurer());
         fundraiserService.reconcileFundraiser(scenario.fundraiser().getId(), "Reconciliation");
+        
+        loginAs(scenario.otherParent());
         assertThatThrownBy(() -> fundraiserService.payDebt(scenario.fundraiser().getId(), scenario.child().getId()))
                 .isInstanceOf(ForbiddenOperationException.class);
     }

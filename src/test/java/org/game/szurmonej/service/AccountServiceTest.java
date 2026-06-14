@@ -2,18 +2,11 @@ package org.game.szurmonej.service;
 
 import org.game.szurmonej.dto.MoneyOperationResponse;
 import org.game.szurmonej.dto.TransferToFundraiserRequest;
-import org.game.szurmonej.entity.FundraiserParticipant;
 import org.game.szurmonej.entity.User;
 import org.game.szurmonej.exception.ForbiddenOperationException;
 import org.game.szurmonej.exception.InsufficientFundsException;
 import org.game.szurmonej.exception.ResourceNotFoundException;
-import org.game.szurmonej.repository.AccountRepository;
-import org.game.szurmonej.repository.ChildRepository;
-import org.game.szurmonej.repository.ContributionRepository;
-import org.game.szurmonej.repository.FundraiserParticipantRepository;
-import org.game.szurmonej.repository.FundraiserRepository;
-import org.game.szurmonej.repository.SchoolClassRepository;
-import org.game.szurmonej.repository.UserRepository;
+import org.game.szurmonej.repository.*;
 import org.game.szurmonej.support.FinancialTestFixtures;
 import org.game.szurmonej.support.FinancialTestFixtures.FinancialScenario;
 import org.junit.jupiter.api.AfterEach;
@@ -62,6 +55,9 @@ class AccountServiceTest {
     private ContributionRepository contributionRepository;
 
     @Autowired
+    private ClassMembershipRepository classMembershipRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     private FinancialScenario scenario;
@@ -70,6 +66,9 @@ class AccountServiceTest {
     void setUp() {
         userRepository.deleteAll();
         childRepository.deleteAll();
+        schoolClassRepository.deleteAll();
+        fundraiserRepository.deleteAll();
+        
         scenario = FinancialTestFixtures.seed(
                 userRepository,
                 childRepository,
@@ -77,7 +76,8 @@ class AccountServiceTest {
                 fundraiserRepository,
                 participantRepository,
                 accountRepository,
-                passwordEncoder
+                passwordEncoder,
+                classMembershipRepository
         );
     }
 
@@ -118,12 +118,6 @@ class AccountServiceTest {
     @Test
     void transferToFundraiser_allowsPaymentForUnrelatedChild() {
         loginAs(scenario.parent());
-
-        FundraiserParticipant otherParticipant = new FundraiserParticipant();
-        otherParticipant.setFundraiser(scenario.fundraiser());
-        otherParticipant.setChild(scenario.otherChild());
-        otherParticipant.setAddedAt(java.time.LocalDate.now());
-        participantRepository.save(otherParticipant);
 
         TransferToFundraiserRequest request = new TransferToFundraiserRequest();
         request.setFundraiserId(scenario.fundraiser().getId());
