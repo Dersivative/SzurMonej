@@ -11,6 +11,7 @@ import AddChildPage from './AddChildPage';
 import CreateClassPage from './CreateClassPage';
 import ChildFundraisersPage from './ChildFundraisersPage';
 import FundraiserDetailsPage from './FundraiserDetailsPage';
+import ChatPage from './ChatPage';
 import NavBar from './NavBar';
 import ProtectedRoute from './ProtectedRoute';
 
@@ -40,6 +41,8 @@ const Main: React.FC = () => {
           <Route path="/create-class" element={<CreateClassPage />} />
           <Route path="/child/:childId/fundraisers" element={<ChildFundraisersPage />} />
           <Route path="/fundraiser/:fundraiserId" element={<FundraiserDetailsPage />} />
+          <Route path="/chats" element={<ChatPage />} />
+          <Route path="/chats/:chatId" element={<ChatPage />} />
           <Route path="/class-management" element={<ClassTreasurerPage />} />
           <Route path="/enroll/:token" element={<EnrollmentPage />} />
           

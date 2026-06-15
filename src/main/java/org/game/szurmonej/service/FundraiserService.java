@@ -84,7 +84,12 @@ public class FundraiserService {
                     participantRepository.save(participant);
                 });
 
-        return FundraiserResponse.from(savedFundraiser, new ArrayList<>(), new ArrayList<>());
+        return FundraiserResponse.from(
+                savedFundraiser,
+                participantRepository.findByFundraiser_IdAndRemovedAtIsNull(savedFundraiser.getId()),
+                new ArrayList<>(),
+                new ArrayList<>()
+        );
     }
 
     @Transactional(readOnly = true)
@@ -101,7 +106,8 @@ public class FundraiserService {
                 .map(fundraiser -> {
                     List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_Id(fundraiser.getId());
                     List<AccountHistoryEntry> historyEntries = historyRepository.findByAccount_Fundraiser_Id(fundraiser.getId());
-                    return FundraiserResponse.from(fundraiser, contributions, historyEntries);
+                    List<FundraiserParticipant> participants = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiser.getId());
+                    return FundraiserResponse.from(fundraiser, participants, contributions, historyEntries);
                 })
                 .collect(Collectors.toList());
     }
@@ -112,8 +118,10 @@ public class FundraiserService {
         Fundraiser fundraiser = fundraiserRepository.findById(fundraiserId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono zbiórki."));
 
-        boolean isParent = fundraiser.getParticipants().stream()
-                .anyMatch(p -> p.getChild().getParents().contains(currentUser));
+        List<FundraiserParticipant> participants = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiserId);
+
+        boolean isParent = participants.stream()
+                .anyMatch(p -> isParentOfChild(currentUser, p.getChild()));
         boolean isTreasurer = fundraiser.getSchoolClass().getTreasurer().getId().equals(currentUser.getId());
 
         if (!isTreasurer && !isParent && !currentUser.isAdmin()) {
@@ -122,7 +130,9 @@ public class FundraiserService {
         
         List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_Id(fundraiserId);
         List<AccountHistoryEntry> historyEntries = historyRepository.findByAccount_Fundraiser_Id(fundraiserId);
-        return FundraiserResponse.from(fundraiser, contributions, historyEntries);
+
+        boolean parentOnlyView = isParent && !isTreasurer && !currentUser.isAdmin();
+        return FundraiserResponse.from(fundraiser, participants, contributions, historyEntries, parentOnlyView, currentUser);
     }
 
     @Transactional
@@ -153,7 +163,8 @@ public class FundraiserService {
 
         List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_Id(fundraiserId);
         List<AccountHistoryEntry> historyEntries = historyRepository.findByAccount_Fundraiser_Id(fundraiserId);
-        return FundraiserResponse.from(updatedFundraiser, contributions, historyEntries);
+        List<FundraiserParticipant> participants = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiserId);
+        return FundraiserResponse.from(updatedFundraiser, participants, contributions, historyEntries);
     }
 
     @Transactional(readOnly = true)
@@ -195,7 +206,8 @@ public class FundraiserService {
                 }
             }
 
-            return FundraiserResponse.from(fundraiser, suggestedAmount, contributions, historyEntries);
+            List<FundraiserParticipant> participants = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiser.getId());
+            return FundraiserResponse.from(fundraiser, participants, suggestedAmount, contributions, historyEntries);
         }).collect(Collectors.toList());
     }
 
@@ -356,6 +368,11 @@ public class FundraiserService {
         fundraiser.setStatus(FundraiserStatus.FINISHED);
         fundraiser.setFinishedAt(LocalDate.now());
         fundraiserRepository.save(fundraiser);
+    }
+
+    private boolean isParentOfChild(User user, Child child) {
+        return child.getParents() != null
+                && child.getParents().stream().anyMatch(parent -> parent.getId().equals(user.getId()));
     }
 
     private void refundOverpayments(Fundraiser fundraiser) {

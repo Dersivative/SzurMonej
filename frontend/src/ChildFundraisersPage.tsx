@@ -122,6 +122,15 @@ const ChildFundraisersPage: React.FC = () => {
                         ) : (
                              <p style={{ color: 'green', fontWeight: 'bold' }}>Zbiórka zakończona.</p>
                         )}
+
+                        <div style={{ marginTop: '12px' }}>
+                            <Link
+                                to={`/fundraiser/${f.id}`}
+                                style={{ textDecoration: 'none', color: '#007bff', fontWeight: 'bold' }}
+                            >
+                                Zobacz szczegóły zbiórki &rarr;
+                            </Link>
+                        </div>
                     </div>
                 ))
             )}

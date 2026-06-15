@@ -12,6 +12,8 @@ public interface ClassMembershipRepository extends JpaRepository<ClassMembership
 
     List<ClassMembership> findBySchoolClass_Id(Long schoolClassId);
 
+    List<ClassMembership> findByChild_IdAndLeftAtIsNull(Long childId);
+
     Optional<ClassMembership> findBySchoolClass_IdAndChild_IdAndLeftAtIsNull(Long schoolClassId, Long childId);
 
     boolean existsByChild_IdAndLeftAtIsNull(Long childId);

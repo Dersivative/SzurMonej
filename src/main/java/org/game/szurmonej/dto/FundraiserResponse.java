@@ -6,10 +6,13 @@ import lombok.Setter;
 import org.game.szurmonej.entity.AccountHistoryEntry;
 import org.game.szurmonej.entity.Contribution;
 import org.game.szurmonej.entity.Fundraiser;
+import org.game.szurmonej.entity.FundraiserParticipant;
 import org.game.szurmonej.entity.FundraiserStatus;
+import org.game.szurmonej.entity.User;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -29,16 +32,51 @@ public class FundraiserResponse {
     private LocalDate startedAt;
     private LocalDate endedAt;
     private FundraiserStatus status;
+    private TreasurerResponse treasurer;
+    private String classLabel;
+    private boolean parentView;
     private List<ParticipantResponse> participants;
     private List<FundraiserHistoryEntryResponse> history;
 
     public static FundraiserResponse from(Fundraiser fundraiser, BigDecimal suggestedContribution, List<Contribution> contributions, List<AccountHistoryEntry> historyEntries) {
-        FundraiserResponse response = from(fundraiser, contributions, historyEntries);
+        FundraiserResponse response = from(fundraiser, fundraiser.getParticipants(), contributions, historyEntries);
+        response.setSuggestedContribution(suggestedContribution);
+        return response;
+    }
+
+    public static FundraiserResponse from(
+            Fundraiser fundraiser,
+            List<FundraiserParticipant> participants,
+            BigDecimal suggestedContribution,
+            List<Contribution> contributions,
+            List<AccountHistoryEntry> historyEntries
+    ) {
+        FundraiserResponse response = from(fundraiser, participants, contributions, historyEntries, false, null);
         response.setSuggestedContribution(suggestedContribution);
         return response;
     }
 
     public static FundraiserResponse from(Fundraiser fundraiser, List<Contribution> contributions, List<AccountHistoryEntry> historyEntries) {
+        return from(fundraiser, fundraiser.getParticipants(), contributions, historyEntries, false, null);
+    }
+
+    public static FundraiserResponse from(
+            Fundraiser fundraiser,
+            List<FundraiserParticipant> participants,
+            List<Contribution> contributions,
+            List<AccountHistoryEntry> historyEntries
+    ) {
+        return from(fundraiser, participants, contributions, historyEntries, false, null);
+    }
+
+    public static FundraiserResponse from(
+            Fundraiser fundraiser,
+            List<FundraiserParticipant> participants,
+            List<Contribution> contributions,
+            List<AccountHistoryEntry> historyEntries,
+            boolean parentView,
+            User currentUser
+    ) {
         FundraiserResponse response = new FundraiserResponse();
         response.setId(fundraiser.getId());
         response.setTitle(fundraiser.getTitle());
@@ -47,6 +85,15 @@ public class FundraiserResponse {
         response.setStartedAt(fundraiser.getStartedAt());
         response.setEndedAt(fundraiser.getFinishedAt());
         response.setStatus(fundraiser.getStatus());
+        response.setParentView(parentView);
+
+        if (fundraiser.getSchoolClass() != null) {
+            response.setClassLabel(fundraiser.getSchoolClass().getLabel());
+            if (fundraiser.getSchoolClass().getTreasurer() != null) {
+                User treasurer = fundraiser.getSchoolClass().getTreasurer();
+                response.setTreasurer(new TreasurerResponse(treasurer.getId(), treasurer.getFullName()));
+            }
+        }
 
         BigDecimal currentAmount = contributions.stream()
                 .map(Contribution::getAmount)
@@ -56,18 +103,31 @@ public class FundraiserResponse {
         Map<Long, List<Contribution>> contributionsByParticipant = contributions.stream()
                 .collect(Collectors.groupingBy(c -> c.getParticipant().getId()));
 
-        List<ParticipantResponse> participantResponses = fundraiser.getParticipants().stream()
+        List<ParticipantResponse> participantResponses = participants.stream()
+                .filter(p -> p.getRemovedAt() == null)
+                .filter(p -> !parentView || isChildOfUser(p, currentUser))
                 .map(p -> ParticipantResponse.from(p, contributionsByParticipant.get(p.getId())))
                 .collect(Collectors.toList());
         response.setParticipants(participantResponses);
 
-        List<FundraiserHistoryEntryResponse> history = Stream.concat(
-                contributions.stream().map(FundraiserHistoryEntryResponse::from),
-                historyEntries.stream().map(FundraiserHistoryEntryResponse::from)
-        ).sorted((a, b) -> b.getDate().compareTo(a.getDate())).collect(Collectors.toList());
-        response.setHistory(history);
+        if (parentView) {
+            response.setHistory(Collections.emptyList());
+        } else {
+            List<FundraiserHistoryEntryResponse> history = Stream.concat(
+                    contributions.stream().map(FundraiserHistoryEntryResponse::from),
+                    historyEntries.stream().map(FundraiserHistoryEntryResponse::from)
+            ).sorted((a, b) -> b.getDate().compareTo(a.getDate())).collect(Collectors.toList());
+            response.setHistory(history);
+        }
 
         return response;
+    }
+
+    private static boolean isChildOfUser(FundraiserParticipant participant, User user) {
+        return user != null
+                && participant.getChild().getParents() != null
+                && participant.getChild().getParents().stream()
+                .anyMatch(parent -> parent.getId().equals(user.getId()));
     }
 
     public static FundraiserResponse from(Fundraiser fundraiser) {

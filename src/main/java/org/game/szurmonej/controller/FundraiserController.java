@@ -48,7 +48,7 @@ public class FundraiserController {
         return ResponseEntity.ok(fundraiserService.getFundraisersForChild(childId));
     }
 
-    @Operation(summary = "Pobierz szczegóły jednej zbiórki (tylko skarbnik/admin)")
+    @Operation(summary = "Pobierz szczegóły zbiórki (skarbnik/admin: pełny widok; rodzic: widok ograniczony)")
     @GetMapping("/api/fundraisers/{fundraiserId}")
     public ResponseEntity<FundraiserResponse> getFundraiserDetails(@PathVariable Long fundraiserId) {
         return ResponseEntity.ok(fundraiserService.getFundraiserDetails(fundraiserId));

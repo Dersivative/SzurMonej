@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import CreateFundraiser from './CreateFundraiser';
+import { getOrCreateClassChat } from './api/chatApi';
 
 interface Child {
     id: number;
@@ -49,6 +50,7 @@ interface Fundraiser {
 
 const ClassTreasurerPage: React.FC = () => {
     const { user, isAuthenticated } = useAuth();
+    const navigate = useNavigate();
     const [managedClass, setManagedClass] = useState<SchoolClass | null>(null);
     const [enrollmentLink, setEnrollmentLink] = useState<EnrollmentLink | null>(null);
     const [applications, setApplications] = useState<EnrollmentApplication[]>([]);
@@ -152,6 +154,17 @@ const ClassTreasurerPage: React.FC = () => {
         }
     };
 
+    const handleOpenClassChat = async () => {
+        if (!managedClass) return;
+        try {
+            const chat = await getOrCreateClassChat(managedClass.id);
+            navigate(`/chats/${chat.id}`);
+        } catch (err: any) {
+            const msg = err.response?.data?.error || 'Nie udało się otworzyć czatu klasy.';
+            alert(msg);
+        }
+    };
+
     if (!isAuthenticated) return <Navigate to="/user" />;
     if (loading) return <div>Ładowanie danych klasy...</div>;
     if (error) return <div style={{ color: 'red' }}>{error}</div>;
@@ -168,6 +181,15 @@ const ClassTreasurerPage: React.FC = () => {
             )}
 
             <h1>Zarządzanie klasą: {managedClass.label}</h1>
+
+            <div style={{ marginBottom: '20px' }}>
+                <button
+                    onClick={handleOpenClassChat}
+                    style={{ padding: '10px 16px', backgroundColor: '#6f42c1', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
+                >
+                    Otwórz czat klasy
+                </button>
+            </div>
 
             <div style={{ border: '1px solid #ccc', padding: '15px', marginBottom: '20px', borderRadius: '5px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>

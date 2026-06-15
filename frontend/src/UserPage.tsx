@@ -69,10 +69,17 @@ const UserPage: React.FC = () => {
 
   return (
     <div style={{ padding: '20px' }}>
-      <h1>Witaj, {user?.username}!</h1>
+      <h1>Witaj, {user?.fullName}!</h1>
       <p>Twój adres email: {user?.email}</p>
 
       <div style={{ marginTop: '30px', marginBottom: '30px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+        <Link to="/chats" style={{ textDecoration: 'none' }}>
+            <div style={{ padding: '15px', backgroundColor: '#f3e8ff', border: '1px solid #9b59b6', borderRadius: '5px', textAlign: 'center', cursor: 'pointer' }}>
+                <h3 style={{ margin: 0, color: '#6f42c1' }}>Czaty</h3>
+                <p style={{ margin: '5px 0 0', color: '#6f42c1' }}>Wiadomości z rodzicami, skarbnikiem i grupami</p>
+            </div>
+        </Link>
         
         {managedClasses.length > 0 && (
             <div>

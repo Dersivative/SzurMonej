@@ -48,9 +48,9 @@ public final class FinancialTestFixtures {
         createUserAccount(accountRepository, treasurer, new BigDecimal("500.00"));
 
         // Create Children and link to parents
-        Child child = saveChild(childRepository, "Adam", "Kowalski", parent);
-        Child otherChild = saveChild(childRepository, "Ewa", "Nowak", otherParent);
-        Child treasurerChild = saveChild(childRepository, "Krzysztof", "Skarbnikowski", treasurer);
+        Child child = saveChild(childRepository, userRepository, "Adam", "Kowalski", parent);
+        Child otherChild = saveChild(childRepository, userRepository, "Ewa", "Nowak", otherParent);
+        Child treasurerChild = saveChild(childRepository, userRepository, "Krzysztof", "Skarbnikowski", treasurer);
 
         // Create School Class and link treasurer
         SchoolClass schoolClass = new SchoolClass();
@@ -85,14 +85,17 @@ public final class FinancialTestFixtures {
         return new FinancialScenario(parent, otherParent, treasurer, child, otherChild, schoolClass, fundraiser, participant1);
     }
 
-    private static Child saveChild(ChildRepository repository, String name, String surname, User parent) {
+    private static Child saveChild(ChildRepository repository, UserRepository userRepository, String name, String surname, User parent) {
         Child child = new Child();
         child.setName(name);
         child.setSurname(surname);
         child.setDateOfBirth(LocalDate.of(2015, 1, 1));
-        child.setParents(new HashSet<>(Set.of(parent)));
-        parent.setChildren(new HashSet<>(Set.of(child)));
-        return repository.save(child);
+        Child savedChild = repository.save(child);
+
+        savedChild.setParents(new HashSet<>(Set.of(parent)));
+        parent.setChildren(new HashSet<>(Set.of(savedChild)));
+        userRepository.save(parent);
+        return savedChild;
     }
 
     private static User saveUser(

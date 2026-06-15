@@ -166,9 +166,51 @@ class FundraiserServiceTest {
 
     @Test
     void getFundraiserDetails_throwsWhenUserIsNotParticipantParent() {
-        loginAs(scenario.otherParent());
+        User unrelatedParent = saveUnrelatedParent();
+        loginAs(unrelatedParent);
         assertThatThrownBy(() -> fundraiserService.getFundraiserDetails(scenario.fundraiser().getId()))
                 .isInstanceOf(ForbiddenOperationException.class);
+    }
+
+    @Test
+    void getFundraiserDetails_otherParentSeesOnlyOwnChild() {
+        loginAs(scenario.otherParent());
+        FundraiserResponse response = fundraiserService.getFundraiserDetails(scenario.fundraiser().getId());
+
+        assertThat(response.isParentView()).isTrue();
+        assertThat(response.getParticipants()).hasSize(1);
+        assertThat(response.getParticipants().get(0).getChildId()).isEqualTo(scenario.otherChild().getId());
+        assertThat(response.getHistory()).isEmpty();
+    }
+
+    @Test
+    void getFundraiserDetails_parentSeesOnlyOwnChildrenAndLimitedData() {
+        loginAs(scenario.parent());
+        TransferToFundraiserRequest request = new TransferToFundraiserRequest();
+        request.setFundraiserId(scenario.fundraiser().getId());
+        request.setChildId(scenario.child().getId());
+        request.setAmount(new BigDecimal("50.00"));
+        accountService.transferToFundraiser(request);
+
+        FundraiserResponse response = fundraiserService.getFundraiserDetails(scenario.fundraiser().getId());
+
+        assertThat(response.isParentView()).isTrue();
+        assertThat(response.getTreasurer()).isNotNull();
+        assertThat(response.getClassLabel()).isNotNull();
+        assertThat(response.getHistory()).isEmpty();
+        assertThat(response.getParticipants()).hasSize(1);
+        assertThat(response.getParticipants().get(0).getChildId()).isEqualTo(scenario.child().getId());
+        assertThat(response.getParticipants().get(0).getContributions()).hasSize(1);
+        assertThat(response.getParticipants().get(0).getTotalContribution()).isEqualByComparingTo("50.00");
+    }
+
+    @Test
+    void getFundraiserDetails_treasurerSeesFullData() {
+        loginAs(scenario.treasurer());
+        FundraiserResponse response = fundraiserService.getFundraiserDetails(scenario.fundraiser().getId());
+
+        assertThat(response.isParentView()).isFalse();
+        assertThat(response.getParticipants().size()).isGreaterThanOrEqualTo(2);
     }
 
     // --- Fundraiser Lifecycle and Edge Case Tests ---
@@ -309,6 +351,16 @@ class FundraiserServiceTest {
         
         assertThatThrownBy(() -> fundraiserService.payDebt(scenario.fundraiser().getId(), scenario.child().getId()))
                 .isInstanceOf(ResponseStatusException.class);
+    }
+
+    private User saveUnrelatedParent() {
+        User user = new User();
+        user.setEmail("niepowiazany@example.com");
+        user.setFirstName("Niepowiazany");
+        user.setLastName("Rodzic");
+        user.setPasswordHash(passwordEncoder.encode("pass123"));
+        user.setAdmin(false);
+        return userRepository.save(user);
     }
 
     private void loginAs(User user) {
