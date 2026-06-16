@@ -173,18 +173,7 @@ class FundraiserServiceTest {
     }
 
     @Test
-    void getFundraiserDetails_otherParentSeesOnlyOwnChild() {
-        loginAs(scenario.otherParent());
-        FundraiserResponse response = fundraiserService.getFundraiserDetails(scenario.fundraiser().getId());
-
-        assertThat(response.isParentView()).isTrue();
-        assertThat(response.getParticipants()).hasSize(1);
-        assertThat(response.getParticipants().get(0).getChildId()).isEqualTo(scenario.otherChild().getId());
-        assertThat(response.getHistory()).isEmpty();
-    }
-
-    @Test
-    void getFundraiserDetails_parentSeesOnlyOwnChildrenAndLimitedData() {
+    void getFundraiserDetails_parentSeesFullData() {
         loginAs(scenario.parent());
         TransferToFundraiserRequest request = new TransferToFundraiserRequest();
         request.setFundraiserId(scenario.fundraiser().getId());
@@ -194,14 +183,9 @@ class FundraiserServiceTest {
 
         FundraiserResponse response = fundraiserService.getFundraiserDetails(scenario.fundraiser().getId());
 
-        assertThat(response.isParentView()).isTrue();
-        assertThat(response.getTreasurer()).isNotNull();
-        assertThat(response.getClassLabel()).isNotNull();
-        assertThat(response.getHistory()).isEmpty();
-        assertThat(response.getParticipants()).hasSize(1);
-        assertThat(response.getParticipants().get(0).getChildId()).isEqualTo(scenario.child().getId());
-        assertThat(response.getParticipants().get(0).getContributions()).hasSize(1);
-        assertThat(response.getParticipants().get(0).getTotalContribution()).isEqualByComparingTo("50.00");
+        // Now parent sees full data, no longer filtered
+        assertThat(response.getParticipants().size()).isGreaterThanOrEqualTo(2);
+        assertThat(response.getHistory()).isNotEmpty();
     }
 
     @Test
@@ -209,8 +193,8 @@ class FundraiserServiceTest {
         loginAs(scenario.treasurer());
         FundraiserResponse response = fundraiserService.getFundraiserDetails(scenario.fundraiser().getId());
 
-        assertThat(response.isParentView()).isFalse();
         assertThat(response.getParticipants().size()).isGreaterThanOrEqualTo(2);
+        assertThat(response.getHistory()).isNotEmpty();
     }
 
     // --- Fundraiser Lifecycle and Edge Case Tests ---

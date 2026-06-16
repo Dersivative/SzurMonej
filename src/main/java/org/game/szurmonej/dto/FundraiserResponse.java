@@ -31,8 +31,9 @@ public class FundraiserResponse {
     private FundraiserType fundraiserType;
     private BigDecimal perChildAmount;
     private TreasurerResponse treasurer;
+    private Long classId;
     private String classLabel;
-    private boolean parentView;
+    // private boolean parentView; // Removed
     private List<ParticipantResponse> participants;
     private List<ChildResponse> nonParticipants;
     private List<FundraiserHistoryEntryResponse> history;
@@ -50,13 +51,13 @@ public class FundraiserResponse {
             List<Contribution> contributions,
             List<AccountHistoryEntry> historyEntries
     ) {
-        FundraiserResponse response = from(fundraiser, participants, contributions, historyEntries, false, null);
+        FundraiserResponse response = from(fundraiser, participants, contributions, historyEntries, false, null); // parentView and currentUser are now ignored
         response.setSuggestedContribution(suggestedContribution);
         return response;
     }
 
     public static FundraiserResponse from(Fundraiser fundraiser, List<Contribution> contributions, List<AccountHistoryEntry> historyEntries) {
-        return from(fundraiser, fundraiser.getParticipants(), contributions, historyEntries, false, null);
+        return from(fundraiser, fundraiser.getParticipants(), contributions, historyEntries, false, null); // parentView and currentUser are now ignored
     }
 
     public static FundraiserResponse from(
@@ -65,7 +66,7 @@ public class FundraiserResponse {
             List<Contribution> contributions,
             List<AccountHistoryEntry> historyEntries
     ) {
-        return from(fundraiser, participants, contributions, historyEntries, false, null);
+        return from(fundraiser, participants, contributions, historyEntries, false, null); // parentView and currentUser are now ignored
     }
 
     public static FundraiserResponse from(
@@ -73,8 +74,8 @@ public class FundraiserResponse {
             List<FundraiserParticipant> participants,
             List<Contribution> contributions,
             List<AccountHistoryEntry> historyEntries,
-            boolean parentView,
-            User currentUser
+            boolean parentView, // This parameter is now ignored for filtering
+            User currentUser // This parameter is now ignored for filtering
     ) {
         FundraiserResponse response = new FundraiserResponse();
         response.setId(fundraiser.getId());
@@ -86,28 +87,28 @@ public class FundraiserResponse {
         response.setStartedAt(fundraiser.getStartedAt());
         response.setEndedAt(fundraiser.getFinishedAt());
         response.setStatus(fundraiser.getStatus());
-        response.setParentView(parentView);
+        // response.setParentView(parentView); // Removed
 
         if (fundraiser.getSchoolClass() != null) {
+            response.setClassId(fundraiser.getSchoolClass().getId());
             response.setClassLabel(fundraiser.getSchoolClass().getLabel());
             if (fundraiser.getSchoolClass().getTreasurer() != null) {
                 User treasurer = fundraiser.getSchoolClass().getTreasurer();
                 response.setTreasurer(new TreasurerResponse(treasurer.getId(), treasurer.getFullName()));
             }
 
-            if (!parentView) {
-                Set<Long> participantChildIds = participants.stream()
-                        .filter(p -> p.getRemovedAt() == null)
-                        .map(p -> p.getChild().getId())
-                        .collect(Collectors.toSet());
+            // nonParticipants logic remains, as it's only relevant for treasurer view
+            Set<Long> participantChildIds = participants.stream()
+                    .filter(p -> p.getRemovedAt() == null)
+                    .map(p -> p.getChild().getId())
+                    .collect(Collectors.toSet());
 
-                List<ChildResponse> nonParticipants = fundraiser.getSchoolClass().getMemberships().stream()
-                        .filter(m -> m.getLeftAt() == null)
-                        .filter(m -> !participantChildIds.contains(m.getChild().getId()))
-                        .map(m -> ChildResponse.from(m.getChild()))
-                        .collect(Collectors.toList());
-                response.setNonParticipants(nonParticipants);
-            }
+            List<ChildResponse> nonParticipants = fundraiser.getSchoolClass().getMemberships().stream()
+                    .filter(m -> m.getLeftAt() == null)
+                    .filter(m -> !participantChildIds.contains(m.getChild().getId()))
+                    .map(m -> ChildResponse.from(m.getChild()))
+                    .collect(Collectors.toList());
+            response.setNonParticipants(nonParticipants);
         }
 
         BigDecimal currentAmount = contributions.stream()
@@ -118,23 +119,19 @@ public class FundraiserResponse {
         Map<Long, List<Contribution>> contributionsByParticipant = contributions.stream()
                 .collect(Collectors.groupingBy(c -> c.getParticipant().getId()));
 
+        // Participants are no longer filtered by parentView here
         List<ParticipantResponse> participantResponses = participants.stream()
                 .filter(p -> p.getRemovedAt() == null)
-                .filter(p -> !parentView || isChildOfUser(p, currentUser))
                 .map(p -> ParticipantResponse.from(p, contributionsByParticipant.get(p.getId())))
                 .collect(Collectors.toList());
         response.setParticipants(participantResponses);
 
-        if (parentView) {
-            response.setHistory(Collections.emptyList());
-            response.setNonParticipants(Collections.emptyList());
-        } else {
-            List<FundraiserHistoryEntryResponse> history = Stream.concat(
-                    contributions.stream().map(FundraiserHistoryEntryResponse::from),
-                    historyEntries.stream().map(FundraiserHistoryEntryResponse::from)
-            ).sorted((a, b) -> b.getDate().compareTo(a.getDate())).collect(Collectors.toList());
-            response.setHistory(history);
-        }
+        // History is no longer filtered by parentView here
+        List<FundraiserHistoryEntryResponse> history = Stream.concat(
+                contributions.stream().map(FundraiserHistoryEntryResponse::from),
+                historyEntries.stream().map(FundraiserHistoryEntryResponse::from)
+        ).sorted((a, b) -> b.getDate().compareTo(a.getDate())).collect(Collectors.toList());
+        response.setHistory(history);
 
         return response;
     }
@@ -157,6 +154,10 @@ public class FundraiserResponse {
         response.setStartedAt(fundraiser.getStartedAt());
         response.setEndedAt(fundraiser.getFinishedAt());
         response.setStatus(fundraiser.getStatus());
+        if (fundraiser.getSchoolClass() != null) {
+            response.setClassId(fundraiser.getSchoolClass().getId());
+            response.setClassLabel(fundraiser.getSchoolClass().getLabel());
+        }
         return response;
     }
 }

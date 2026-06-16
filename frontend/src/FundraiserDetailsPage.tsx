@@ -39,7 +39,6 @@ interface FundraiserDetails {
     status: 'ACTIVE' | 'RECONCILING' | 'FINISHED';
     fundraiserType: 'TOTAL_GOAL' | 'PER_CHILD_GOAL';
     perChildAmount?: number;
-    parentView: boolean;
     classId?: number;
     classLabel?: string;
     treasurer?: { id: number; fullName: string };
@@ -88,9 +87,7 @@ const FundraiserDetailsPage: React.FC = () => {
             setLoading(true);
             const response = await axios.get<FundraiserDetails>(`/api/fundraisers/${fundraiserId}`);
             setFundraiser(response.data);
-            console.log("Fetched Fundraiser Details:", response.data);
-        } catch (err) {
-            console.error("Error fetching data:", err);
+        } catch {
             setError('Nie udało się pobrać szczegółów zbiórki.');
         } finally {
             setLoading(false);
@@ -250,11 +247,10 @@ const FundraiserDetailsPage: React.FC = () => {
     if (error) return <div style={{ color: 'red' }}>{error}</div>;
     if (!fundraiser) return <div>Nie znaleziono zbiórki.</div>;
 
-    const isTreasurer = user?.isTreasurer && !fundraiser.parentView;
-    const isCurrentUserChild = (childId: number) => user?.children.some(child => child.id === childId);
+    const isTreasurer = user?.isTreasurer;
     const allDebtsPaid = fundraiser.participants.every(p => !p.debt || p.debt === 0);
-    const backLink = fundraiser.parentView ? '/user' : '/class-management';
-    const backLabel = fundraiser.parentView ? 'Powrót do konta' : 'Powrót do zarządzania klasą';
+    const backLink = isTreasurer ? '/class-management' : '/user';
+    const backLabel = isTreasurer ? 'Powrót do zarządzania klasą' : 'Powrót do konta';
 
     const renderGeneralInfo = () => (
         <div style={{ border: '1px solid #dee2e6', borderRadius: '8px', padding: '16px', marginBottom: '20px', backgroundColor: '#f8f9fa' }}>
@@ -272,69 +268,7 @@ const FundraiserDetailsPage: React.FC = () => {
         </div>
     );
 
-    const renderParentChildren = () => (
-        <div>
-            <h3>Twoje dzieci w tej zbiórce</h3>
-            {fundraiser.participants.length === 0 ? (
-                <p>Żadne z Twoich dzieci nie uczestniczy w tej zbiórce.</p>
-            ) : (
-                fundraiser.participants.map(participant => (
-                    <div key={participant.childId} style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
-                        <h4 style={{ margin: '0 0 8px' }}>
-                            {participant.childFirstName || participant.childName.split(' ')[0]}{' '}
-                            {participant.childSurname || participant.childName.split(' ').slice(1).join(' ')}
-                        </h4>
-                        <p>
-                            <strong>Łącznie wpłacono:</strong>{' '}
-                            {participant.totalContribution > 0
-                                ? `${participant.totalContribution.toFixed(2)} PLN`
-                                : 'Brak wpłat'}
-                        </p>
-                        {participant.debt && participant.debt > 0 && (
-                            <p style={{ color: '#c0392b' }}><strong>Dług do spłaty:</strong> {participant.debt.toFixed(2)} PLN</p>
-                        )}
-                        {participant.credit && participant.credit > 0 && (
-                            <p style={{ color: '#27ae60' }}><strong>Nadpłata:</strong> {participant.credit.toFixed(2)} PLN</p>
-                        )}
-                        {participant.contributions && participant.contributions.length > 0 ? (
-                            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
-                                <thead>
-                                    <tr style={{ backgroundColor: '#e9ecef', textAlign: 'left' }}>
-                                        <th style={{ padding: '8px', border: '1px solid #dee2e6' }}>Data wpłaty</th>
-                                        <th style={{ padding: '8px', border: '1px solid #dee2e6' }}>Kwota</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {participant.contributions.map((c, idx) => (
-                                        <tr key={idx}>
-                                            <td style={{ padding: '8px', border: '1px solid #dee2e6' }}>
-                                                {new Date(c.paidAt).toLocaleString('pl-PL')}
-                                            </td>
-                                            <td style={{ padding: '8px', border: '1px solid #dee2e6' }}>
-                                                {c.amount.toFixed(2)} PLN
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        ) : (
-                            <p style={{ color: '#666' }}>Brak zarejestrowanych wpłat za to dziecko.</p>
-                        )}
-                        {fundraiser.status === 'RECONCILING' && participant.debt && participant.debt > 0 && isCurrentUserChild(participant.childId) && (
-                            <button
-                                onClick={() => handlePayDebt(participant.childId)}
-                                style={{ marginTop: '12px', padding: '8px 14px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}
-                            >
-                                Spłać dług ({participant.debt.toFixed(2)} PLN)
-                            </button>
-                        )}
-                    </div>
-                ))
-            )}
-        </div>
-    );
-
-    const renderTreasurerParticipants = () => {
+    const renderAllParticipants = () => {
         const expectedPerChild = fundraiser.fundraiserType === 'PER_CHILD_GOAL' && fundraiser.perChildAmount 
             ? fundraiser.perChildAmount 
             : (fundraiser.participants.length > 0 ? fundraiser.goalAmount / fundraiser.participants.length : 0);
@@ -359,7 +293,7 @@ const FundraiserDetailsPage: React.FC = () => {
                         </thead>
                         <tbody>
                             {fundraiser.participants.map(p => {
-                                const isPaid = p.totalContribution >= (expectedPerChild - 0.01); // Epsilon dla bezpiecznosci zapisu zmiennoprzecinkowego
+                                const isPaid = p.totalContribution >= (expectedPerChild - 0.01);
                                 return (
                                     <tr key={p.childId}>
                                         <td style={{ padding: '10px', border: '1px solid #dee2e6' }}>
@@ -402,13 +336,11 @@ const FundraiserDetailsPage: React.FC = () => {
 
             {renderGeneralInfo()}
 
-            {!fundraiser.parentView && (
-                <div style={{ backgroundColor: '#e9ecef', borderRadius: '5px', height: '24px', width: '100%', overflow: 'hidden', marginBottom: '15px' }}>
-                    <div style={{ backgroundColor: '#28a745', height: '100%', width: `${Math.min((fundraiser.currentAmount / fundraiser.goalAmount) * 100, 100)}%`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.8em' }}>
-                        {((fundraiser.currentAmount / fundraiser.goalAmount) * 100).toFixed(0)}%
-                    </div>
+            <div style={{ backgroundColor: '#e9ecef', borderRadius: '5px', height: '24px', width: '100%', overflow: 'hidden', marginBottom: '15px' }}>
+                <div style={{ backgroundColor: '#28a745', height: '100%', width: `${Math.min((fundraiser.currentAmount / fundraiser.goalAmount) * 100, 100)}%`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.8em' }}>
+                    {((fundraiser.currentAmount / fundraiser.goalAmount) * 100).toFixed(0)}%
                 </div>
-            )}
+            </div>
 
             <button
                 onClick={handleOpenFundraiserChat}
@@ -417,17 +349,13 @@ const FundraiserDetailsPage: React.FC = () => {
                 Otwórz czat zbiórki
             </button>
 
-            {fundraiser.parentView ? (
-                <>
-                    {renderParentChildren()}
-                </>
-            ) : (
-                <>
-                    {renderTreasurerParticipants()}
+            {renderAllParticipants()}
 
-                    {actionError && <div style={{ color: 'red', marginTop: '10px', padding: '10px', border: '1px solid red', borderRadius: '4px', whiteSpace: 'pre-wrap' }}>{actionError}</div>}
+            {actionError && <div style={{ color: 'red', marginTop: '10px', padding: '10px', border: '1px solid red', borderRadius: '4px', whiteSpace: 'pre-wrap' }}>{actionError}</div>}
 
-                    {fundraiser.status === 'ACTIVE' && isTreasurer && (
+            {isTreasurer && (
+                <>
+                    {fundraiser.status === 'ACTIVE' && (
                         <div style={{ display: 'flex', gap: '20px', margin: '30px 0' }}>
                             <div style={{ flex: 1, padding: '20px', border: '1px solid #ccc', borderRadius: '8px', backgroundColor: '#f8f9fa' }}>
                                 <h4>Akcje Skarbnika</h4>
@@ -469,7 +397,7 @@ const FundraiserDetailsPage: React.FC = () => {
                         </div>
                     )}
 
-                    {fundraiser.status === 'FINISHED' && isTreasurer && (
+                    {fundraiser.status === 'FINISHED' && (
                         <button onClick={handleReopen} style={{ marginTop: '20px', padding: '10px 15px', backgroundColor: '#ffc107', color: 'black', border: 'none', borderRadius: '4px' }}>
                             Wznów zbiórkę
                         </button>
@@ -491,7 +419,7 @@ const FundraiserDetailsPage: React.FC = () => {
                         <div style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '20px', marginBottom: '30px', backgroundColor: '#fff3cd' }}>
                             <h3 style={{ marginTop: 0 }}>Rozliczanie</h3>
                             <p>Po opłaceniu wszystkich należności przez rodziców, skarbnik może zrealizować ewentualne zwroty i ostatecznie zamknąć zbiórkę.</p>
-                            {isTreasurer && allDebtsPaid ? (
+                            {allDebtsPaid ? (
                                 <button onClick={handleSettle} style={{ marginTop: '10px', padding: '10px 15px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>
                                     Zakończ rozliczanie i zwróć nadpłaty
                                 </button>
@@ -502,37 +430,37 @@ const FundraiserDetailsPage: React.FC = () => {
                             )}
                         </div>
                     )}
-
-                    <div>
-                        <h3>Historia operacji</h3>
-                        <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />
-                        <ul style={{ listStyleType: 'none', padding: 0 }}>
-                            {fundraiser.history.map((entry) => (
-                                <li key={entry.id} style={{ borderBottom: '1px solid #eee', padding: '12px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div>
-                                        <strong>{entry.description}</strong>
-                                        <div style={{ fontSize: '0.8em', color: 'gray' }}>
-                                            {new Date(entry.date).toLocaleString()} - <span style={{ fontStyle: 'italic' }}>{entry.type}</span>
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                                        <span style={{ color: entry.amount > 0 ? 'green' : 'red', fontWeight: 'bold', fontSize: '1.1em', marginRight: '20px' }}>
-                                            {entry.amount > 0 ? '+' : ''}{entry.amount.toFixed(2)} PLN
-                                        </span>
-                                        {isTreasurer && (entry.type === 'Wpłata skarbnika' || entry.type === 'Wypłata skarbnika') && (
-                                            entry.hasAttachment ? (
-                                                <a href={`/api/attachments/download/${entry.id}`} target="_blank" rel="noopener noreferrer">Pobierz dowód</a>
-                                            ) : (
-                                                <button onClick={() => handleUploadClick(entry.id)}>Wgraj dowód</button>
-                                            )
-                                        )}
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
                 </>
             )}
+
+            <div>
+                <h3>Historia operacji</h3>
+                <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />
+                <ul style={{ listStyleType: 'none', padding: 0 }}>
+                    {fundraiser.history.map((entry) => (
+                        <li key={entry.id} style={{ borderBottom: '1px solid #eee', padding: '12px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <strong>{entry.description}</strong>
+                                <div style={{ fontSize: '0.8em', color: 'gray' }}>
+                                    {new Date(entry.date).toLocaleString()} - <span style={{ fontStyle: 'italic' }}>{entry.type}</span>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                <span style={{ color: entry.amount > 0 ? 'green' : 'red', fontWeight: 'bold', fontSize: '1.1em', marginRight: '20px' }}>
+                                    {entry.amount > 0 ? '+' : ''}{entry.amount.toFixed(2)} PLN
+                                </span>
+                                {isTreasurer && (entry.type === 'Wpłata skarbnika' || entry.type === 'Wypłata skarbnika') && (
+                                    entry.hasAttachment ? (
+                                        <a href={`/api/attachments/download/${entry.id}`} target="_blank" rel="noopener noreferrer">Pobierz dowód</a>
+                                    ) : (
+                                        <button onClick={() => handleUploadClick(entry.id)}>Wgraj dowód</button>
+                                    )
+                                )}
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            </div>
         </div>
     );
 };
