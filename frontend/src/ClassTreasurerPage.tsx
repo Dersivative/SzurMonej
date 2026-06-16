@@ -175,6 +175,7 @@ const ClassTreasurerPage: React.FC = () => {
             {isCreateFundraiserOpen && (
                 <CreateFundraiser 
                     classId={managedClass.id}
+                    children={managedClass.children || []}
                     onSuccess={fetchData}
                     onClose={() => setCreateFundraiserOpen(false)}
                 />

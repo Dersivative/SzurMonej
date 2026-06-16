@@ -64,7 +64,24 @@ public class FundraiserService {
         fundraiser.setSchoolClass(schoolClass);
         fundraiser.setStartedAt(LocalDate.now());
 
-        long numberOfChildren = schoolClass.getMemberships().stream().filter(m -> m.getLeftAt() == null).count();
+        List<ClassMembership> activeMemberships = schoolClass.getMemberships().stream()
+                .filter(m -> m.getLeftAt() == null)
+                .collect(Collectors.toList());
+
+        List<Child> participatingChildren;
+        if (request.getParticipantIds() != null && !request.getParticipantIds().isEmpty()) {
+            participatingChildren = activeMemberships.stream()
+                    .map(ClassMembership::getChild)
+                    .filter(c -> request.getParticipantIds().contains(c.getId()))
+                    .collect(Collectors.toList());
+        } else {
+            // Default to all children if no specific IDs are provided
+            participatingChildren = activeMemberships.stream()
+                    .map(ClassMembership::getChild)
+                    .collect(Collectors.toList());
+        }
+
+        long numberOfChildren = participatingChildren.size();
 
         if (request.getFundraiserType() == FundraiserType.TOTAL_GOAL) {
             if (request.getGoalAmount() == null || request.getGoalAmount().compareTo(BigDecimal.ZERO) <= 0) {
@@ -92,15 +109,13 @@ public class FundraiserService {
 
         Fundraiser savedFundraiser = fundraiserRepository.save(fundraiser);
 
-        schoolClass.getMemberships().stream()
-                .filter(m -> m.getLeftAt() == null)
-                .forEach(membership -> {
-                    FundraiserParticipant participant = new FundraiserParticipant();
-                    participant.setFundraiser(savedFundraiser);
-                    participant.setChild(membership.getChild());
-                    participant.setAddedAt(LocalDate.now());
-                    participantRepository.save(participant);
-                });
+        participatingChildren.forEach(child -> {
+            FundraiserParticipant participant = new FundraiserParticipant();
+            participant.setFundraiser(savedFundraiser);
+            participant.setChild(child);
+            participant.setAddedAt(LocalDate.now());
+            participantRepository.save(participant);
+        });
 
         return FundraiserResponse.from(
                 savedFundraiser,
@@ -213,10 +228,10 @@ public class FundraiserService {
                     suggestedAmount = participant.getDebt();
                 }
             } else if (fundraiser.getStatus() == FundraiserStatus.ACTIVE) {
-                long numberOfChildrenInClass = fundraiser.getSchoolClass().getMemberships().stream()
-                        .filter(m -> m.getLeftAt() == null).count();
-                if (numberOfChildrenInClass > 0) {
-                    BigDecimal perChildGoal = fundraiser.getGoalAmount().divide(new BigDecimal(numberOfChildrenInClass), 2, RoundingMode.CEILING);
+                List<FundraiserParticipant> activeParticipants = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiser.getId());
+                long numberOfParticipants = activeParticipants.size();
+                if (numberOfParticipants > 0) {
+                    BigDecimal perChildGoal = fundraiser.getGoalAmount().divide(new BigDecimal(numberOfParticipants), 2, RoundingMode.CEILING);
                     suggestedAmount = perChildGoal.subtract(totalContributedByChild);
                     if (suggestedAmount.compareTo(BigDecimal.ZERO) < 0) {
                         suggestedAmount = BigDecimal.ZERO;
