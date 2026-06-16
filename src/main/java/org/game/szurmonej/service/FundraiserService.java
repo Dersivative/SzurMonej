@@ -258,6 +258,25 @@ public class FundraiserService {
     }
 
     @Transactional
+    public void reopenFundraiser(Long fundraiserId) {
+        User currentUser = currentUserService.getCurrentUser();
+        Fundraiser fundraiser = fundraiserRepository.findById(fundraiserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono zbiórki."));
+
+        if (!fundraiser.getSchoolClass().getTreasurer().getId().equals(currentUser.getId())) {
+            throw new ForbiddenOperationException("Tylko skarbnik może wznowić zbiórkę.");
+        }
+
+        if (fundraiser.getStatus() != FundraiserStatus.FINISHED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Można wznawiać tylko zakończone zbiórki.");
+        }
+
+        fundraiser.setStatus(FundraiserStatus.ACTIVE);
+        fundraiser.setFinishedAt(null);
+        fundraiserRepository.save(fundraiser);
+    }
+
+    @Transactional
     public void reconcileFundraiser(Long fundraiserId, String note) {
         User currentUser = currentUserService.getCurrentUser();
         Fundraiser fundraiser = fundraiserRepository.findById(fundraiserId)

@@ -139,6 +139,15 @@ const FundraiserDetailsPage: React.FC = () => {
         }
     };
 
+    const handleReopen = async () => {
+        try {
+            await axios.post(`/api/fundraisers/${fundraiserId}/reopen`);
+            fetchData();
+        } catch (err: any) {
+            alert(err.response?.data?.error || err.response?.data?.message || 'Wystąpił błąd.');
+        }
+    };
+
     const handleReconcile = async () => {
         try {
             await axios.post(`/api/fundraisers/${fundraiserId}/reconcile`, { note: 'Rozliczenie zbiórki' });
@@ -408,6 +417,12 @@ const FundraiserDetailsPage: React.FC = () => {
                                 </button>
                             </div>
                         </div>
+                    )}
+
+                    {fundraiser.status === 'FINISHED' && isTreasurer && (
+                        <button onClick={handleReopen} style={{ marginTop: '20px', padding: '10px 15px', backgroundColor: '#ffc107', color: 'black', border: 'none', borderRadius: '4px' }}>
+                            Wznów zbiórkę
+                        </button>
                     )}
 
                     {showFinishConfirmation && (

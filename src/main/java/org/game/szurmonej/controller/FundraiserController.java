@@ -88,6 +88,13 @@ public class FundraiserController {
         return ResponseEntity.ok().build();
     }
 
+    @Operation(summary = "Wznów zakończoną zbiórkę")
+    @PostMapping("/api/fundraisers/{fundraiserId}/reopen")
+    public ResponseEntity<Void> reopen(@PathVariable Long fundraiserId) {
+        fundraiserService.reopenFundraiser(fundraiserId);
+        return ResponseEntity.ok().build();
+    }
+
     @Operation(summary = "Rozlicz zbiórkę")
     @PostMapping("/api/fundraisers/{fundraiserId}/reconcile")
     public ResponseEntity<Void> reconcile(@PathVariable Long fundraiserId, @RequestBody(required = false) FundraiserActionRequest request) {
