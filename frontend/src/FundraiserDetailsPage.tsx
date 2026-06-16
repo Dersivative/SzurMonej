@@ -22,6 +22,12 @@ interface ParticipantDetails {
     contributions: ContributionSummary[];
 }
 
+interface ClassChild {
+    id: number;
+    name: string;
+    surname: string;
+}
+
 interface FundraiserDetails {
     id: number;
     title: string;
@@ -34,9 +40,11 @@ interface FundraiserDetails {
     fundraiserType: 'TOTAL_GOAL' | 'PER_CHILD_GOAL';
     perChildAmount?: number;
     parentView: boolean;
+    classId?: number;
     classLabel?: string;
     treasurer?: { id: number; fullName: string };
     participants: ParticipantDetails[];
+    nonParticipants: ClassChild[];
     history: {
         id: number;
         date: string;
@@ -72,6 +80,7 @@ const FundraiserDetailsPage: React.FC = () => {
     const [showFinishConfirmation, setShowFinishConfirmation] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null);
+    const [selectedChildToAdd, setSelectedChildToAdd] = useState<number | null>(null);
 
     const fetchData = useCallback(async () => {
         if (!fundraiserId) return;
@@ -79,7 +88,9 @@ const FundraiserDetailsPage: React.FC = () => {
             setLoading(true);
             const response = await axios.get<FundraiserDetails>(`/api/fundraisers/${fundraiserId}`);
             setFundraiser(response.data);
-        } catch {
+            console.log("Fetched Fundraiser Details:", response.data);
+        } catch (err) {
+            console.error("Error fetching data:", err);
             setError('Nie udało się pobrać szczegółów zbiórki.');
         } finally {
             setLoading(false);
@@ -123,6 +134,26 @@ const FundraiserDetailsPage: React.FC = () => {
             fetchData();
         } catch (err: any) {
             const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Wystąpił nieoczekiwany błąd.';
+            setActionError(errorMessage);
+            alert(errorMessage);
+        }
+    };
+
+    const handleAddParticipant = async () => {
+        if (!selectedChildToAdd) {
+            setActionError('Wybierz dziecko do dodania.');
+            return;
+        }
+        setActionError(null);
+        try {
+            await axios.post(`/api/fundraisers/${fundraiserId}/participants`, {
+                childId: selectedChildToAdd
+            });
+            alert('Dziecko zostało dodane do zbiórki.');
+            setSelectedChildToAdd(null);
+            fetchData();
+        } catch (err: any) {
+            const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Wystąpił nieoczekiwany błąd podczas dodawania uczestnika.';
             setActionError(errorMessage);
             alert(errorMessage);
         }
@@ -410,6 +441,25 @@ const FundraiserDetailsPage: React.FC = () => {
                                     <input type="number" placeholder="Nowa kwota docelowa" value={newGoalAmount} onChange={e => setNewGoalAmount(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px', boxSizing: 'border-box' }} />
                                     <button onClick={handleUpdateGoal} style={{ width: '100%', padding: '10px', backgroundColor: '#17a2b8', color: 'white', border: 'none', borderRadius: '4px' }}>
                                         Zaktualizuj kwotę docelową
+                                    </button>
+                                </div>
+                                <div style={{ marginTop: '20px' }}>
+                                    <label htmlFor="childToAdd">Dodaj dziecko do zbiórki:</label>
+                                    <select
+                                        id="childToAdd"
+                                        value={selectedChildToAdd || ''}
+                                        onChange={(e) => setSelectedChildToAdd(Number(e.target.value))}
+                                        style={{ width: '100%', padding: '8px', marginTop: '5px', marginBottom: '10px' }}
+                                    >
+                                        <option value="">-- Wybierz dziecko --</option>
+                                        {fundraiser.nonParticipants.map(child => (
+                                            <option key={child.id} value={child.id}>
+                                                {child.name} {child.surname}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <button onClick={handleAddParticipant} disabled={!selectedChildToAdd} style={{ width: '100%', padding: '10px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}>
+                                        Dodaj uczestnika
                                     </button>
                                 </div>
                                 <button onClick={() => setShowFinishConfirmation(true)} style={{ width: '100%', padding: '10px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', marginTop: '10px' }}>

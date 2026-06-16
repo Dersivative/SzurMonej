@@ -10,6 +10,7 @@ import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -33,6 +34,7 @@ public class FundraiserResponse {
     private String classLabel;
     private boolean parentView;
     private List<ParticipantResponse> participants;
+    private List<ChildResponse> nonParticipants;
     private List<FundraiserHistoryEntryResponse> history;
 
     public static FundraiserResponse from(Fundraiser fundraiser, BigDecimal suggestedContribution, List<Contribution> contributions, List<AccountHistoryEntry> historyEntries) {
@@ -92,6 +94,20 @@ public class FundraiserResponse {
                 User treasurer = fundraiser.getSchoolClass().getTreasurer();
                 response.setTreasurer(new TreasurerResponse(treasurer.getId(), treasurer.getFullName()));
             }
+
+            if (!parentView) {
+                Set<Long> participantChildIds = participants.stream()
+                        .filter(p -> p.getRemovedAt() == null)
+                        .map(p -> p.getChild().getId())
+                        .collect(Collectors.toSet());
+
+                List<ChildResponse> nonParticipants = fundraiser.getSchoolClass().getMemberships().stream()
+                        .filter(m -> m.getLeftAt() == null)
+                        .filter(m -> !participantChildIds.contains(m.getChild().getId()))
+                        .map(m -> ChildResponse.from(m.getChild()))
+                        .collect(Collectors.toList());
+                response.setNonParticipants(nonParticipants);
+            }
         }
 
         BigDecimal currentAmount = contributions.stream()
@@ -111,6 +127,7 @@ public class FundraiserResponse {
 
         if (parentView) {
             response.setHistory(Collections.emptyList());
+            response.setNonParticipants(Collections.emptyList());
         } else {
             List<FundraiserHistoryEntryResponse> history = Stream.concat(
                     contributions.stream().map(FundraiserHistoryEntryResponse::from),

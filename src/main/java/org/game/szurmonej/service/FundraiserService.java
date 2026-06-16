@@ -125,6 +125,60 @@ public class FundraiserService {
         );
     }
 
+    @Transactional
+    public FundraiserResponse addParticipant(Long fundraiserId, Long childId) {
+        User currentUser = currentUserService.getCurrentUser();
+        Fundraiser fundraiser = fundraiserRepository.findById(fundraiserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono zbiórki."));
+
+        if (!fundraiser.getSchoolClass().getTreasurer().getId().equals(currentUser.getId())) {
+            throw new ForbiddenOperationException("Tylko skarbnik może dodawać uczestników do zbiórki.");
+        }
+
+        if (fundraiser.getStatus() != FundraiserStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Można dodawać uczestników tylko do aktywnych zbiórek.");
+        }
+
+        // Verify child is in the class
+        SchoolClass schoolClass = fundraiser.getSchoolClass();
+        boolean childInClass = schoolClass.getMemberships().stream()
+                .anyMatch(m -> m.getChild().getId().equals(childId) && m.getLeftAt() == null);
+        
+        if (!childInClass) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Dziecko nie należy do tej klasy.");
+        }
+
+        // Verify child is not already a participant
+        boolean alreadyParticipant = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiserId).stream()
+                .anyMatch(p -> p.getChild().getId().equals(childId));
+
+        if (alreadyParticipant) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Dziecko bierze już udział w zbiórce.");
+        }
+
+        Child child = childRepository.findById(childId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono dziecka."));
+
+        FundraiserParticipant participant = new FundraiserParticipant();
+        participant.setFundraiser(fundraiser);
+        participant.setChild(child);
+        participant.setAddedAt(LocalDate.now());
+        participantRepository.saveAndFlush(participant);
+
+        if (fundraiser.getFundraiserType() == FundraiserType.TOTAL_GOAL) {
+            refundOverpayments(fundraiser);
+        } else if (fundraiser.getFundraiserType() == FundraiserType.PER_CHILD_GOAL) {
+            fundraiser.setGoalAmount(fundraiser.getGoalAmount().add(fundraiser.getPerChildAmount()));
+            fundraiserRepository.saveAndFlush(fundraiser);
+        }
+
+        List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_Id(fundraiserId);
+        List<AccountHistoryEntry> historyEntries = historyRepository.findByAccount_Fundraiser_Id(fundraiserId);
+        List<FundraiserParticipant> participants = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiserId);
+
+        return FundraiserResponse.from(fundraiser, participants, contributions, historyEntries, false, currentUser);
+    }
+
     @Transactional(readOnly = true)
     public List<FundraiserResponse> getFundraisersForClass(Long classId) {
         User currentUser = currentUserService.getCurrentUser();

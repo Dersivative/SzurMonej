@@ -2,11 +2,7 @@ package org.game.szurmonej.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.game.szurmonej.dto.FundraiserActionRequest;
-import org.game.szurmonej.dto.FundraiserCreateRequest;
-import org.game.szurmonej.dto.FundraiserResponse;
-import org.game.szurmonej.dto.MoneyOperationResponse;
-import org.game.szurmonej.dto.UpdateGoalRequest;
+import org.game.szurmonej.dto.*;
 import org.game.szurmonej.service.AccountService;
 import org.game.szurmonej.service.FundraiserService;
 import org.springframework.http.ResponseEntity;
@@ -61,6 +57,15 @@ public class FundraiserController {
             @RequestBody UpdateGoalRequest request
     ) {
         return ResponseEntity.ok(fundraiserService.updateGoal(fundraiserId, request.getNewGoalAmount()));
+    }
+
+    @Operation(summary = "Dodaj uczestnika do zbiórki")
+    @PostMapping("/api/fundraisers/{fundraiserId}/participants")
+    public ResponseEntity<FundraiserResponse> addParticipant(
+            @PathVariable Long fundraiserId,
+            @RequestBody AddParticipantRequest request
+    ) {
+        return ResponseEntity.ok(fundraiserService.addParticipant(fundraiserId, request.getChildId()));
     }
 
     @Operation(summary = "Wpłata na zbiórkę przez skarbnika")
