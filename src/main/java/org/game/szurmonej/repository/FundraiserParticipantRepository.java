@@ -15,4 +15,6 @@ public interface FundraiserParticipantRepository extends JpaRepository<Fundraise
     List<FundraiserParticipant> findByFundraiser_IdAndRemovedAtIsNull(Long fundraiserId);
 
     List<FundraiserParticipant> findByChild_Id(Long childId);
+
+    long countByFundraiser_IdAndRemovedAtIsNull(Long fundraiserId);
 }

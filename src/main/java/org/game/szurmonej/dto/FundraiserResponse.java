@@ -31,9 +31,8 @@ public class FundraiserResponse {
     private FundraiserType fundraiserType;
     private BigDecimal perChildAmount;
     private TreasurerResponse treasurer;
-    private Long classId;
+    private Long classId; // Add classId
     private String classLabel;
-    // private boolean parentView; // Removed
     private List<ParticipantResponse> participants;
     private List<ChildResponse> nonParticipants;
     private List<FundraiserHistoryEntryResponse> history;
@@ -87,7 +86,6 @@ public class FundraiserResponse {
         response.setStartedAt(fundraiser.getStartedAt());
         response.setEndedAt(fundraiser.getFinishedAt());
         response.setStatus(fundraiser.getStatus());
-        // response.setParentView(parentView); // Removed
 
         if (fundraiser.getSchoolClass() != null) {
             response.setClassId(fundraiser.getSchoolClass().getId());
@@ -103,12 +101,12 @@ public class FundraiserResponse {
                     .map(p -> p.getChild().getId())
                     .collect(Collectors.toSet());
 
-            List<ChildResponse> nonParticipants = fundraiser.getSchoolClass().getMemberships().stream()
-                    .filter(m -> m.getLeftAt() == null)
-                    .filter(m -> !participantChildIds.contains(m.getChild().getId()))
-                    .map(m -> ChildResponse.from(m.getChild()))
-                    .collect(Collectors.toList());
-            response.setNonParticipants(nonParticipants);
+                List<ChildResponse> nonParticipants = fundraiser.getSchoolClass().getMemberships().stream()
+                        .filter(m -> m.getLeftAt() == null)
+                        .filter(m -> !participantChildIds.contains(m.getChild().getId()))
+                        .map(m -> ChildResponse.from(m.getChild()))
+                        .collect(Collectors.toList());
+                response.setNonParticipants(nonParticipants);
         }
 
         BigDecimal currentAmount = contributions.stream()

@@ -156,6 +156,27 @@ const FundraiserDetailsPage: React.FC = () => {
         }
     };
 
+    const handlePayForOther = async (childId: number) => {
+        const isOwnChild = user?.children.some(c => c.id === childId);
+        if (!isOwnChild) {
+            if (!window.confirm(`Czy na pewno chcesz wpłacić za to dziecko?`)) {
+                return;
+            }
+        }
+
+        try {
+            await axios.post('/api/account/transfer-to-fundraiser', {
+                fundraiserId: fundraiser?.id,
+                childId,
+                note: `Wpłata za ${isOwnChild ? 'swoje' : 'inne'} dziecko przez ${user?.fullName}`
+            });
+            alert('Wpłata zakończona sukcesem!');
+            fetchData();
+        } catch (err: any) {
+            alert(err.response?.data?.error || err.response?.data?.message || 'Wystąpił błąd podczas wpłaty.');
+        }
+    };
+
     const handleWithdrawAll = async () => {
         try {
             await axios.post(`/api/fundraisers/${fundraiserId}/withdraw-all`);
@@ -289,6 +310,7 @@ const FundraiserDetailsPage: React.FC = () => {
                                         <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>Nadpłata</th>
                                     </>
                                 )}
+                                <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>Akcje</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -319,6 +341,11 @@ const FundraiserDetailsPage: React.FC = () => {
                                                 </td>
                                             </>
                                         )}
+                                        <td style={{ padding: '10px', border: '1px solid #dee2e6' }}>
+                                            {!isPaid && (
+                                                <button onClick={() => handlePayForOther(p.childId)}>Wpłać</button>
+                                            )}
+                                        </td>
                                     </tr>
                                 );
                             })}

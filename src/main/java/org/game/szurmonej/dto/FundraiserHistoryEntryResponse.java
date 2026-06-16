@@ -22,7 +22,7 @@ public class FundraiserHistoryEntryResponse {
 
     public static FundraiserHistoryEntryResponse from(Contribution contribution) {
         String description = String.format("Wpłata od %s (za: %s %s)",
-                contribution.getPayerAccount().getUser().getFullName(),
+                contribution.getPayer().getFullName(), // Use the direct payer field
                 contribution.getParticipant().getChild().getName(),
                 contribution.getParticipant().getChild().getSurname());
         if (contribution.getNote() != null && !contribution.getNote().isBlank()) {
@@ -30,12 +30,12 @@ public class FundraiserHistoryEntryResponse {
         }
         
         var response = new FundraiserHistoryEntryResponse();
-        response.setId(contribution.getId()); // Assuming Contribution has an ID that can be used
+        response.setId(contribution.getId());
         response.setDate(contribution.getPaidAt());
         response.setDescription(description);
         response.setAmount(contribution.getAmount());
         response.setType("Wpłata rodzica");
-        response.setHasAttachment(false); // Contributions from parents don't have attachments
+        response.setHasAttachment(false);
         return response;
     }
 

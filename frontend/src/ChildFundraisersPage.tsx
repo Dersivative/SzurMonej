@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from './AuthContext';
 
-axios.defaults.withCredentials = true; // Ensure cookies are sent with every request
+axios.defaults.withCredentials = true;
 
 interface Fundraiser {
     id: number;
@@ -15,11 +15,6 @@ interface Fundraiser {
     status: 'ACTIVE' | 'RECONCILING' | 'FINISHED';
     fundraiserType: 'TOTAL_GOAL' | 'PER_CHILD_GOAL';
     perChildAmount?: number;
-    participants: {
-        childId: number;
-        childName: string;
-        totalContribution: number;
-    }[];
 }
 
 const ChildFundraisersPage: React.FC = () => {
@@ -46,13 +41,12 @@ const ChildFundraisersPage: React.FC = () => {
         fetchData();
     }, [fetchData]);
 
-    const handlePay = async (fundraiserId: number, amount: number) => {
-        if (!window.confirm(`Czy na pewno chcesz wpłacić ${amount.toFixed(2)} PLN na tę zbiórkę?`)) return;
+    const handlePay = async (fundraiserId: number) => {
+        if (!window.confirm(`Czy na pewno chcesz wpłacić na tę zbiórkę?`)) return;
         try {
             await axios.post('/api/account/transfer-to-fundraiser', {
                 fundraiserId,
                 childId: parseInt(childId!, 10),
-                amount,
                 note: 'Wpłata na zbiórkę'
             });
             alert('Wpłata zakończona sukcesem!');
@@ -118,7 +112,7 @@ const ChildFundraisersPage: React.FC = () => {
                                 <div>
                                     <p>Sugerowana składka: <strong>{f.suggestedContribution.toFixed(2)} PLN</strong></p>
                                     <button 
-                                        onClick={() => handlePay(f.id, f.suggestedContribution)}
+                                        onClick={() => handlePay(f.id)}
                                         style={{ padding: '10px 15px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}
                                     >
                                         Wpłać sugerowaną kwotę

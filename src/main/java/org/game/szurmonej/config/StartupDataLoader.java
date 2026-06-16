@@ -1,13 +1,7 @@
 package org.game.szurmonej.config;
 
 import org.game.szurmonej.entity.*;
-import org.game.szurmonej.repository.AccountRepository;
-import org.game.szurmonej.repository.FundraiserRepository;
-import org.game.szurmonej.repository.UserRepository;
-import org.game.szurmonej.repository.ChildRepository;
-import org.game.szurmonej.repository.SchoolClassRepository;
-import org.game.szurmonej.repository.ClassMembershipRepository;
-import org.game.szurmonej.repository.FundraiserParticipantRepository;
+import org.game.szurmonej.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;

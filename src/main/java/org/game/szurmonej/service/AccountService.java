@@ -13,7 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class AccountService {
@@ -24,6 +26,7 @@ public class AccountService {
     private final FundraiserParticipantRepository participantRepository;
     private final AccountHistoryEntryRepository historyRepository;
     private final CurrentUserService currentUserService;
+    private final UserRepository userRepository;
 
     public AccountService(
             AccountRepository accountRepository,
@@ -31,7 +34,8 @@ public class AccountService {
             FundraiserRepository fundraiserRepository,
             FundraiserParticipantRepository participantRepository,
             AccountHistoryEntryRepository historyRepository, 
-            CurrentUserService currentUserService
+            CurrentUserService currentUserService,
+            UserRepository userRepository
     ) {
         this.accountRepository = accountRepository;
         this.contributionRepository = contributionRepository;
@@ -39,6 +43,7 @@ public class AccountService {
         this.participantRepository = participantRepository;
         this.historyRepository = historyRepository;
         this.currentUserService = currentUserService;
+        this.userRepository = userRepository;
     }
 
     @Transactional(readOnly = true)
@@ -62,19 +67,17 @@ public class AccountService {
 
     @Transactional
     public MoneyOperationResponse transferToFundraiser(TransferToFundraiserRequest request) {
-        validatePositiveAmount(request.getAmount());
         User currentUser = currentUserService.getCurrentUser();
 
         Account payerAccount = accountRepository.findByUser_Id(currentUser.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("User account not found"));
         assertUserAccount(payerAccount);
-        assertAccountOwner(payerAccount, currentUser);
 
         Fundraiser fundraiser = fundraiserRepository.findById(request.getFundraiserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Fundraiser not found: " + request.getFundraiserId()));
         
-        if (fundraiser.getStatus() == FundraiserStatus.RECONCILING && !"Spłata długu".equals(request.getNote())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Zbiórka jest w trakcie rozliczania. Można tylko spłacać dług.");
+        if (fundraiser.getStatus() != FundraiserStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Można wpłacać tylko na aktywne zbiórki.");
         }
         
         Account fundraiserAccount = accountRepository.findByFundraiser_Id(fundraiser.getId())
@@ -88,17 +91,20 @@ public class AccountService {
             throw new IllegalArgumentException("Child is no longer an active participant");
         }
 
-        debit(payerAccount, request.getAmount());
-        credit(fundraiserAccount, request.getAmount());
+        BigDecimal amountToPay = calculateAmountToPay(fundraiser, participant);
+        validatePositiveAmount(amountToPay);
+
+        debit(payerAccount, amountToPay);
+        credit(fundraiserAccount, amountToPay);
         
         Account savedPayerAccount = accountRepository.save(payerAccount);
         Account savedFundraiserAccount = accountRepository.save(fundraiserAccount);
 
         Contribution contribution = new Contribution();
         contribution.setParticipant(participant);
-        contribution.setAmount(request.getAmount());
+        contribution.setPayer(currentUser);
+        contribution.setAmount(amountToPay);
         contribution.setPaidAt(LocalDateTime.now());
-        contribution.setPayerAccount(savedPayerAccount);
         contribution.setNote(request.getNote());
         contribution = contributionRepository.save(contribution);
 
@@ -109,6 +115,24 @@ public class AccountService {
                 savedFundraiserAccount.getBalance(),
                 contribution.getId()
         );
+    }
+
+    private BigDecimal calculateAmountToPay(Fundraiser fundraiser, FundraiserParticipant participant) {
+        List<Contribution> contributions = contributionRepository.findByParticipant_Id(participant.getId());
+        BigDecimal totalContributedByChild = contributions.stream()
+                .map(Contribution::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (fundraiser.getFundraiserType() == FundraiserType.PER_CHILD_GOAL) {
+            return fundraiser.getPerChildAmount().subtract(totalContributedByChild);
+        } else { // TOTAL_GOAL
+            long numberOfParticipants = participantRepository.countByFundraiser_IdAndRemovedAtIsNull(fundraiser.getId());
+            if (numberOfParticipants > 0) {
+                BigDecimal perChildGoal = fundraiser.getGoalAmount().divide(new BigDecimal(numberOfParticipants), 2, RoundingMode.CEILING);
+                return perChildGoal.subtract(totalContributedByChild);
+            }
+            return BigDecimal.ZERO;
+        }
     }
 
     @Transactional
@@ -182,6 +206,8 @@ public class AccountService {
         Fundraiser fundraiser = assertTreasurerAndGetFundraiser(fundraiserId, currentUser);
         Account fundraiserAccount = fundraiser.getAccount();
 
+        User targetUser = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Target user not found"));
         Account targetAccount = accountRepository.findByUser_Id(targetUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Target user account not found"));
         assertUserAccount(targetAccount);
@@ -236,12 +262,6 @@ public class AccountService {
     private void assertUserAccount(Account account) {
         if (account.getUser() == null) {
             throw new IllegalArgumentException("Account is not a personal user account");
-        }
-    }
-
-    private void assertAccountOwner(Account account, User user) {
-        if (!account.getUser().getId().equals(user.getId())) {
-            throw new ForbiddenOperationException("You can only operate on your own account");
         }
     }
 
