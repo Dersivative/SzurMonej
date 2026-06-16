@@ -13,6 +13,8 @@ interface Fundraiser {
     currentAmount: number;
     suggestedContribution: number;
     status: 'ACTIVE' | 'RECONCILING' | 'FINISHED';
+    fundraiserType: 'TOTAL_GOAL' | 'PER_CHILD_GOAL';
+    perChildAmount?: number;
     participants: {
         childId: number;
         childName: string;
@@ -91,6 +93,12 @@ const ChildFundraisersPage: React.FC = () => {
                     <div key={f.id} style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '20px', marginBottom: '20px' }}>
                         <h2>{f.title}</h2>
                         <p>{f.description}</p>
+                        <p>
+                            <strong>Typ zbiórki:</strong> {f.fundraiserType === 'TOTAL_GOAL' ? 'Cel całościowy' : 'Na dziecko'}
+                        </p>
+                        {f.fundraiserType === 'PER_CHILD_GOAL' && (
+                            <p><strong>Kwota na dziecko:</strong> {f.perChildAmount?.toFixed(2)} PLN</p>
+                        )}
                         <p>Status: <strong>{f.status}</strong></p>
                         <div style={{ backgroundColor: '#e9ecef', borderRadius: '5px', height: '24px', width: '100%', overflow: 'hidden', marginBottom: '5px' }}>
                             <div style={{ backgroundColor: '#28a745', height: '100%', width: `${Math.min((f.currentAmount / f.goalAmount) * 100, 100)}%` }}></div>

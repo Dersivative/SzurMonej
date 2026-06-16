@@ -31,6 +31,8 @@ interface FundraiserDetails {
     startedAt?: string;
     endedAt?: string;
     status: 'ACTIVE' | 'RECONCILING' | 'FINISHED';
+    fundraiserType: 'TOTAL_GOAL' | 'PER_CHILD_GOAL';
+    perChildAmount?: number;
     parentView: boolean;
     classLabel?: string;
     treasurer?: { id: number; fullName: string };
@@ -217,6 +219,8 @@ const FundraiserDetailsPage: React.FC = () => {
     const renderGeneralInfo = () => (
         <div style={{ border: '1px solid #dee2e6', borderRadius: '8px', padding: '16px', marginBottom: '20px', backgroundColor: '#f8f9fa' }}>
             <h3 style={{ marginTop: 0 }}>Informacje ogólne</h3>
+            <p><strong>Typ zbiórki:</strong> {fundraiser.fundraiserType === 'TOTAL_GOAL' ? 'Cel całościowy' : 'Składka na ucznia'}</p>
+            {fundraiser.fundraiserType === 'PER_CHILD_GOAL' && <p><strong>Kwota na dziecko:</strong> {fundraiser.perChildAmount?.toFixed(2)} PLN</p>}
             <p><strong>Klasa:</strong> {fundraiser.classLabel || '—'}</p>
             <p><strong>Skarbnik:</strong> {fundraiser.treasurer?.fullName || '—'}</p>
             <p><strong>Cel zbiórki:</strong> {fundraiser.goalAmount.toFixed(2)} PLN</p>
@@ -290,20 +294,80 @@ const FundraiserDetailsPage: React.FC = () => {
         </div>
     );
 
+    const renderTreasurerParticipants = () => {
+        const expectedPerChild = fundraiser.fundraiserType === 'PER_CHILD_GOAL' && fundraiser.perChildAmount 
+            ? fundraiser.perChildAmount 
+            : (fundraiser.participants.length > 0 ? fundraiser.goalAmount / fundraiser.participants.length : 0);
+
+        return (
+            <div style={{ marginTop: '20px', marginBottom: '30px' }}>
+                <h3>Lista uczestników zbiórki</h3>
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+                        <thead>
+                            <tr style={{ backgroundColor: '#e9ecef', textAlign: 'left' }}>
+                                <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>Uczeń</th>
+                                <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>Wpłacono</th>
+                                <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>Status</th>
+                                {fundraiser.status === 'RECONCILING' && (
+                                    <>
+                                        <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>Dług</th>
+                                        <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>Nadpłata</th>
+                                    </>
+                                )}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {fundraiser.participants.map(p => {
+                                const isPaid = p.totalContribution >= (expectedPerChild - 0.01); // Epsilon dla bezpiecznosci zapisu zmiennoprzecinkowego
+                                return (
+                                    <tr key={p.childId}>
+                                        <td style={{ padding: '10px', border: '1px solid #dee2e6' }}>
+                                            {p.childFirstName || p.childName.split(' ')[0]} {p.childSurname || p.childName.split(' ').slice(1).join(' ')}
+                                        </td>
+                                        <td style={{ padding: '10px', border: '1px solid #dee2e6' }}>
+                                            {p.totalContribution.toFixed(2)} / {expectedPerChild.toFixed(2)} PLN
+                                        </td>
+                                        <td style={{ padding: '10px', border: '1px solid #dee2e6' }}>
+                                            {isPaid ? (
+                                                <span style={{ color: '#27ae60', fontWeight: 'bold' }}>Opłacone</span>
+                                            ) : (
+                                                <span style={{ color: '#c0392b', fontWeight: 'bold' }}>Do wpłaty</span>
+                                            )}
+                                        </td>
+                                        {fundraiser.status === 'RECONCILING' && (
+                                            <>
+                                                <td style={{ padding: '10px', border: '1px solid #dee2e6', color: '#c0392b', fontWeight: 'bold' }}>
+                                                    {p.debt && p.debt > 0 ? p.debt.toFixed(2) + ' PLN' : '—'}
+                                                </td>
+                                                <td style={{ padding: '10px', border: '1px solid #dee2e6', color: '#27ae60', fontWeight: 'bold' }}>
+                                                    {p.credit && p.credit > 0 ? p.credit.toFixed(2) + ' PLN' : '—'}
+                                                </td>
+                                            </>
+                                        )}
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div style={{ padding: '20px', maxWidth: '800px', margin: 'auto', textAlign: 'left' }}>
             <Link to={backLink}>&larr; {backLabel}</Link>
             <h1 style={{ marginTop: '20px' }}>{fundraiser.title}</h1>
 
+            {renderGeneralInfo()}
+
             {!fundraiser.parentView && (
-                <>
-                    <div style={{ backgroundColor: '#e9ecef', borderRadius: '5px', height: '24px', width: '100%', overflow: 'hidden', marginBottom: '5px' }}>
-                        <div style={{ backgroundColor: '#28a745', height: '100%', width: `${Math.min((fundraiser.currentAmount / fundraiser.goalAmount) * 100, 100)}%`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.8em' }}>
-                            {((fundraiser.currentAmount / fundraiser.goalAmount) * 100).toFixed(0)}%
-                        </div>
+                <div style={{ backgroundColor: '#e9ecef', borderRadius: '5px', height: '24px', width: '100%', overflow: 'hidden', marginBottom: '15px' }}>
+                    <div style={{ backgroundColor: '#28a745', height: '100%', width: `${Math.min((fundraiser.currentAmount / fundraiser.goalAmount) * 100, 100)}%`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.8em' }}>
+                        {((fundraiser.currentAmount / fundraiser.goalAmount) * 100).toFixed(0)}%
                     </div>
-                    <p>Zebrano: <strong>{fundraiser.currentAmount.toFixed(2)} PLN</strong> z {fundraiser.goalAmount.toFixed(2)} PLN</p>
-                </>
+                </div>
             )}
 
             <button
@@ -315,13 +379,11 @@ const FundraiserDetailsPage: React.FC = () => {
 
             {fundraiser.parentView ? (
                 <>
-                    {renderGeneralInfo()}
                     {renderParentChildren()}
                 </>
             ) : (
                 <>
-                    <p>{fundraiser.description}</p>
-                    <p>Status: <strong>{STATUS_LABELS[fundraiser.status]}</strong></p>
+                    {renderTreasurerParticipants()}
 
                     {actionError && <div style={{ color: 'red', marginTop: '10px', padding: '10px', border: '1px solid red', borderRadius: '4px', whiteSpace: 'pre-wrap' }}>{actionError}</div>}
 
@@ -361,25 +423,17 @@ const FundraiserDetailsPage: React.FC = () => {
                     )}
 
                     {fundraiser.status === 'RECONCILING' && (
-                        <div>
-                            <h3>Uczestnicy do rozliczenia</h3>
-                            <ul>
-                                {fundraiser.participants.map(p => (
-                                    <li key={p.childId}>
-                                        {p.childName} -
-                                        {p.debt && p.debt > 0 && <span style={{ color: 'red' }}> Dług: {p.debt.toFixed(2)} PLN</span>}
-                                        {p.credit && p.credit > 0 && <span style={{ color: 'green' }}> Nadpłata: {p.credit.toFixed(2)} PLN</span>}
-                                        {(!p.debt || p.debt === 0) && (!p.credit || p.credit === 0) && <span> Rozliczono</span>}
-                                        {p.debt && p.debt > 0 && isCurrentUserChild(p.childId) && (
-                                            <button onClick={() => handlePayDebt(p.childId)} style={{ marginLeft: '10px' }}>Spłać dług</button>
-                                        )}
-                                    </li>
-                                ))}
-                            </ul>
-                            {isTreasurer && allDebtsPaid && (
-                                <button onClick={handleSettle} style={{ marginTop: '20px', padding: '10px 15px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>
+                        <div style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '20px', marginBottom: '30px', backgroundColor: '#fff3cd' }}>
+                            <h3 style={{ marginTop: 0 }}>Rozliczanie</h3>
+                            <p>Po opłaceniu wszystkich należności przez rodziców, skarbnik może zrealizować ewentualne zwroty i ostatecznie zamknąć zbiórkę.</p>
+                            {isTreasurer && allDebtsPaid ? (
+                                <button onClick={handleSettle} style={{ marginTop: '10px', padding: '10px 15px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>
                                     Zakończ rozliczanie i zwróć nadpłaty
                                 </button>
+                            ) : (
+                                <p style={{ color: '#856404', fontWeight: 'bold' }}>
+                                    Nie można jeszcze zamknąć zbiórki. Wszyscy uczestnicy muszą spłacić swoje długi!
+                                </p>
                             )}
                         </div>
                     )}

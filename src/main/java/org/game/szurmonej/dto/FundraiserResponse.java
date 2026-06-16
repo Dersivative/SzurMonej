@@ -3,12 +3,7 @@ package org.game.szurmonej.dto;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.game.szurmonej.entity.AccountHistoryEntry;
-import org.game.szurmonej.entity.Contribution;
-import org.game.szurmonej.entity.Fundraiser;
-import org.game.szurmonej.entity.FundraiserParticipant;
-import org.game.szurmonej.entity.FundraiserStatus;
-import org.game.szurmonej.entity.User;
+import org.game.szurmonej.entity.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -32,6 +27,8 @@ public class FundraiserResponse {
     private LocalDate startedAt;
     private LocalDate endedAt;
     private FundraiserStatus status;
+    private FundraiserType fundraiserType;
+    private BigDecimal perChildAmount;
     private TreasurerResponse treasurer;
     private String classLabel;
     private boolean parentView;
@@ -82,6 +79,8 @@ public class FundraiserResponse {
         response.setTitle(fundraiser.getTitle());
         response.setDescription(fundraiser.getDescription());
         response.setGoalAmount(fundraiser.getGoalAmount());
+        response.setFundraiserType(fundraiser.getFundraiserType());
+        response.setPerChildAmount(fundraiser.getPerChildAmount());
         response.setStartedAt(fundraiser.getStartedAt());
         response.setEndedAt(fundraiser.getFinishedAt());
         response.setStatus(fundraiser.getStatus());
@@ -136,12 +135,11 @@ public class FundraiserResponse {
         response.setTitle(fundraiser.getTitle());
         response.setDescription(fundraiser.getDescription());
         response.setGoalAmount(fundraiser.getGoalAmount());
+        response.setFundraiserType(fundraiser.getFundraiserType());
+        response.setPerChildAmount(fundraiser.getPerChildAmount());
         response.setStartedAt(fundraiser.getStartedAt());
         response.setEndedAt(fundraiser.getFinishedAt());
         response.setStatus(fundraiser.getStatus());
-        // Note: This simplified 'from' does not include participants, contributions, or history.
-        // This might be desired in some contexts, but it's the likely source of the issue.
-        // For a full view, the more detailed 'from' method should be used.
         return response;
     }
 }

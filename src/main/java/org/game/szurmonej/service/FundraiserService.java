@@ -56,16 +56,34 @@ public class FundraiserService {
         if (request.getTitle() == null || request.getTitle().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tytuł zbiórki jest wymagany.");
         }
-        if (request.getGoalAmount() == null || request.getGoalAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Kwota docelowa musi być większa od zera.");
-        }
 
         Fundraiser fundraiser = new Fundraiser();
         fundraiser.setTitle(request.getTitle());
         fundraiser.setDescription(request.getDescription());
-        fundraiser.setGoalAmount(request.getGoalAmount());
+        fundraiser.setFundraiserType(request.getFundraiserType());
         fundraiser.setSchoolClass(schoolClass);
         fundraiser.setStartedAt(LocalDate.now());
+
+        long numberOfChildren = schoolClass.getMemberships().stream().filter(m -> m.getLeftAt() == null).count();
+
+        if (request.getFundraiserType() == FundraiserType.TOTAL_GOAL) {
+            if (request.getGoalAmount() == null || request.getGoalAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Kwota docelowa musi być większa od zera.");
+            }
+            fundraiser.setGoalAmount(request.getGoalAmount());
+        } else if (request.getFundraiserType() == FundraiserType.PER_CHILD_GOAL) {
+            if (request.getPerChildAmount() == null || request.getPerChildAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Kwota na dziecko musi być większa od zera.");
+            }
+            fundraiser.setPerChildAmount(request.getPerChildAmount());
+            if (numberOfChildren > 0) {
+                fundraiser.setGoalAmount(request.getPerChildAmount().multiply(new BigDecimal(numberOfChildren)));
+            } else {
+                fundraiser.setGoalAmount(BigDecimal.ZERO);
+            }
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nieznany typ zbiórki.");
+        }
 
         Account account = new Account();
         account.setAccountNumber(UUID.randomUUID().toString());
