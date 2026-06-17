@@ -10,9 +10,8 @@ import java.math.BigDecimal;
 @Setter
 @NoArgsConstructor
 public class TransferToFundraiserRequest {
-
     private Long fundraiserId;
     private Long childId;
-    private BigDecimal amount;
     private String note;
+    // Amount is no longer needed, it will be calculated on the backend
 }

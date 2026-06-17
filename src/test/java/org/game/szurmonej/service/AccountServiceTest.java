@@ -2,18 +2,11 @@ package org.game.szurmonej.service;
 
 import org.game.szurmonej.dto.MoneyOperationResponse;
 import org.game.szurmonej.dto.TransferToFundraiserRequest;
-import org.game.szurmonej.entity.FundraiserParticipant;
 import org.game.szurmonej.entity.User;
 import org.game.szurmonej.exception.ForbiddenOperationException;
 import org.game.szurmonej.exception.InsufficientFundsException;
 import org.game.szurmonej.exception.ResourceNotFoundException;
-import org.game.szurmonej.repository.AccountRepository;
-import org.game.szurmonej.repository.ChildRepository;
-import org.game.szurmonej.repository.ContributionRepository;
-import org.game.szurmonej.repository.FundraiserParticipantRepository;
-import org.game.szurmonej.repository.FundraiserRepository;
-import org.game.szurmonej.repository.SchoolClassRepository;
-import org.game.szurmonej.repository.UserRepository;
+import org.game.szurmonej.repository.*;
 import org.game.szurmonej.support.FinancialTestFixtures;
 import org.game.szurmonej.support.FinancialTestFixtures.FinancialScenario;
 import org.junit.jupiter.api.AfterEach;
@@ -62,6 +55,9 @@ class AccountServiceTest {
     private ContributionRepository contributionRepository;
 
     @Autowired
+    private ClassMembershipRepository classMembershipRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     private FinancialScenario scenario;
@@ -70,6 +66,9 @@ class AccountServiceTest {
     void setUp() {
         userRepository.deleteAll();
         childRepository.deleteAll();
+        schoolClassRepository.deleteAll();
+        fundraiserRepository.deleteAll();
+        
         scenario = FinancialTestFixtures.seed(
                 userRepository,
                 childRepository,
@@ -77,7 +76,8 @@ class AccountServiceTest {
                 fundraiserRepository,
                 participantRepository,
                 accountRepository,
-                passwordEncoder
+                passwordEncoder,
+                classMembershipRepository
         );
     }
 
@@ -92,9 +92,9 @@ class AccountServiceTest {
 
         MoneyOperationResponse response = accountService.depositToOwnAccount(new BigDecimal("25.00"));
 
-        assertThat(response.getSourceBalance()).isEqualByComparingTo("125.00");
+        assertThat(response.getSourceBalance()).isEqualByComparingTo("525.00");
         assertThat(accountRepository.findByUser_Id(scenario.parent().getId()).orElseThrow().getBalance())
-                .isEqualByComparingTo("125.00");
+                .isEqualByComparingTo("525.00");
     }
 
     @Test
@@ -104,13 +104,12 @@ class AccountServiceTest {
         TransferToFundraiserRequest request = new TransferToFundraiserRequest();
         request.setFundraiserId(scenario.fundraiser().getId());
         request.setChildId(scenario.child().getId());
-        request.setAmount(new BigDecimal("40.00"));
         request.setNote("składka");
 
         MoneyOperationResponse response = accountService.transferToFundraiser(request);
 
-        assertThat(response.getSourceBalance()).isEqualByComparingTo("60.00");
-        assertThat(response.getTargetBalance()).isEqualByComparingTo("40.00");
+        assertThat(response.getSourceBalance()).isEqualByComparingTo("300.00");
+        assertThat(response.getTargetBalance()).isEqualByComparingTo("200.00");
         assertThat(response.getContributionId()).isNotNull();
         assertThat(contributionRepository.count()).isEqualTo(1);
     }
@@ -119,31 +118,26 @@ class AccountServiceTest {
     void transferToFundraiser_allowsPaymentForUnrelatedChild() {
         loginAs(scenario.parent());
 
-        FundraiserParticipant otherParticipant = new FundraiserParticipant();
-        otherParticipant.setFundraiser(scenario.fundraiser());
-        otherParticipant.setChild(scenario.otherChild());
-        otherParticipant.setAddedAt(java.time.LocalDate.now());
-        participantRepository.save(otherParticipant);
-
         TransferToFundraiserRequest request = new TransferToFundraiserRequest();
         request.setFundraiserId(scenario.fundraiser().getId());
         request.setChildId(scenario.otherChild().getId());
-        request.setAmount(new BigDecimal("10.00"));
 
         MoneyOperationResponse response = accountService.transferToFundraiser(request);
 
         assertThat(response.getContributionId()).isNotNull();
-        assertThat(response.getSourceBalance()).isEqualByComparingTo("90.00");
+        assertThat(response.getSourceBalance()).isEqualByComparingTo("300.00");
     }
 
     @Test
     void transferToFundraiser_throwsWhenInsufficientFunds() {
         loginAs(scenario.parent());
+        
+        // Drain the parent's account
+        accountService.withdrawFromFundraiser(scenario.fundraiser().getId(), new BigDecimal("500.00"), "test");
 
         TransferToFundraiserRequest request = new TransferToFundraiserRequest();
         request.setFundraiserId(scenario.fundraiser().getId());
         request.setChildId(scenario.child().getId());
-        request.setAmount(new BigDecimal("500.00"));
 
         assertThatThrownBy(() -> accountService.transferToFundraiser(request))
                 .isInstanceOf(InsufficientFundsException.class);
@@ -156,7 +150,6 @@ class AccountServiceTest {
         TransferToFundraiserRequest request = new TransferToFundraiserRequest();
         request.setFundraiserId(scenario.fundraiser().getId());
         request.setChildId(99999L);
-        request.setAmount(new BigDecimal("10.00"));
 
         assertThatThrownBy(() -> accountService.transferToFundraiser(request))
                 .isInstanceOf(ResourceNotFoundException.class);
@@ -168,7 +161,6 @@ class AccountServiceTest {
         TransferToFundraiserRequest request = new TransferToFundraiserRequest();
         request.setFundraiserId(scenario.fundraiser().getId());
         request.setChildId(scenario.child().getId());
-        request.setAmount(new BigDecimal("30.00"));
         accountService.transferToFundraiser(request);
 
         loginAs(scenario.otherParent());
@@ -187,8 +179,8 @@ class AccountServiceTest {
                 "Test refund"
         );
 
-        assertThat(response.getSourceBalance()).isEqualByComparingTo("20.00");
-        assertThat(response.getTargetBalance()).isEqualByComparingTo("80.00");
+        assertThat(response.getSourceBalance()).isEqualByComparingTo("190.00");
+        assertThat(response.getTargetBalance()).isEqualByComparingTo("310.00");
     }
 
     private void loginAs(User user) {

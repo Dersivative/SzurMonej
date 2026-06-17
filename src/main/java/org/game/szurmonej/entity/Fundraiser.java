@@ -1,10 +1,10 @@
 package org.game.szurmonej.entity;
 
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -21,13 +21,7 @@ public class Fundraiser {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "school_class_id")
-    private SchoolClass schoolClass;
-
-    @OneToOne(mappedBy = "fundraiser", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Account account;
-
+    @Column(nullable = false)
     private String title;
 
     private String description;
@@ -35,16 +29,27 @@ public class Fundraiser {
     @Column(nullable = false)
     private BigDecimal goalAmount;
 
-    @Column(name = "started_at")
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private FundraiserType fundraiserType;
+
+    private BigDecimal perChildAmount;
+
+    @Column(nullable = false)
     private LocalDate startedAt;
 
-    @Column(name = "finished_at")
     private LocalDate finishedAt;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private FundraiserStatus status = FundraiserStatus.ACTIVE;
+
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "class_id")
+    private SchoolClass schoolClass;
 
     @OneToMany(mappedBy = "fundraiser", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<FundraiserParticipant> participants = new ArrayList<>();
+
+    @OneToOne(mappedBy = "fundraiser", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Account account;
 }

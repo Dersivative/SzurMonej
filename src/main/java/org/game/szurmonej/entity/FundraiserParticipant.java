@@ -1,20 +1,14 @@
 package org.game.szurmonej.entity;
 
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import jakarta.persistence.*;
-import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
-@Table(
-        name = "fundraiser_participants",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"fundraiser_id", "child_id"})
-)
+@Table(name = "fundraiser_participants")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -32,18 +26,17 @@ public class FundraiserParticipant {
     @JoinColumn(name = "child_id")
     private Child child;
 
-    @Column(name = "added_at", nullable = false)
+    @Column(nullable = false)
     private LocalDate addedAt;
 
-    @Column(name = "removed_at")
     private LocalDate removedAt;
 
-    @Column(precision = 19, scale = 2)
-    private BigDecimal debt;
+    @Enumerated(EnumType.STRING)
+    private EnrollmentStatus status = EnrollmentStatus.APPROVED; // APPROVED, REMOVAL_PENDING
 
     @Column(precision = 19, scale = 2)
-    private BigDecimal credit;
+    private java.math.BigDecimal debt;
 
-    @OneToMany(mappedBy = "participant", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Contribution> contributions = new ArrayList<>();
+    @Column(precision = 19, scale = 2)
+    private java.math.BigDecimal credit;
 }

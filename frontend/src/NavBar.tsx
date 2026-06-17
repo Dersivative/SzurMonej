@@ -1,32 +1,11 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useAuth } from './AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 
-interface SchoolClass {
-    id: number;
-    treasurer: { id: number; username: string } | null;
-}
-
 const NavBar: React.FC = () => {
-  const { user, isAuthenticated, isAdmin, logout, isTreasurer, setIsTreasurer } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
-
-  useEffect(() => {
-      const checkTreasurerStatus = async () => {
-          if (isAuthenticated && user) {
-              try {
-                  const classesResponse = await axios.get<SchoolClass[]>('/api/school-classes');
-                  const isTreas = classesResponse.data.some(c => c.treasurer && c.treasurer.username === user.username);
-                  setIsTreasurer(isTreas);
-              } catch (error) {
-                  console.error('Failed to fetch school classes for treasurer check', error);
-                  setIsTreasurer(false); // Explicitly set to false on error
-              }
-          }
-      };
-      checkTreasurerStatus();
-  }, [isAuthenticated, user, setIsTreasurer]);
 
   const handleLogout = async () => {
     try {
@@ -50,8 +29,9 @@ const NavBar: React.FC = () => {
     }}>
       <div>
         {isAuthenticated && <Link to="/user" style={{ marginRight: '15px', textDecoration: 'none', color: '#007bff' }}>Moje konto</Link>}
-        {isAdmin && <Link to="/admin" style={{ marginRight: '15px', textDecoration: 'none', color: '#007bff' }}>Panel Admina</Link>}
-        {isTreasurer && <Link to="/class-management" style={{ textDecoration: 'none', color: '#007bff' }}>Zarządzaj klasą</Link>}
+        {isAuthenticated && <Link to="/chats" style={{ marginRight: '15px', textDecoration: 'none', color: '#007bff' }}>Czaty</Link>}
+        {user?.isAdmin && <Link to="/admin" style={{ marginRight: '15px', textDecoration: 'none', color: '#007bff' }}>Panel Admina</Link>}
+        {user?.isTreasurer && <Link to="/class-management" style={{ textDecoration: 'none', color: '#007bff' }}>Zarządzaj klasą</Link>}
       </div>
       <div>
         {isAuthenticated && user && (

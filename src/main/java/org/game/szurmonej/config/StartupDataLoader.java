@@ -1,19 +1,7 @@
 package org.game.szurmonej.config;
 
-import org.game.szurmonej.entity.Account;
-import org.game.szurmonej.entity.User;
-import org.game.szurmonej.repository.AccountRepository;
-import org.game.szurmonej.repository.FundraiserRepository;
-import org.game.szurmonej.repository.UserRepository;
-import org.game.szurmonej.repository.ChildRepository;
-import org.game.szurmonej.repository.SchoolClassRepository;
-import org.game.szurmonej.repository.ClassMembershipRepository;
-import org.game.szurmonej.repository.FundraiserParticipantRepository;
-import org.game.szurmonej.entity.Child;
-import org.game.szurmonej.entity.Fundraiser;
-import org.game.szurmonej.entity.FundraiserParticipant;
-import org.game.szurmonej.entity.SchoolClass;
-import org.game.szurmonej.entity.ClassMembership;
+import org.game.szurmonej.entity.*;
+import org.game.szurmonej.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -229,6 +217,7 @@ public class StartupDataLoader implements ApplicationRunner {
         Fundraiser fundraiser = new Fundraiser();
         fundraiser.setTitle("Zbiórka na wycieczkę");
         fundraiser.setDescription("Zbiórka na wycieczkę do Warszawy");
+        fundraiser.setFundraiserType(FundraiserType.TOTAL_GOAL);
         fundraiser.setGoalAmount(new BigDecimal("600.00"));
         fundraiser.setSchoolClass(class1);
         fundraiser.setStartedAt(LocalDate.now());

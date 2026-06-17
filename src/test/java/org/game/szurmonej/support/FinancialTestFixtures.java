@@ -1,21 +1,13 @@
 package org.game.szurmonej.support;
 
-import org.game.szurmonej.entity.Account;
-import org.game.szurmonej.entity.Child;
-import org.game.szurmonej.entity.Fundraiser;
-import org.game.szurmonej.entity.FundraiserParticipant;
-import org.game.szurmonej.entity.SchoolClass;
-import org.game.szurmonej.entity.User;
-import org.game.szurmonej.repository.AccountRepository;
-import org.game.szurmonej.repository.ChildRepository;
-import org.game.szurmonej.repository.FundraiserParticipantRepository;
-import org.game.szurmonej.repository.FundraiserRepository;
-import org.game.szurmonej.repository.SchoolClassRepository;
-import org.game.szurmonej.repository.UserRepository;
+import org.game.szurmonej.entity.*;
+import org.game.szurmonej.repository.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 public final class FinancialTestFixtures {
@@ -42,52 +34,68 @@ public final class FinancialTestFixtures {
             FundraiserRepository fundraiserRepository,
             FundraiserParticipantRepository participantRepository,
             AccountRepository accountRepository,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            ClassMembershipRepository classMembershipRepository
     ) {
-        Child child = saveChild(childRepository, "Adam", "Kowalski");
-        Child otherChild = saveChild(childRepository, "Ewa", "Nowak");
-
+        // Create Users
         User parent = saveUser(userRepository, passwordEncoder, "rodzic1@example.com", "pass123", "Rodzic", "Jeden");
         User otherParent = saveUser(userRepository, passwordEncoder, "rodzic2@example.com", "pass123", "Rodzic", "Dwa");
         User treasurer = saveUser(userRepository, passwordEncoder, "skarbnik@example.com", "pass123", "Skarbnik", "Klasowy");
 
-        createUserAccount(accountRepository, parent, new BigDecimal("100.00"));
-        createUserAccount(accountRepository, otherParent, BigDecimal.ZERO);
-        createUserAccount(accountRepository, treasurer, BigDecimal.ZERO);
+        // Create Accounts with sufficient funds
+        createUserAccount(accountRepository, parent, new BigDecimal("500.00"));
+        createUserAccount(accountRepository, otherParent, new BigDecimal("500.00"));
+        createUserAccount(accountRepository, treasurer, new BigDecimal("500.00"));
 
+        // Create Children and link to parents
+        Child child = saveChild(childRepository, userRepository, "Adam", "Kowalski", parent);
+        Child otherChild = saveChild(childRepository, userRepository, "Ewa", "Nowak", otherParent);
+        Child treasurerChild = saveChild(childRepository, userRepository, "Krzysztof", "Skarbnikowski", treasurer);
+
+        // Create School Class and link treasurer
         SchoolClass schoolClass = new SchoolClass();
         schoolClass.setLabel("3A");
         schoolClass.setTreasurer(treasurer);
         schoolClass = schoolClassRepository.save(schoolClass);
 
+        // Create Memberships
+        createMembership(classMembershipRepository, schoolClass, child);
+        createMembership(classMembershipRepository, schoolClass, otherChild);
+        createMembership(classMembershipRepository, schoolClass, treasurerChild);
+
+        // Create Fundraiser
         Fundraiser fundraiser = new Fundraiser();
         fundraiser.setTitle("Wycieczka");
         fundraiser.setSchoolClass(schoolClass);
+        fundraiser.setGoalAmount(new BigDecimal("600.00"));
         fundraiser.setStartedAt(LocalDate.now());
-        fundraiser = fundraiserRepository.save(fundraiser);
-
+        
         Account fundraiserAccount = new Account();
         fundraiserAccount.setAccountNumber(UUID.randomUUID().toString());
         fundraiserAccount.setFundraiser(fundraiser);
         fundraiserAccount.setBalance(BigDecimal.ZERO);
-        accountRepository.save(fundraiserAccount);
         fundraiser.setAccount(fundraiserAccount);
+        fundraiser = fundraiserRepository.save(fundraiser);
+        
+        // Create Participants
+        FundraiserParticipant participant1 = createFundraiserParticipant(participantRepository, fundraiser, child);
+        createFundraiserParticipant(participantRepository, fundraiser, otherChild);
+        createFundraiserParticipant(participantRepository, fundraiser, treasurerChild);
 
-        FundraiserParticipant participant = new FundraiserParticipant();
-        participant.setFundraiser(fundraiser);
-        participant.setChild(child);
-        participant.setAddedAt(LocalDate.now());
-        participant = participantRepository.save(participant);
-
-        return new FinancialScenario(parent, otherParent, treasurer, child, otherChild, schoolClass, fundraiser, participant);
+        return new FinancialScenario(parent, otherParent, treasurer, child, otherChild, schoolClass, fundraiser, participant1);
     }
 
-    private static Child saveChild(ChildRepository repository, String name, String surname) {
+    private static Child saveChild(ChildRepository repository, UserRepository userRepository, String name, String surname, User parent) {
         Child child = new Child();
         child.setName(name);
         child.setSurname(surname);
         child.setDateOfBirth(LocalDate.of(2015, 1, 1));
-        return repository.save(child);
+        Child savedChild = repository.save(child);
+
+        savedChild.setParents(new HashSet<>(Set.of(parent)));
+        parent.setChildren(new HashSet<>(Set.of(savedChild)));
+        userRepository.save(parent);
+        return savedChild;
     }
 
     private static User saveUser(
@@ -113,5 +121,21 @@ public final class FinancialTestFixtures {
         account.setUser(user);
         account.setBalance(balance);
         repository.save(account);
+    }
+
+    private static void createMembership(ClassMembershipRepository repository, SchoolClass schoolClass, Child child) {
+        ClassMembership membership = new ClassMembership();
+        membership.setSchoolClass(schoolClass);
+        membership.setChild(child);
+        membership.setJoinedAt(LocalDate.now());
+        repository.save(membership);
+    }
+
+    private static FundraiserParticipant createFundraiserParticipant(FundraiserParticipantRepository repository, Fundraiser fundraiser, Child child) {
+        FundraiserParticipant participant = new FundraiserParticipant();
+        participant.setFundraiser(fundraiser);
+        participant.setChild(child);
+        participant.setAddedAt(LocalDate.now());
+        return repository.save(participant);
     }
 }

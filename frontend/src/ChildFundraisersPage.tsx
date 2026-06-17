@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from './AuthContext';
 
-axios.defaults.withCredentials = true; // Ensure cookies are sent with every request
+axios.defaults.withCredentials = true;
 
 interface Fundraiser {
     id: number;
@@ -13,11 +13,8 @@ interface Fundraiser {
     currentAmount: number;
     suggestedContribution: number;
     status: 'ACTIVE' | 'RECONCILING' | 'FINISHED';
-    participants: {
-        childId: number;
-        childName: string;
-        totalContribution: number;
-    }[];
+    fundraiserType: 'TOTAL_GOAL' | 'PER_CHILD_GOAL';
+    perChildAmount?: number;
 }
 
 const ChildFundraisersPage: React.FC = () => {
@@ -44,13 +41,12 @@ const ChildFundraisersPage: React.FC = () => {
         fetchData();
     }, [fetchData]);
 
-    const handlePay = async (fundraiserId: number, amount: number) => {
-        if (!window.confirm(`Czy na pewno chcesz wpłacić ${amount.toFixed(2)} PLN na tę zbiórkę?`)) return;
+    const handlePay = async (fundraiserId: number) => {
+        if (!window.confirm(`Czy na pewno chcesz wpłacić na tę zbiórkę?`)) return;
         try {
             await axios.post('/api/account/transfer-to-fundraiser', {
                 fundraiserId,
                 childId: parseInt(childId!, 10),
-                amount,
                 note: 'Wpłata na zbiórkę'
             });
             alert('Wpłata zakończona sukcesem!');
@@ -91,6 +87,12 @@ const ChildFundraisersPage: React.FC = () => {
                     <div key={f.id} style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '20px', marginBottom: '20px' }}>
                         <h2>{f.title}</h2>
                         <p>{f.description}</p>
+                        <p>
+                            <strong>Typ zbiórki:</strong> {f.fundraiserType === 'TOTAL_GOAL' ? 'Cel całościowy' : 'Na dziecko'}
+                        </p>
+                        {f.fundraiserType === 'PER_CHILD_GOAL' && (
+                            <p><strong>Kwota na dziecko:</strong> {f.perChildAmount?.toFixed(2)} PLN</p>
+                        )}
                         <p>Status: <strong>{f.status}</strong></p>
                         <div style={{ backgroundColor: '#e9ecef', borderRadius: '5px', height: '24px', width: '100%', overflow: 'hidden', marginBottom: '5px' }}>
                             <div style={{ backgroundColor: '#28a745', height: '100%', width: `${Math.min((f.currentAmount / f.goalAmount) * 100, 100)}%` }}></div>
@@ -110,7 +112,7 @@ const ChildFundraisersPage: React.FC = () => {
                                 <div>
                                     <p>Sugerowana składka: <strong>{f.suggestedContribution.toFixed(2)} PLN</strong></p>
                                     <button 
-                                        onClick={() => handlePay(f.id, f.suggestedContribution)}
+                                        onClick={() => handlePay(f.id)}
                                         style={{ padding: '10px 15px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}
                                     >
                                         Wpłać sugerowaną kwotę
@@ -122,6 +124,15 @@ const ChildFundraisersPage: React.FC = () => {
                         ) : (
                              <p style={{ color: 'green', fontWeight: 'bold' }}>Zbiórka zakończona.</p>
                         )}
+
+                        <div style={{ marginTop: '12px' }}>
+                            <Link
+                                to={`/fundraiser/${f.id}`}
+                                style={{ textDecoration: 'none', color: '#007bff', fontWeight: 'bold' }}
+                            >
+                                Zobacz szczegóły zbiórki &rarr;
+                            </Link>
+                        </div>
                     </div>
                 ))
             )}

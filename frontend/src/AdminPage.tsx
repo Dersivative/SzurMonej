@@ -31,7 +31,8 @@ interface SchoolClassApplication {
 }
 
 const AdminPage: React.FC = () => {
-  const { isAdmin } = useAuth();
+  const { user } = useAuth();
+  const isAdmin = user?.isAdmin;
   const [users, setUsers] = useState<UserWithChildren[]>([]);
   const [applications, setApplications] = useState<SchoolClassApplication[]>([]);
   const [loading, setLoading] = useState(true);
