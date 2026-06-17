@@ -51,6 +51,8 @@ interface FundraiserDetails {
         amount: number;
         type: string;
         hasAttachment: boolean;
+        payerName?: string;
+        payeeName?: string;
     }[];
 }
 
@@ -342,8 +344,11 @@ const FundraiserDetailsPage: React.FC = () => {
                                             </>
                                         )}
                                         <td style={{ padding: '10px', border: '1px solid #dee2e6' }}>
-                                            {!isPaid && (
+                                            {!isPaid && fundraiser.status === 'ACTIVE' && (
                                                 <button onClick={() => handlePayForOther(p.childId)}>Wpłać</button>
+                                            )}
+                                            {fundraiser.status === 'RECONCILING' && p.debt && p.debt > 0 && user?.children.some(c => c.id === p.childId) && (
+                                                <button onClick={() => handlePayDebt(p.childId)}>Spłać dług</button>
                                             )}
                                         </td>
                                     </tr>
@@ -470,6 +475,8 @@ const FundraiserDetailsPage: React.FC = () => {
                                 <strong>{entry.description}</strong>
                                 <div style={{ fontSize: '0.8em', color: 'gray' }}>
                                     {new Date(entry.date).toLocaleString()} - <span style={{ fontStyle: 'italic' }}>{entry.type}</span>
+                                    {entry.payerName && <span> - Wpłacający: {entry.payerName}</span>}
+                                    {entry.payeeName && <span> - Odbiorca: {entry.payeeName}</span>}
                                 </div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center' }}>

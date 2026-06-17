@@ -27,6 +27,7 @@ public class AccountService {
     private final AccountHistoryEntryRepository historyRepository;
     private final CurrentUserService currentUserService;
     private final UserRepository userRepository;
+    private final RefundRepository refundRepository;
 
     public AccountService(
             AccountRepository accountRepository,
@@ -35,7 +36,8 @@ public class AccountService {
             FundraiserParticipantRepository participantRepository,
             AccountHistoryEntryRepository historyRepository, 
             CurrentUserService currentUserService,
-            UserRepository userRepository
+            UserRepository userRepository,
+            RefundRepository refundRepository
     ) {
         this.accountRepository = accountRepository;
         this.contributionRepository = contributionRepository;
@@ -44,6 +46,7 @@ public class AccountService {
         this.historyRepository = historyRepository;
         this.currentUserService = currentUserService;
         this.userRepository = userRepository;
+        this.refundRepository = refundRepository;
     }
 
     @Transactional(readOnly = true)
@@ -225,6 +228,17 @@ public class AccountService {
         historyEntry.setDescription(note);
         historyEntry.setType("REFUND");
         historyRepository.save(historyEntry);
+
+        // Find a contribution to link the refund to
+        List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_IdAndPayer_Id(fundraiserId, targetUserId);
+        if (!contributions.isEmpty()) {
+            Refund refund = new Refund();
+            refund.setContribution(contributions.get(0)); // Link to the first contribution
+            refund.setAmount(amount);
+            refund.setRefundedAt(LocalDateTime.now());
+            refund.setNote(note);
+            refundRepository.save(refund);
+        }
 
         return MoneyOperationResponse.transfer(
                 fundraiserAccount.getId(),

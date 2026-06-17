@@ -25,19 +25,15 @@ public class ParticipantResponse {
     private BigDecimal credit;
     private List<ContributionSummaryResponse> contributions;
 
-    public static ParticipantResponse from(FundraiserParticipant participant, List<Contribution> contributions) {
+    public static ParticipantResponse from(FundraiserParticipant participant, BigDecimal totalContribution, List<Contribution> contributions) {
         ParticipantResponse response = new ParticipantResponse();
         response.setChildId(participant.getChild().getId());
         response.setChildFirstName(participant.getChild().getName());
         response.setChildSurname(participant.getChild().getSurname());
         response.setChildName(participant.getChild().getName() + " " + participant.getChild().getSurname());
         
-        List<Contribution> participantContributions = contributions == null ? Collections.emptyList() : contributions;
-        BigDecimal totalContribution = participantContributions.stream()
-                .map(Contribution::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
         response.setTotalContribution(totalContribution);
-        response.setContributions(participantContributions.stream()
+        response.setContributions(contributions.stream()
                 .map(ContributionSummaryResponse::from)
                 .sorted((a, b) -> b.getPaidAt().compareTo(a.getPaidAt()))
                 .collect(Collectors.toList()));

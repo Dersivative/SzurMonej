@@ -10,4 +10,5 @@ import java.util.List;
 public interface ContributionRepository extends JpaRepository<Contribution, Long> {
     List<Contribution> findByParticipant_Fundraiser_Id(Long fundraiserId);
     List<Contribution> findByParticipant_Id(Long participantId);
+    List<Contribution> findByParticipant_Fundraiser_IdAndPayer_Id(Long fundraiserId, Long payerId);
 }
