@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -96,16 +97,25 @@ public class RefundRequestService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request is not pending.");
         }
 
+        String note = String.format("Zwrot na prośbę %s za dziecko: %s %s",
+                refundRequest.getRequester().getFullName(),
+                refundRequest.getParticipant().getChild().getName(),
+                refundRequest.getParticipant().getChild().getSurname());
+
         accountService.refundFromFundraiser(
                 fundraiser.getId(),
                 refundRequest.getRequester().getId(),
                 refundRequest.getAmount(),
-                "Zwrot składki na prośbę"
+                note
         );
 
         refundRequest.setStatus(EnrollmentStatus.APPROVED);
         refundRequest.setReviewedAt(LocalDateTime.now());
         refundRequestRepository.save(refundRequest);
+
+        FundraiserParticipant participant = refundRequest.getParticipant();
+        participant.setRemovedAt(LocalDate.now());
+        participantRepository.save(participant);
     }
 
     @Transactional

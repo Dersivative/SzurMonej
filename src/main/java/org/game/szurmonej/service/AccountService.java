@@ -221,11 +221,13 @@ public class AccountService {
         accountRepository.save(fundraiserAccount);
         accountRepository.save(targetAccount);
 
+        String finalNote = String.format("%s - Uznanie: %s", note, targetUser.getFullName());
+
         AccountHistoryEntry historyEntry = new AccountHistoryEntry();
         historyEntry.setAccount(fundraiserAccount);
         historyEntry.setAmount(amount.negate());
         historyEntry.setDate(LocalDateTime.now());
-        historyEntry.setDescription(note);
+        historyEntry.setDescription(finalNote);
         historyEntry.setType("REFUND");
         historyRepository.save(historyEntry);
 
@@ -236,7 +238,7 @@ public class AccountService {
             refund.setContribution(contributions.get(0)); // Link to the first contribution
             refund.setAmount(amount);
             refund.setRefundedAt(LocalDateTime.now());
-            refund.setNote(note);
+            refund.setNote(finalNote);
             refundRepository.save(refund);
         }
 

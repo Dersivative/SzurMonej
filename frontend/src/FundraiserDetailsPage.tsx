@@ -166,6 +166,27 @@ const FundraiserDetailsPage: React.FC = () => {
         }
     };
 
+    const handlePayForOther = async (childId: number) => {
+        const isOwnChild = user?.children.some(c => c.id === childId);
+        if (!isOwnChild) {
+            if (!window.confirm(`Czy na pewno chcesz wpłacić za to dziecko?`)) {
+                return;
+            }
+        }
+
+        try {
+            await axios.post('/api/account/transfer-to-fundraiser', {
+                fundraiserId: fundraiser?.id,
+                childId,
+                note: `Wpłata za ${isOwnChild ? 'swoje' : 'inne'} dziecko przez ${user?.fullName}`
+            });
+            alert('Wpłata zakończona sukcesem!');
+            fetchData();
+        } catch (err: any) {
+            alert(err.response?.data?.error || err.response?.data?.message || 'Wystąpił błąd podczas wpłaty.');
+        }
+    };
+
     const handleRemoveParticipant = async (childId: number) => {
         if (!window.confirm("Czy na pewno chcesz usunąć to dziecko ze zbiórki? Spowoduje to utworzenie prośby o zwrot wpłaconych środków.")) return;
         try {
@@ -363,6 +384,7 @@ const FundraiserDetailsPage: React.FC = () => {
                                         <td style={{ padding: '10px', border: '1px solid #dee2e6' }}>
                                             {(isTreasurer || isOwnChild) && <button onClick={() => handleRemoveParticipant(p.childId)}>Usuń</button>}
                                             {isOwnChild && p.totalContribution > 0 && fundraiser.fundraiserType === 'PER_CHILD_GOAL' && <button onClick={() => handleRequestRefund(p.childId)}>Zwróć</button>}
+                                            {!isPaid && fundraiser.status === 'ACTIVE' && <button onClick={() => handlePayForOther(p.childId)}>Wpłać</button>}
                                         </td>
                                     </tr>
                                 );
