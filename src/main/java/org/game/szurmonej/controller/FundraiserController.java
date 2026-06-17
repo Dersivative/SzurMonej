@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.game.szurmonej.dto.*;
 import org.game.szurmonej.service.AccountService;
 import org.game.szurmonej.service.FundraiserService;
+import org.game.szurmonej.service.RefundRequestService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,10 +18,12 @@ public class FundraiserController {
 
     private final FundraiserService fundraiserService;
     private final AccountService accountService;
+    private final RefundRequestService refundRequestService;
 
-    public FundraiserController(FundraiserService fundraiserService, AccountService accountService) {
+    public FundraiserController(FundraiserService fundraiserService, AccountService accountService, RefundRequestService refundRequestService) {
         this.fundraiserService = fundraiserService;
         this.accountService = accountService;
+        this.refundRequestService = refundRequestService;
     }
 
     @Operation(summary = "Pobierz wszystkie zbiórki dla danej klasy")
@@ -66,6 +69,25 @@ public class FundraiserController {
             @RequestBody AddParticipantRequest request
     ) {
         return ResponseEntity.ok(fundraiserService.addParticipant(fundraiserId, request.getChildId()));
+    }
+
+    @Operation(summary = "Usuń uczestnika ze zbiórki")
+    @DeleteMapping("/api/fundraisers/{fundraiserId}/participants/{childId}")
+    public ResponseEntity<Void> removeParticipant(
+            @PathVariable Long fundraiserId,
+            @PathVariable Long childId
+    ) {
+        fundraiserService.removeParticipant(fundraiserId, childId);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Zgłoś prośbę o zwrot wpłaty")
+    @PostMapping("/api/fundraisers/{fundraiserId}/children/{childId}/refund-requests")
+    public ResponseEntity<RefundRequestResponse> createRefundRequest(
+            @PathVariable Long fundraiserId,
+            @PathVariable Long childId
+    ) {
+        return ResponseEntity.ok(refundRequestService.createRefundRequest(fundraiserId, childId));
     }
 
     @Operation(summary = "Wpłata na zbiórkę przez skarbnika")

@@ -3,6 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from './AuthContext';
 import { getOrCreateFundraiserChat } from './api/chatApi';
+import { getPendingRefundRequests, approveRefundRequest, rejectRefundRequest, createRefundRequest } from './api/refundRequestApi';
+import type { RefundRequest } from './api/refundRequestApi';
 
 axios.defaults.withCredentials = true;
 
@@ -82,6 +84,7 @@ const FundraiserDetailsPage: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null);
     const [selectedChildToAdd, setSelectedChildToAdd] = useState<number | null>(null);
+    const [pendingRefunds, setPendingRefunds] = useState<RefundRequest[]>([]);
 
     const fetchData = useCallback(async () => {
         if (!fundraiserId) return;
@@ -89,12 +92,17 @@ const FundraiserDetailsPage: React.FC = () => {
             setLoading(true);
             const response = await axios.get<FundraiserDetails>(`/api/fundraisers/${fundraiserId}`);
             setFundraiser(response.data);
+
+            if (response.data.id && user?.isTreasurer) {
+                const refundRequests = await getPendingRefundRequests(response.data.id);
+                setPendingRefunds(refundRequests);
+            }
         } catch {
             setError('Nie udało się pobrać szczegółów zbiórki.');
         } finally {
             setLoading(false);
         }
-    }, [fundraiserId]);
+    }, [fundraiserId, user?.isTreasurer]);
 
     useEffect(() => {
         fetchData();
@@ -158,24 +166,45 @@ const FundraiserDetailsPage: React.FC = () => {
         }
     };
 
-    const handlePayForOther = async (childId: number) => {
-        const isOwnChild = user?.children.some(c => c.id === childId);
-        if (!isOwnChild) {
-            if (!window.confirm(`Czy na pewno chcesz wpłacić za to dziecko?`)) {
-                return;
-            }
-        }
-
+    const handleRemoveParticipant = async (childId: number) => {
+        if (!window.confirm("Czy na pewno chcesz usunąć to dziecko ze zbiórki? Spowoduje to utworzenie prośby o zwrot wpłaconych środków.")) return;
         try {
-            await axios.post('/api/account/transfer-to-fundraiser', {
-                fundraiserId: fundraiser?.id,
-                childId,
-                note: `Wpłata za ${isOwnChild ? 'swoje' : 'inne'} dziecko przez ${user?.fullName}`
-            });
-            alert('Wpłata zakończona sukcesem!');
+            await axios.delete(`/api/fundraisers/${fundraiserId}/participants/${childId}`);
+            alert("Dziecko usunięte, prośba o zwrot środków została utworzona.");
             fetchData();
         } catch (err: any) {
-            alert(err.response?.data?.error || err.response?.data?.message || 'Wystąpił błąd podczas wpłaty.');
+            alert(err.response?.data?.error || err.response?.data?.message || 'Wystąpił błąd.');
+        }
+    };
+
+    const handleRequestRefund = async (childId: number) => {
+        if (!window.confirm("Czy na pewno chcesz poprosić o zwrot środków dla tego dziecka?")) return;
+        try {
+            await createRefundRequest(Number(fundraiserId), childId);
+            alert("Prośba o zwrot została wysłana do skarbnika.");
+            fetchData();
+        } catch (err: any) {
+            alert(err.response?.data?.error || err.response?.data?.message || 'Wystąpił błąd.');
+        }
+    };
+
+    const handleApproveRefund = async (requestId: number) => {
+        try {
+            await approveRefundRequest(requestId);
+            alert("Prośba o zwrot została zatwierdzona.");
+            fetchData();
+        } catch (err: any) {
+            alert(err.response?.data?.error || err.response?.data?.message || 'Wystąpił błąd.');
+        }
+    };
+
+    const handleRejectRefund = async (requestId: number) => {
+        try {
+            await rejectRefundRequest(requestId);
+            alert("Prośba o zwrot została odrzucona.");
+            fetchData();
+        } catch (err: any) {
+            alert(err.response?.data?.error || err.response?.data?.message || 'Wystąpił błąd.');
         }
     };
 
@@ -207,19 +236,6 @@ const FundraiserDetailsPage: React.FC = () => {
             setActionError('Wystąpił błąd podczas rozliczania zbiórki.');
         } finally {
             setShowFinishConfirmation(false);
-        }
-    };
-
-    const handlePayDebt = async (childId: number) => {
-        setActionError(null);
-        try {
-            await axios.post(`/api/fundraisers/${fundraiserId}/children/${childId}/pay-debt`);
-            alert('Spłata długu zakończona sukcesem!');
-            fetchData();
-        } catch (err: any) {
-            const msg = err.response?.data?.error || err.response?.data?.message || 'Błąd spłaty długu.';
-            setActionError(msg);
-            alert(msg);
         }
     };
 
@@ -318,6 +334,7 @@ const FundraiserDetailsPage: React.FC = () => {
                         <tbody>
                             {fundraiser.participants.map(p => {
                                 const isPaid = p.totalContribution >= (expectedPerChild - 0.01);
+                                const isOwnChild = user?.children.some(c => c.id === p.childId);
                                 return (
                                     <tr key={p.childId}>
                                         <td style={{ padding: '10px', border: '1px solid #dee2e6' }}>
@@ -344,12 +361,8 @@ const FundraiserDetailsPage: React.FC = () => {
                                             </>
                                         )}
                                         <td style={{ padding: '10px', border: '1px solid #dee2e6' }}>
-                                            {!isPaid && fundraiser.status === 'ACTIVE' && (
-                                                <button onClick={() => handlePayForOther(p.childId)}>Wpłać</button>
-                                            )}
-                                            {fundraiser.status === 'RECONCILING' && p.debt && p.debt > 0 && user?.children.some(c => c.id === p.childId) && (
-                                                <button onClick={() => handlePayDebt(p.childId)}>Spłać dług</button>
-                                            )}
+                                            {(isTreasurer || isOwnChild) && <button onClick={() => handleRemoveParticipant(p.childId)}>Usuń</button>}
+                                            {isOwnChild && p.totalContribution > 0 && fundraiser.fundraiserType === 'PER_CHILD_GOAL' && <button onClick={() => handleRequestRefund(p.childId)}>Zwróć</button>}
                                         </td>
                                     </tr>
                                 );
@@ -360,6 +373,39 @@ const FundraiserDetailsPage: React.FC = () => {
             </div>
         );
     };
+
+    const renderRefundRequests = () => (
+        <div style={{ marginTop: '20px', marginBottom: '30px' }}>
+            <h3>Oczekujące prośby o zwrot</h3>
+            {pendingRefunds.length === 0 ? (
+                <p>Brak oczekujących próśb.</p>
+            ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+                    <thead>
+                        <tr style={{ backgroundColor: '#e9ecef', textAlign: 'left' }}>
+                            <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>Dziecko</th>
+                            <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>Wnioskujący</th>
+                            <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>Kwota</th>
+                            <th style={{ padding: '10px', border: '1px solid #dee2e6' }}>Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {pendingRefunds.map(req => (
+                            <tr key={req.id}>
+                                <td style={{ padding: '10px', border: '1px solid #dee2e6' }}>{req.participant.child.name} {req.participant.child.surname}</td>
+                                <td style={{ padding: '10px', border: '1px solid #dee2e6' }}>{req.requester.fullName}</td>
+                                <td style={{ padding: '10px', border: '1px solid #dee2e6' }}>{req.amount.toFixed(2)} PLN</td>
+                                <td style={{ padding: '10px', border: '1px solid #dee2e6' }}>
+                                    <button onClick={() => handleApproveRefund(req.id)} style={{ marginRight: '10px' }}>Zatwierdź</button>
+                                    <button onClick={() => handleRejectRefund(req.id)}>Odrzuć</button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            )}
+        </div>
+    );
 
     return (
         <div style={{ padding: '20px', maxWidth: '800px', margin: 'auto', textAlign: 'left' }}>
@@ -382,6 +428,7 @@ const FundraiserDetailsPage: React.FC = () => {
             </button>
 
             {renderAllParticipants()}
+            {isTreasurer && renderRefundRequests()}
 
             {actionError && <div style={{ color: 'red', marginTop: '10px', padding: '10px', border: '1px solid red', borderRadius: '4px', whiteSpace: 'pre-wrap' }}>{actionError}</div>}
 
