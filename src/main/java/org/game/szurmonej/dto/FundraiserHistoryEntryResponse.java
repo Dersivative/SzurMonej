@@ -45,11 +45,12 @@ public class FundraiserHistoryEntryResponse {
         var response = new FundraiserHistoryEntryResponse();
         response.setId(historyEntry.getId());
         response.setDate(historyEntry.getDate());
-        response.setDescription(historyEntry.getDescription());
         response.setAmount(historyEntry.getAmount());
         response.setHasAttachment(historyEntry.getAttachment() != null);
 
         String type = "Inna operacja";
+        String description = historyEntry.getDescription();
+
         if ("DEPOSIT_TREASURER".equals(historyEntry.getType())) {
             type = "Wpłata skarbnika";
             response.setPayerName(historyEntry.getAccount().getFundraiser().getSchoolClass().getTreasurer().getFullName());
@@ -58,13 +59,18 @@ public class FundraiserHistoryEntryResponse {
             response.setPayeeName(historyEntry.getAccount().getFundraiser().getSchoolClass().getTreasurer().getFullName());
         } else if ("REFUND".equals(historyEntry.getType())) {
             type = "Zwrot nadpłaty";
-            // This is a bit of a hack, but we can extract the user from the description
-            // A better solution would be to add a targetUser to the AccountHistoryEntry
-            // For now, we assume the description is in the format "Zwrot nadpłaty dla: User Name"
-            if (historyEntry.getDescription().contains("dla: ")) {
-                response.setPayeeName(historyEntry.getDescription().substring(historyEntry.getDescription().indexOf("dla: ") + 5));
+            
+            // W AccountService dodaliśmy " - Uznanie: Imię Nazwisko" do opisu.
+            // Spróbujmy to wyciągnąć, żeby wyświetlić ładniej na froncie.
+            if (description != null && description.contains(" - Uznanie: ")) {
+                int index = description.indexOf(" - Uznanie: ");
+                response.setPayeeName(description.substring(index + 12));
+                // Usuwamy z opisu część o uznaniu, skoro będzie w `payeeName`
+                description = description.substring(0, index);
             }
         }
+        
+        response.setDescription(description);
         response.setType(type);
 
         return response;

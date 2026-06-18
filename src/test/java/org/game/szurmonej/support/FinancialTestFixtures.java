@@ -67,6 +67,7 @@ public final class FinancialTestFixtures {
         Fundraiser fundraiser = new Fundraiser();
         fundraiser.setTitle("Wycieczka");
         fundraiser.setSchoolClass(schoolClass);
+        fundraiser.setFundraiserType(FundraiserType.TOTAL_GOAL); // Added FundraiserType
         fundraiser.setGoalAmount(new BigDecimal("600.00"));
         fundraiser.setStartedAt(LocalDate.now());
         

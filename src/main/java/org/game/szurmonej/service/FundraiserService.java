@@ -496,7 +496,7 @@ public class FundraiserService {
 
         FundraiserParticipant participant = participantRepository.findByFundraiser_IdAndChild_Id(fundraiserId, childId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Uczestnik nie został znaleziony."));
-        
+
         if (participant.getChild().getParents().stream().noneMatch(parent -> parent.getId().equals(currentUser.getId()))) {
             throw new ForbiddenOperationException("Nie masz uprawnień do spłaty długu dla tego dziecka.");
         }
@@ -510,7 +510,7 @@ public class FundraiserService {
         request.setChildId(childId);
         request.setNote("Spłata długu");
         accountService.transferToFundraiser(request);
-        
+
         participant.setDebt(null);
         participantRepository.save(participant);
     }
@@ -543,7 +543,7 @@ public class FundraiserService {
         for (FundraiserParticipant participant : participantsWithCredit) {
             // Find all contributions for this participant
             List<Contribution> contributions = contributionRepository.findByParticipant_Id(participant.getId());
-            
+
             // Group contributions by payer
             Map<User, BigDecimal> paymentsByUser = contributions.stream()
                     .collect(Collectors.groupingBy(Contribution::getPayer,
@@ -556,7 +556,7 @@ public class FundraiserService {
             for (Map.Entry<User, BigDecimal> entry : paymentsByUser.entrySet()) {
                 User payer = entry.getKey();
                 BigDecimal amountPaidByPayer = entry.getValue();
-                
+
                 // Calculate payer's share of the overpayment
                 BigDecimal payerOverpayment = amountPaidByPayer.subtract(perChildCost.multiply(amountPaidByPayer).divide(totalContributed, 2, RoundingMode.HALF_UP));
 
@@ -592,7 +592,7 @@ public class FundraiserService {
 
         List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_Id(fundraiser.getId());
         List<Refund> existingRefunds = refundRepository.findByContribution_Participant_Fundraiser_Id(fundraiser.getId());
-        
+
         Map<Long, List<Contribution>> contributionsByParticipant = contributions.stream()
                 .collect(Collectors.groupingBy(c -> c.getParticipant().getId()));
         Map<Long, List<Refund>> refundsByContributionId = existingRefunds.stream()
@@ -603,11 +603,11 @@ public class FundraiserService {
 
         for (FundraiserParticipant participant : participants) {
             List<Contribution> participantContributions = contributionsByParticipant.getOrDefault(participant.getId(), Collections.emptyList());
-            
+
             // Calculate net contributions per payer for this participant
             Map<User, BigDecimal> netPaymentsByPayerForChild = new HashMap<>();
             BigDecimal totalNetContributedForChild = BigDecimal.ZERO;
-            
+
             for (Contribution contribution : participantContributions) {
                 BigDecimal grossAmount = contribution.getAmount();
                 BigDecimal refundedAmount = refundsByContributionId.getOrDefault(contribution.getId(), Collections.emptyList())
@@ -618,7 +618,7 @@ public class FundraiserService {
                     totalNetContributedForChild = totalNetContributedForChild.add(netAmount);
                 }
             }
-            
+
             BigDecimal overpaymentForChild = totalNetContributedForChild.subtract(newPerChildGoal);
 
             if (overpaymentForChild.compareTo(BigDecimal.ZERO) > 0) {
@@ -627,7 +627,7 @@ public class FundraiserService {
                     User payer = entry.getKey();
                     BigDecimal netAmountPaidByPayer = entry.getValue();
                     BigDecimal payerShareOfOverpayment = overpaymentForChild.multiply(netAmountPaidByPayer).divide(totalNetContributedForChild, 2, RoundingMode.HALF_UP);
-                    
+
                     if (payerShareOfOverpayment.compareTo(BigDecimal.ZERO) > 0) {
                         pendingRefunds.add(new PendingRefund(payer, participant, payerShareOfOverpayment));
                     }
@@ -635,15 +635,58 @@ public class FundraiserService {
             }
         }
 
+        BigDecimal totalOwed = pendingRefunds.stream()
+                .map(PendingRefund::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         BigDecimal availableBalance = accountService.getBalance(fundraiser.getAccount());
-        
-        for (PendingRefund pendingRefund : pendingRefunds) {
-            BigDecimal refundAmount = pendingRefund.amount().min(availableBalance); // Refund up to available balance
-            if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
-                String refundNote = String.format("Automatyczny zwrot z powodu zmniejszenia celu dla: %s za: %s %s",
-                        pendingRefund.payer().getFullName(), pendingRefund.participant().getChild().getName(), pendingRefund.participant().getChild().getSurname());
-                accountService.refundFromFundraiser(fundraiser.getId(), pendingRefund.payer().getId(), refundAmount, refundNote);
-                availableBalance = availableBalance.subtract(refundAmount);
+
+        if (totalOwed.compareTo(BigDecimal.ZERO) <= 0) {
+            return; // Nothing to refund
+        }
+
+        BigDecimal actualTotalToRefund = availableBalance.min(totalOwed);
+
+        Map<FundraiserParticipant, BigDecimal> refundedByParticipant = new HashMap<>();
+
+        if (actualTotalToRefund.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal totalRefundedAcc = BigDecimal.ZERO;
+            for (int i = 0; i < pendingRefunds.size(); i++) {
+                PendingRefund pending = pendingRefunds.get(i);
+                BigDecimal refundAmount;
+
+                if (i == pendingRefunds.size() - 1) {
+                    refundAmount = actualTotalToRefund.subtract(totalRefundedAcc);
+                } else {
+                    BigDecimal proportion = pending.amount().divide(totalOwed, 10, RoundingMode.HALF_UP);
+                    refundAmount = actualTotalToRefund.multiply(proportion).setScale(2, RoundingMode.DOWN);
+                }
+
+                if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
+                    String refundNote = String.format("Automatyczny zwrot z powodu zmniejszenia celu dla: %s za: %s %s",
+                            pending.payer().getFullName(), pending.participant().getChild().getName(), pending.participant().getChild().getSurname());
+                    accountService.refundFromFundraiser(fundraiser.getId(), pending.payer().getId(), refundAmount, refundNote);
+                    totalRefundedAcc = totalRefundedAcc.add(refundAmount);
+                    refundedByParticipant.merge(pending.participant(), refundAmount, BigDecimal::add);
+                }
+            }
+        }
+
+        Map<FundraiserParticipant, BigDecimal> totalOverpaymentByParticipant = new HashMap<>();
+        for (PendingRefund pr : pendingRefunds) {
+            totalOverpaymentByParticipant.merge(pr.participant(), pr.amount(), BigDecimal::add);
+        }
+
+        for (Map.Entry<FundraiserParticipant, BigDecimal> entry : totalOverpaymentByParticipant.entrySet()) {
+            FundraiserParticipant participant = entry.getKey();
+            BigDecimal overpayment = entry.getValue();
+            BigDecimal refunded = refundedByParticipant.getOrDefault(participant, BigDecimal.ZERO);
+            BigDecimal remainingCredit = overpayment.subtract(refunded);
+
+            if (remainingCredit.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal currentCredit = participant.getCredit() == null ? BigDecimal.ZERO : participant.getCredit();
+                participant.setCredit(currentCredit.add(remainingCredit));
+                participantRepository.save(participant);
             }
         }
     }
