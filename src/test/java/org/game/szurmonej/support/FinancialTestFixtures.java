@@ -21,6 +21,7 @@ public final class FinancialTestFixtures {
             User treasurer,
             Child child,
             Child otherChild,
+            Child treasurerChild,
             SchoolClass schoolClass,
             Fundraiser fundraiser,
             FundraiserParticipant participant
@@ -83,7 +84,7 @@ public final class FinancialTestFixtures {
         createFundraiserParticipant(participantRepository, fundraiser, otherChild);
         createFundraiserParticipant(participantRepository, fundraiser, treasurerChild);
 
-        return new FinancialScenario(parent, otherParent, treasurer, child, otherChild, schoolClass, fundraiser, participant1);
+        return new FinancialScenario(parent, otherParent, treasurer, child, otherChild, treasurerChild, schoolClass, fundraiser, participant1);
     }
 
     private static Child saveChild(ChildRepository repository, UserRepository userRepository, String name, String surname, User parent) {
