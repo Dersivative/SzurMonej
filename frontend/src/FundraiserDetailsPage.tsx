@@ -21,6 +21,7 @@ interface ParticipantDetails {
     totalContribution: number;
     debt: number | null;
     credit: number | null;
+    status: string;
     contributions: ContributionSummary[];
 }
 
@@ -80,6 +81,7 @@ const FundraiserDetailsPage: React.FC = () => {
     const [actionNote, setActionNote] = useState('');
     const [newGoalAmount, setNewGoalAmount] = useState('');
     const [actionError, setActionError] = useState<string | null>(null);
+    const [refundError, setRefundError] = useState<string | null>(null);
     const [showFinishConfirmation, setShowFinishConfirmation] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null);
@@ -210,22 +212,26 @@ const FundraiserDetailsPage: React.FC = () => {
     };
 
     const handleApproveRefund = async (requestId: number) => {
+        setRefundError(null);
         try {
             await approveRefundRequest(requestId);
             alert("Prośba o zwrot została zatwierdzona.");
             fetchData();
         } catch (err: any) {
-            alert(err.response?.data?.error || err.response?.data?.message || 'Wystąpił błąd.');
+            const errorMessage = err.response?.data || 'Wystąpił błąd podczas zatwierdzania zwrotu.';
+            setRefundError(errorMessage);
         }
     };
 
     const handleRejectRefund = async (requestId: number) => {
+        setRefundError(null);
         try {
             await rejectRefundRequest(requestId);
             alert("Prośba o zwrot została odrzucona.");
             fetchData();
         } catch (err: any) {
-            alert(err.response?.data?.error || err.response?.data?.message || 'Wystąpił błąd.');
+            const errorMessage = err.response?.data || 'Wystąpił błąd podczas odrzucania zwrotu.';
+            setRefundError(errorMessage);
         }
     };
 
@@ -356,8 +362,9 @@ const FundraiserDetailsPage: React.FC = () => {
                             {fundraiser.participants.map(p => {
                                 const isPaid = p.totalContribution >= (expectedPerChild - 0.01);
                                 const isOwnChild = user?.children.some(c => c.id === p.childId);
+                                const isPendingRemoval = p.status === 'REMOVAL_PENDING';
                                 return (
-                                    <tr key={p.childId}>
+                                    <tr key={p.childId} style={{ backgroundColor: isPendingRemoval ? '#fcf8e3' : 'transparent' }}>
                                         <td style={{ padding: '10px', border: '1px solid #dee2e6' }}>
                                             {p.childFirstName || p.childName.split(' ')[0]} {p.childSurname || p.childName.split(' ').slice(1).join(' ')}
                                         </td>
@@ -365,7 +372,9 @@ const FundraiserDetailsPage: React.FC = () => {
                                             {p.totalContribution.toFixed(2)} / {expectedPerChild.toFixed(2)} PLN
                                         </td>
                                         <td style={{ padding: '10px', border: '1px solid #dee2e6' }}>
-                                            {isPaid ? (
+                                            {isPendingRemoval ? (
+                                                <span style={{ color: '#8a6d3b', fontWeight: 'bold' }}>Oczekuje na zwrot</span>
+                                            ) : isPaid ? (
                                                 <span style={{ color: '#27ae60', fontWeight: 'bold' }}>Opłacone</span>
                                             ) : (
                                                 <span style={{ color: '#c0392b', fontWeight: 'bold' }}>Do wpłaty</span>
@@ -382,9 +391,9 @@ const FundraiserDetailsPage: React.FC = () => {
                                             </>
                                         )}
                                         <td style={{ padding: '10px', border: '1px solid #dee2e6' }}>
-                                            {(isTreasurer || isOwnChild) && <button onClick={() => handleRemoveParticipant(p.childId)}>Usuń</button>}
-                                            {isOwnChild && p.totalContribution > 0 && fundraiser.fundraiserType === 'PER_CHILD_GOAL' && <button onClick={() => handleRequestRefund(p.childId)}>Zwróć</button>}
-                                            {!isPaid && fundraiser.status === 'ACTIVE' && <button onClick={() => handlePayForOther(p.childId)}>Wpłać</button>}
+                                            {(isTreasurer || isOwnChild) && !isPendingRemoval && <button onClick={() => handleRemoveParticipant(p.childId)}>Usuń</button>}
+                                            {isOwnChild && p.totalContribution > 0 && fundraiser.fundraiserType === 'PER_CHILD_GOAL' && !isPendingRemoval && <button onClick={() => handleRequestRefund(p.childId)}>Zwróć</button>}
+                                            {!isPaid && fundraiser.status === 'ACTIVE' && !isPendingRemoval && <button onClick={() => handlePayForOther(p.childId)}>Wpłać</button>}
                                         </td>
                                     </tr>
                                 );
@@ -399,6 +408,11 @@ const FundraiserDetailsPage: React.FC = () => {
     const renderRefundRequests = () => (
         <div style={{ marginTop: '20px', marginBottom: '30px' }}>
             <h3>Oczekujące prośby o zwrot</h3>
+            {refundError && (
+                <div style={{ backgroundColor: 'lightcoral', color: 'white', padding: '10px', borderRadius: '5px', marginBottom: '15px' }}>
+                    <strong>Błąd:</strong> {refundError}
+                </div>
+            )}
             {pendingRefunds.length === 0 ? (
                 <p>Brak oczekujących próśb.</p>
             ) : (

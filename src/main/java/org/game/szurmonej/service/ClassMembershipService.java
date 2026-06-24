@@ -8,6 +8,7 @@ import org.game.szurmonej.entity.User;
 import org.game.szurmonej.exception.ForbiddenOperationException;
 import org.game.szurmonej.repository.ClassMembershipRepository;
 import org.game.szurmonej.repository.FundraiserParticipantRepository;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,13 +24,16 @@ public class ClassMembershipService {
     private final ClassMembershipRepository classMembershipRepository;
     private final FundraiserParticipantRepository fundraiserParticipantRepository;
     private final CurrentUserService currentUserService;
+    private final FundraiserService fundraiserService;
 
     public ClassMembershipService(ClassMembershipRepository classMembershipRepository,
                                   FundraiserParticipantRepository fundraiserParticipantRepository,
-                                  CurrentUserService currentUserService) {
+                                  CurrentUserService currentUserService,
+                                  @Lazy FundraiserService fundraiserService) {
         this.classMembershipRepository = classMembershipRepository;
         this.fundraiserParticipantRepository = fundraiserParticipantRepository;
         this.currentUserService = currentUserService;
+        this.fundraiserService = fundraiserService;
     }
 
     @Transactional
@@ -59,6 +63,10 @@ public class ClassMembershipService {
         } else {
             membership.setStatus(EnrollmentStatus.REMOVAL_PENDING);
             classMembershipRepository.save(membership);
+            
+            for (FundraiserParticipant participation : activeParticipations) {
+                fundraiserService.removeParticipant(participation.getFundraiser().getId(), participation.getChild().getId());
+            }
         }
     }
 }

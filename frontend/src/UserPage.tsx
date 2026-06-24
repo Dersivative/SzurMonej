@@ -70,12 +70,24 @@ const UserPage: React.FC = () => {
     setError(null);
     try {
         await axios.delete(`/api/class-memberships/${membershipId}`);
-        // Refresh data after successful removal
         fetchAllData();
     } catch (err: any) {
         const errorMessage = err.response?.data?.message || 'Nie udało się opuścić klasy. Spróbuj ponownie.';
         setError(errorMessage);
         console.error('Failed to leave class', err);
+    }
+  };
+
+  const handleDeleteChild = async (childId: number) => {
+    if (!window.confirm("Czy na pewno chcesz TRWALE usunąć to dziecko z systemu? Ta operacja jest NIEODWRACALNA.")) return;
+    setError(null);
+    try {
+        await axios.delete(`/api/children/${childId}`);
+        fetchAllData();
+    } catch (err: any) {
+        const errorMessage = err.response?.data?.message || 'Nie udało się usunąć dziecka. Upewnij się, że nie jest zapisane do żadnej klasy.';
+        setError(errorMessage);
+        console.error('Failed to delete child', err);
     }
   };
 
@@ -156,7 +168,7 @@ const UserPage: React.FC = () => {
           {children.map(child => (
             <li key={child.id} style={{ marginBottom: '10px', padding: '10px', border: '1px solid #ccc', borderRadius: '5px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Link to={`/child/${child.id}/fundraisers`} style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center' }}>
+                    <Link to={`/child/${child.id}/fundraisers`} style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', flexGrow: 1 }}>
                         <img 
                             src={`/api/children/${child.id}/avatar`} 
                             alt={`Awatar ${child.name}`} 
@@ -178,14 +190,22 @@ const UserPage: React.FC = () => {
                             </div>
                         </div>
                     </Link>
-                    {child.membershipId && (
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        {child.membershipId && (
+                            <button 
+                                onClick={() => handleLeaveClass(child.membershipId!)}
+                                style={{ backgroundColor: '#ffc107', color: 'black', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}
+                            >
+                                Opuść klasę
+                            </button>
+                        )}
                         <button 
-                            onClick={() => handleLeaveClass(child.membershipId!)}
-                            style={{ backgroundColor: 'lightcoral', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}
+                            onClick={() => handleDeleteChild(child.id)}
+                            style={{ backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}
                         >
-                            Opuść klasę
+                            Usuń
                         </button>
-                    )}
+                    </div>
                 </div>
             </li>
           ))}

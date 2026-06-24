@@ -4,5 +4,6 @@ public enum EnrollmentStatus {
     PENDING,
     APPROVED,
     REJECTED,
-    REMOVAL_PENDING
+    REMOVAL_PENDING,
+    DELETION_PENDING
 }

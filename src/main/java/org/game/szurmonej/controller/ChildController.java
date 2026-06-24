@@ -1,8 +1,10 @@
 package org.game.szurmonej.controller;
 
+import org.game.szurmonej.dto.ChildCreateRequest;
 import org.game.szurmonej.entity.Child;
 import org.game.szurmonej.repository.ChildRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.game.szurmonej.service.ChildService;
+import org.game.szurmonej.service.ParentChildService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,28 +12,31 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/children")
 public class ChildController {
 
-    private final ChildRepository childRepository;
+    private final ChildRepository childRepository; // Keep for avatar logic for now
+    private final ChildService childService;
+    private final ParentChildService parentChildService;
 
-    @Autowired
-    public ChildController(ChildRepository childRepository) {
+    public ChildController(ChildRepository childRepository, ChildService childService, ParentChildService parentChildService) {
         this.childRepository = childRepository;
-    }
-
-    @GetMapping
-    public List<Child> getAllChildren() {
-        return childRepository.findAll();
+        this.childService = childService;
+        this.parentChildService = parentChildService;
     }
 
     @PostMapping
-    public Child createChild(@RequestBody Child child) {
-        return childRepository.save(child);
+    public Child createChild(@RequestBody ChildCreateRequest request) {
+        return parentChildService.addChildToCurrentUser(request);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteChild(@PathVariable Long id) {
+        childService.deleteChild(id);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/avatar")

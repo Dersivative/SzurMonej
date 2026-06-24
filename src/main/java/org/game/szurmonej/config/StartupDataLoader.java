@@ -207,39 +207,68 @@ public class StartupDataLoader implements ApplicationRunner {
             userRepository.save(parent);
         }
 
-        log.info("Flushing and clearing entity manager before creating fundraiser...");
+        log.info("Flushing and clearing entity manager before creating fundraisers...");
         entityManager.flush();
         entityManager.clear();
         
-        SchoolClass class1 = schoolClassRepository.findById(classes.get(0).getId()).orElseThrow();
-        log.info("Found class '{}' with {} members.", class1.getLabel(), class1.getMemberships().size());
-        
-        Fundraiser fundraiser = new Fundraiser();
-        fundraiser.setTitle("Zbiórka na wycieczkę");
-        fundraiser.setDescription("Zbiórka na wycieczkę do Warszawy");
-        fundraiser.setFundraiserType(FundraiserType.TOTAL_GOAL);
-        fundraiser.setGoalAmount(new BigDecimal("600.00"));
-        fundraiser.setSchoolClass(class1);
-        fundraiser.setStartedAt(LocalDate.now());
+        for (SchoolClass schoolClass : classes) {
+            SchoolClass managedClass = schoolClassRepository.findById(schoolClass.getId()).orElseThrow();
+            log.info("Found class '{}' with {} members. Creating fundraisers...", managedClass.getLabel(), managedClass.getMemberships().size());
 
-        Account fundraiserAccount = new Account();
-        fundraiserAccount.setAccountNumber(UUID.randomUUID().toString());
-        fundraiserAccount.setFundraiser(fundraiser);
-        fundraiser.setAccount(fundraiserAccount);
+            // Fundraiser 1: Total Goal
+            Fundraiser fundraiser1 = new Fundraiser();
+            fundraiser1.setTitle("Zbiórka na wycieczkę do Warszawy");
+            fundraiser1.setDescription("Zbiórka na wycieczkę do stolicy, zwiedzanie i warsztaty.");
+            fundraiser1.setFundraiserType(FundraiserType.TOTAL_GOAL);
+            fundraiser1.setGoalAmount(new BigDecimal("600.00"));
+            fundraiser1.setSchoolClass(managedClass);
+            fundraiser1.setStartedAt(LocalDate.now());
 
-        fundraiserRepository.save(fundraiser);
+            Account fundraiserAccount1 = new Account();
+            fundraiserAccount1.setAccountNumber(UUID.randomUUID().toString());
+            fundraiserAccount1.setFundraiser(fundraiser1);
+            fundraiser1.setAccount(fundraiserAccount1);
+            fundraiserRepository.save(fundraiser1);
 
-        log.info("Creating fundraiser participants for fundraiser '{}'...", fundraiser.getTitle());
-        class1.getMemberships().stream()
-            .filter(m -> m.getLeftAt() == null)
-            .forEach(membership -> {
-                log.info("Adding child '{}' to fundraiser.", membership.getChild().getName());
-                FundraiserParticipant participant = new FundraiserParticipant();
-                participant.setFundraiser(fundraiser);
-                participant.setChild(membership.getChild());
-                participant.setAddedAt(LocalDate.now());
-                fundraiserParticipantRepository.save(participant);
-            });
+            managedClass.getMemberships().stream()
+                .filter(m -> m.getLeftAt() == null)
+                .forEach(membership -> {
+                    FundraiserParticipant participant = new FundraiserParticipant();
+                    participant.setFundraiser(fundraiser1);
+                    participant.setChild(membership.getChild());
+                    participant.setAddedAt(LocalDate.now());
+                    fundraiserParticipantRepository.save(participant);
+                });
+            log.info("Created TOTAL_GOAL fundraiser for class '{}'.", managedClass.getLabel());
+
+            // Fundraiser 2: Per Child
+            Fundraiser fundraiser2 = new Fundraiser();
+            fundraiser2.setTitle("Składka na materiały plastyczne");
+            fundraiser2.setDescription("Comiesięczna składka na kredki, farby, papier i inne materiały.");
+            fundraiser2.setFundraiserType(FundraiserType.PER_CHILD_GOAL);
+            fundraiser2.setPerChildAmount(new BigDecimal("100.00"));
+            long activeMembers = managedClass.getMemberships().stream().filter(m -> m.getLeftAt() == null).count();
+            fundraiser2.setGoalAmount(new BigDecimal("100.00").multiply(new BigDecimal(activeMembers)));
+            fundraiser2.setSchoolClass(managedClass);
+            fundraiser2.setStartedAt(LocalDate.now());
+
+            Account fundraiserAccount2 = new Account();
+            fundraiserAccount2.setAccountNumber(UUID.randomUUID().toString());
+            fundraiserAccount2.setFundraiser(fundraiser2);
+            fundraiser2.setAccount(fundraiserAccount2);
+            fundraiserRepository.save(fundraiser2);
+
+            managedClass.getMemberships().stream()
+                .filter(m -> m.getLeftAt() == null)
+                .forEach(membership -> {
+                    FundraiserParticipant participant = new FundraiserParticipant();
+                    participant.setFundraiser(fundraiser2);
+                    participant.setChild(membership.getChild());
+                    participant.setAddedAt(LocalDate.now());
+                    fundraiserParticipantRepository.save(participant);
+                });
+            log.info("Created PER_CHILD_GOAL fundraiser for class '{}'.", managedClass.getLabel());
+        }
 
         log.info("Test data seeded successfully.");
     }

@@ -117,7 +117,6 @@ public class RefundRequestService {
         participant.setRemovedAt(LocalDate.now());
         participantRepository.save(participant);
 
-        // Check if the child can be fully removed from the class
         checkAndFinalizeClassRemoval(participant.getChild());
     }
 
@@ -139,12 +138,10 @@ public class RefundRequestService {
         refundRequest.setReviewedAt(LocalDateTime.now());
         refundRequestRepository.save(refundRequest);
 
-        // Since the refund was rejected, the child's removal from the class might need to be reverted.
         FundraiserParticipant participant = refundRequest.getParticipant();
-        participant.setStatus(EnrollmentStatus.APPROVED); // Revert status
+        participant.setStatus(EnrollmentStatus.APPROVED);
         participantRepository.save(participant);
 
-        // Also revert the class membership status if it was pending removal
         classMembershipRepository.findByChild_IdAndStatus(participant.getChild().getId(), EnrollmentStatus.REMOVAL_PENDING)
                 .ifPresent(membership -> {
                     membership.setStatus(EnrollmentStatus.APPROVED);
@@ -153,17 +150,15 @@ public class RefundRequestService {
     }
 
     private void checkAndFinalizeClassRemoval(Child child) {
-        // Check if there are any other active participations for this child
         boolean hasOtherActiveParticipations = participantRepository.findByChild_Id(child.getId())
                 .stream()
                 .anyMatch(p -> p.getRemovedAt() == null);
 
         if (!hasOtherActiveParticipations) {
-            // No other active participations, find the class membership and finalize removal
             classMembershipRepository.findByChild_IdAndStatus(child.getId(), EnrollmentStatus.REMOVAL_PENDING)
                     .ifPresent(membership -> {
                         membership.setLeftAt(LocalDate.now());
-                        membership.setStatus(EnrollmentStatus.REJECTED); // Or another final status
+                        membership.setStatus(EnrollmentStatus.REJECTED); // Using REJECTED as a final "left" status
                         classMembershipRepository.save(membership);
                     });
         }

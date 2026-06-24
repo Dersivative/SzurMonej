@@ -89,6 +89,8 @@ public class UserController {
     public ResponseEntity<List<ChildResponse>> getChildrenForCurrentUser() {
         User currentUser = currentUserService.getCurrentUser();
         List<ChildResponse> children = childRepository.findByParents(currentUser).stream()
+                // Filter out "zombie" children: those who are not in any class anymore.
+                .filter(child -> child.getClassMemberships().stream().anyMatch(m -> m.getLeftAt() == null))
                 .map(ChildResponse::from)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(children);

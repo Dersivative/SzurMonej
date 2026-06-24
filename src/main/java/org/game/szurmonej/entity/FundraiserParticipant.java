@@ -6,6 +6,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "fundraiser_participants")
@@ -25,6 +27,9 @@ public class FundraiserParticipant {
     @ManyToOne(optional = false)
     @JoinColumn(name = "child_id")
     private Child child;
+
+    @OneToMany(mappedBy = "participant", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RefundRequest> refundRequests = new ArrayList<>();
 
     @Column(nullable = false)
     private LocalDate addedAt;

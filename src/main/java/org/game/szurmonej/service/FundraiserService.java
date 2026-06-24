@@ -126,7 +126,7 @@ public class FundraiserService {
 
         return FundraiserResponse.from(
                 savedFundraiser,
-                participantRepository.findByFundraiser_IdAndRemovedAtIsNull(savedFundraiser.getId()),
+                participantRepository.findByFundraiser_Id(savedFundraiser.getId()),
                 new ArrayList<>(),
                 new ArrayList<>(),
                 new ArrayList<>()
@@ -183,7 +183,7 @@ public class FundraiserService {
 
         List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_Id(fundraiserId);
         List<AccountHistoryEntry> historyEntries = historyRepository.findByAccount_Fundraiser_Id(fundraiserId);
-        List<FundraiserParticipant> participants = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiserId);
+        List<FundraiserParticipant> participants = participantRepository.findByFundraiser_Id(fundraiserId);
         List<Refund> refunds = refundRepository.findByContribution_Participant_Fundraiser_Id(fundraiserId);
         return FundraiserResponse.from(fundraiser, participants, contributions, historyEntries, refunds);
     }
@@ -271,7 +271,7 @@ public class FundraiserService {
                 .map(fundraiser -> {
                     List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_Id(fundraiser.getId());
                     List<AccountHistoryEntry> historyEntries = historyRepository.findByAccount_Fundraiser_Id(fundraiser.getId());
-                    List<FundraiserParticipant> participants = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiser.getId());
+                    List<FundraiserParticipant> participants = participantRepository.findByFundraiser_Id(fundraiser.getId());
                     List<Refund> refunds = refundRepository.findByContribution_Participant_Fundraiser_Id(fundraiser.getId());
                     return FundraiserResponse.from(fundraiser, participants, contributions, historyEntries, refunds);
                 })
@@ -284,7 +284,7 @@ public class FundraiserService {
         Fundraiser fundraiser = fundraiserRepository.findById(fundraiserId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono zbiórki."));
 
-        List<FundraiserParticipant> participants = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiserId);
+        List<FundraiserParticipant> participants = participantRepository.findByFundraiser_Id(fundraiserId);
 
         boolean isParent = participants.stream()
                 .anyMatch(p -> isParentOfChild(currentUser, p.getChild()));
@@ -329,7 +329,7 @@ public class FundraiserService {
 
         List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_Id(fundraiserId);
         List<AccountHistoryEntry> historyEntries = historyRepository.findByAccount_Fundraiser_Id(fundraiserId);
-        List<FundraiserParticipant> participants = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiserId);
+        List<FundraiserParticipant> participants = participantRepository.findByFundraiser_Id(fundraiserId);
         List<Refund> refunds = refundRepository.findByContribution_Participant_Fundraiser_Id(fundraiserId);
         return FundraiserResponse.from(updatedFundraiser, participants, contributions, historyEntries, refunds);
     }
@@ -373,7 +373,7 @@ public class FundraiserService {
                 }
             }
 
-            List<FundraiserParticipant> participants = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiser.getId());
+            List<FundraiserParticipant> participants = participantRepository.findByFundraiser_Id(fundraiser.getId());
             List<Refund> refunds = refundRepository.findByContribution_Participant_Fundraiser_Id(fundraiser.getId());
             return FundraiserResponse.from(fundraiser, participants, suggestedAmount, contributions, historyEntries, refunds);
         }).collect(Collectors.toList());
