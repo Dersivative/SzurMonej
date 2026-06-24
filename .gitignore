@@ -31,3 +31,13 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Build / cache (wszędzie w repo)
+node_modules/
+dist/
+.vite/
+
+# Lokalne kopie / override
+frontend_old/
+backend/compose.local.yaml
+backend/src/main/resources/application-local.properties
