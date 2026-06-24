@@ -2,6 +2,8 @@ package org.game.szurmonej.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -38,4 +40,7 @@ public class ClassMembership {
 
     @Column(name = "left_at")
     private LocalDate leftAt;
+
+    @Enumerated(EnumType.STRING)
+    private EnrollmentStatus status;
 }

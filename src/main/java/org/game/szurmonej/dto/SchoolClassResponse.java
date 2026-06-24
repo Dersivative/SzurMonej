@@ -38,7 +38,8 @@ public class SchoolClassResponse {
                         .filter(membership -> membership.getLeftAt() == null)
                         .map(membership -> {
                             ChildResponse childResponse = ChildResponse.from(membership.getChild());
-                            childResponse.setMembershipId(membership.getId()); // Add membershipId
+                            childResponse.setMembershipId(membership.getId());
+                            childResponse.setStatus(membership.getStatus()); // Ensure status is passed
                             return childResponse;
                         })
                         .collect(Collectors.toList()) :

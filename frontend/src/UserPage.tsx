@@ -8,6 +8,7 @@ interface Child {
   name: string;
   surname?: string;
   schoolClassName?: string;
+  membershipId?: number;
 }
 
 interface SchoolClass {
@@ -27,41 +28,56 @@ const UserPage: React.FC = () => {
   const [managedClasses, setManagedClasses] = useState<SchoolClass[]>([]);
   const [application, setApplication] = useState<SchoolClassApplication | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchAllData = async () => {
+      if (!isAuthenticated) return;
+      setLoading(true);
+      try {
+          const childrenPromise = axios.get<Child[]>('/api/users/me/children');
+          const applicationPromise = axios.get<SchoolClassApplication>('/api/school-class-applications/me/pending');
+          const managedClassesPromise = axios.get<SchoolClass[]>('/api/school-classes/my-classes');
+          
+          const [childrenResponse, applicationResponse, managedClassesResponse] = await Promise.allSettled([
+              childrenPromise,
+              applicationPromise,
+              managedClassesPromise
+          ]);
+
+          if (childrenResponse.status === 'fulfilled') {
+              setChildren(childrenResponse.value.data);
+          }
+          if (managedClassesResponse.status === 'fulfilled') {
+              setManagedClasses(managedClassesResponse.value.data);
+          }
+          if (applicationResponse.status === 'fulfilled') {
+              setApplication(applicationResponse.value.data);
+          }
+
+      } catch (error) {
+          console.error('Failed to fetch user data', error);
+      } finally {
+          setLoading(false);
+      }
+  };
 
   useEffect(() => {
-    if (isAuthenticated) {
-        const fetchAllData = async () => {
-            setLoading(true);
-            try {
-                const childrenPromise = axios.get<Child[]>('/api/users/me/children');
-                const applicationPromise = axios.get<SchoolClassApplication>('/api/school-class-applications/me/pending');
-                const managedClassesPromise = axios.get<SchoolClass[]>('/api/school-classes/my-classes');
-                
-                const [childrenResponse, applicationResponse, managedClassesResponse] = await Promise.allSettled([
-                    childrenPromise,
-                    applicationPromise,
-                    managedClassesPromise
-                ]);
-
-                if (childrenResponse.status === 'fulfilled') {
-                    setChildren(childrenResponse.value.data);
-                }
-                if (managedClassesResponse.status === 'fulfilled') {
-                    setManagedClasses(managedClassesResponse.value.data);
-                }
-                if (applicationResponse.status === 'fulfilled') {
-                    setApplication(applicationResponse.value.data);
-                }
-
-            } catch (error) {
-                console.error('Failed to fetch user data', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchAllData();
-    }
+    fetchAllData();
   }, [isAuthenticated]);
+
+  const handleLeaveClass = async (membershipId: number) => {
+    if (!window.confirm("Czy na pewno chcesz, aby to dziecko opuściło klasę? Tej akcji nie można cofnąć.")) return;
+    setError(null);
+    try {
+        await axios.delete(`/api/class-memberships/${membershipId}`);
+        // Refresh data after successful removal
+        fetchAllData();
+    } catch (err: any) {
+        const errorMessage = err.response?.data?.message || 'Nie udało się opuścić klasy. Spróbuj ponownie.';
+        setError(errorMessage);
+        console.error('Failed to leave class', err);
+    }
+  };
 
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
@@ -71,6 +87,13 @@ const UserPage: React.FC = () => {
     <div style={{ padding: '20px' }}>
       <h1>Witaj, {user?.fullName}!</h1>
       <p>Twój adres email: {user?.email}</p>
+
+      {error && (
+        <div style={{ backgroundColor: 'lightcoral', color: 'white', padding: '10px', borderRadius: '5px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>{error}</span>
+            <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}>&times;</button>
+        </div>
+      )}
 
       <div style={{ marginTop: '30px', marginBottom: '30px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
@@ -131,9 +154,9 @@ const UserPage: React.FC = () => {
       ) : children.length > 0 ? (
         <ul style={{ listStyleType: 'none', padding: 0 }}>
           {children.map(child => (
-            <li key={child.id} style={{ marginBottom: '10px' }}>
-                <Link to={`/child/${child.id}/fundraisers`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', padding: '10px', border: '1px solid #ccc', borderRadius: '5px', cursor: 'pointer' }}>
+            <li key={child.id} style={{ marginBottom: '10px', padding: '10px', border: '1px solid #ccc', borderRadius: '5px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Link to={`/child/${child.id}/fundraisers`} style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center' }}>
                         <img 
                             src={`/api/children/${child.id}/avatar`} 
                             alt={`Awatar ${child.name}`} 
@@ -154,8 +177,16 @@ const UserPage: React.FC = () => {
                             )}
                             </div>
                         </div>
-                    </div>
-                </Link>
+                    </Link>
+                    {child.membershipId && (
+                        <button 
+                            onClick={() => handleLeaveClass(child.membershipId!)}
+                            style={{ backgroundColor: 'lightcoral', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}
+                        >
+                            Opuść klasę
+                        </button>
+                    )}
+                </div>
             </li>
           ))}
         </ul>

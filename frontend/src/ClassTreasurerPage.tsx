@@ -11,6 +11,7 @@ interface Child {
     surname: string;
     dateOfBirth?: string;
     membershipId: number;
+    status?: string;
 }
 
 interface SchoolClass {
@@ -249,27 +250,49 @@ const ClassTreasurerPage: React.FC = () => {
 
                 {managedClass.children && managedClass.children.length > 0 ? (
                     <ul style={{ listStyleType: 'none', padding: 0 }}>
-                        {managedClass.children.map(child => (
-                            <li key={child.id} style={{ borderBottom: '1px solid #eee', padding: '10px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ display: 'flex', alignItems: 'center' }}>
-                                    <img 
-                                        src={`/api/children/${child.id}/avatar`} 
-                                        alt={`Awatar ${child.name}`} 
-                                        style={{ width: '50px', height: '50px', borderRadius: '50%', marginRight: '15px', objectFit: 'cover' }}
-                                        onError={(e) => {
-                                            const target = e.target as HTMLImageElement;
-                                            target.onerror = null;
-                                            target.src = 'https://via.placeholder.com/50';
-                                        }}
-                                    />
-                                    <div>
-                                        <strong>{child.name} {child.surname}</strong>
-                                        {child.dateOfBirth && <div style={{ color: '#666', fontSize: '0.9em' }}>(ur. {child.dateOfBirth})</div>}
+                        {managedClass.children.map(child => {
+                            const isPendingRemoval = child.status === 'REMOVAL_PENDING';
+                            return (
+                                <li key={child.id} style={{ 
+                                    borderBottom: '1px solid #eee', 
+                                    padding: '10px 0', 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center',
+                                    backgroundColor: isPendingRemoval ? '#fcf8e3' : 'transparent',
+                                    opacity: isPendingRemoval ? 0.7 : 1
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                                        <img 
+                                            src={`/api/children/${child.id}/avatar`} 
+                                            alt={`Awatar ${child.name}`} 
+                                            style={{ width: '50px', height: '50px', borderRadius: '50%', marginRight: '15px', objectFit: 'cover' }}
+                                            onError={(e) => {
+                                                const target = e.target as HTMLImageElement;
+                                                target.onerror = null;
+                                                target.src = 'https://via.placeholder.com/50';
+                                            }}
+                                        />
+                                        <div>
+                                            <strong>{child.name} {child.surname}</strong>
+                                            {child.dateOfBirth && <div style={{ color: '#666', fontSize: '0.9em' }}>(ur. {child.dateOfBirth})</div>}
+                                            {isPendingRemoval && <div style={{ color: '#8a6d3b', fontWeight: 'bold', fontSize: '0.9em' }}>W trakcie usuwania...</div>}
+                                        </div>
                                     </div>
-                                </div>
-                                <button onClick={() => handleRemoveMember(child.membershipId)} style={{ backgroundColor: 'lightcoral', padding: '5px 10px' }}>Usuń z klasy</button>
-                            </li>
-                        ))}
+                                    <button 
+                                        onClick={() => handleRemoveMember(child.membershipId)} 
+                                        style={{ 
+                                            backgroundColor: isPendingRemoval ? '#ccc' : 'lightcoral', 
+                                            padding: '5px 10px',
+                                            cursor: isPendingRemoval ? 'not-allowed' : 'pointer'
+                                        }}
+                                        disabled={isPendingRemoval}
+                                    >
+                                        {isPendingRemoval ? 'Oczekuje' : 'Usuń z klasy'}
+                                    </button>
+                                </li>
+                            );
+                        })}
                     </ul>
                 ) : (
                     <p>Brak dzieci przypisanych do tej klasy.</p>

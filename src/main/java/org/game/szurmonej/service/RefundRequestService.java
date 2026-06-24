@@ -3,10 +3,7 @@ package org.game.szurmonej.service;
 import org.game.szurmonej.dto.RefundRequestResponse;
 import org.game.szurmonej.entity.*;
 import org.game.szurmonej.exception.ForbiddenOperationException;
-import org.game.szurmonej.repository.ContributionRepository;
-import org.game.szurmonej.repository.FundraiserParticipantRepository;
-import org.game.szurmonej.repository.RefundRepository;
-import org.game.szurmonej.repository.RefundRequestRepository;
+import org.game.szurmonej.repository.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +24,7 @@ public class RefundRequestService {
     private final RefundRepository refundRepository;
     private final CurrentUserService currentUserService;
     private final AccountService accountService;
+    private final ClassMembershipRepository classMembershipRepository;
 
     public RefundRequestService(
             RefundRequestRepository refundRequestRepository,
@@ -34,7 +32,8 @@ public class RefundRequestService {
             ContributionRepository contributionRepository,
             RefundRepository refundRepository,
             CurrentUserService currentUserService,
-            AccountService accountService
+            AccountService accountService,
+            ClassMembershipRepository classMembershipRepository
     ) {
         this.refundRequestRepository = refundRequestRepository;
         this.participantRepository = participantRepository;
@@ -42,6 +41,7 @@ public class RefundRequestService {
         this.refundRepository = refundRepository;
         this.currentUserService = currentUserService;
         this.accountService = accountService;
+        this.classMembershipRepository = classMembershipRepository;
     }
 
     @Transactional
@@ -116,6 +116,9 @@ public class RefundRequestService {
         FundraiserParticipant participant = refundRequest.getParticipant();
         participant.setRemovedAt(LocalDate.now());
         participantRepository.save(participant);
+
+        // Check if the child can be fully removed from the class
+        checkAndFinalizeClassRemoval(participant.getChild());
     }
 
     @Transactional
@@ -135,6 +138,35 @@ public class RefundRequestService {
         refundRequest.setStatus(EnrollmentStatus.REJECTED);
         refundRequest.setReviewedAt(LocalDateTime.now());
         refundRequestRepository.save(refundRequest);
+
+        // Since the refund was rejected, the child's removal from the class might need to be reverted.
+        FundraiserParticipant participant = refundRequest.getParticipant();
+        participant.setStatus(EnrollmentStatus.APPROVED); // Revert status
+        participantRepository.save(participant);
+
+        // Also revert the class membership status if it was pending removal
+        classMembershipRepository.findByChild_IdAndStatus(participant.getChild().getId(), EnrollmentStatus.REMOVAL_PENDING)
+                .ifPresent(membership -> {
+                    membership.setStatus(EnrollmentStatus.APPROVED);
+                    classMembershipRepository.save(membership);
+                });
+    }
+
+    private void checkAndFinalizeClassRemoval(Child child) {
+        // Check if there are any other active participations for this child
+        boolean hasOtherActiveParticipations = participantRepository.findByChild_Id(child.getId())
+                .stream()
+                .anyMatch(p -> p.getRemovedAt() == null);
+
+        if (!hasOtherActiveParticipations) {
+            // No other active participations, find the class membership and finalize removal
+            classMembershipRepository.findByChild_IdAndStatus(child.getId(), EnrollmentStatus.REMOVAL_PENDING)
+                    .ifPresent(membership -> {
+                        membership.setLeftAt(LocalDate.now());
+                        membership.setStatus(EnrollmentStatus.REJECTED); // Or another final status
+                        classMembershipRepository.save(membership);
+                    });
+        }
     }
 
     @Transactional(readOnly = true)

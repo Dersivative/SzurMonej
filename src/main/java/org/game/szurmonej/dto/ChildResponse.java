@@ -2,6 +2,7 @@ package org.game.szurmonej.dto;
 
 import lombok.Data;
 import org.game.szurmonej.entity.Child;
+import org.game.szurmonej.entity.EnrollmentStatus;
 
 import java.time.LocalDate;
 
@@ -13,7 +14,8 @@ public class ChildResponse {
     private LocalDate dateOfBirth;
     private String schoolClassName;
     private Long schoolClassId;
-    private Long membershipId; // Add this field
+    private Long membershipId;
+    private EnrollmentStatus status;
 
     public static ChildResponse from(Child child) {
         ChildResponse response = new ChildResponse();
@@ -29,6 +31,8 @@ public class ChildResponse {
                 .ifPresent(membership -> {
                     response.setSchoolClassName(membership.getSchoolClass().getLabel());
                     response.setSchoolClassId(membership.getSchoolClass().getId());
+                    response.setMembershipId(membership.getId());
+                    response.setStatus(membership.getStatus());
                 });
         }
 

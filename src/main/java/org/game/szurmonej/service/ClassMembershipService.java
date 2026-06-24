@@ -1,7 +1,10 @@
 package org.game.szurmonej.service;
 
 import org.game.szurmonej.entity.ClassMembership;
+import org.game.szurmonej.entity.EnrollmentStatus;
+import org.game.szurmonej.entity.FundraiserParticipant;
 import org.game.szurmonej.entity.FundraiserStatus;
+import org.game.szurmonej.entity.User;
 import org.game.szurmonej.exception.ForbiddenOperationException;
 import org.game.szurmonej.repository.ClassMembershipRepository;
 import org.game.szurmonej.repository.FundraiserParticipantRepository;
@@ -11,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class ClassMembershipService {
@@ -29,23 +34,31 @@ public class ClassMembershipService {
 
     @Transactional
     public void removeChildFromClass(Long membershipId) {
-        var currentUser = currentUserService.getCurrentUser();
-        var membership = classMembershipRepository.findById(membershipId)
+        User currentUser = currentUserService.getCurrentUser();
+        ClassMembership membership = classMembershipRepository.findById(membershipId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Membership not found"));
 
-        if (!membership.getSchoolClass().getTreasurer().getId().equals(currentUser.getId()) && !currentUser.isAdmin()) {
-            throw new ForbiddenOperationException("Only the class treasurer or an admin can remove a child from the class.");
+        boolean isParent = membership.getChild().getParents().stream()
+                .anyMatch(parent -> parent.getId().equals(currentUser.getId()));
+        boolean isTreasurer = membership.getSchoolClass().getTreasurer().getId().equals(currentUser.getId());
+        boolean isAdmin = currentUser.isAdmin();
+
+        if (!isParent && !isTreasurer && !isAdmin) {
+            throw new ForbiddenOperationException("Only the parent, class treasurer, or an admin can remove this child from the class.");
         }
 
-        boolean hasActiveFundraisers = fundraiserParticipantRepository.findByChild_Id(membership.getChild().getId())
+        List<FundraiserParticipant> activeParticipations = fundraiserParticipantRepository.findByChild_Id(membership.getChild().getId())
                 .stream()
-                .anyMatch(p -> p.getRemovedAt() == null && (p.getFundraiser().getStatus() == FundraiserStatus.ACTIVE || p.getFundraiser().getStatus() == FundraiserStatus.RECONCILING));
+                .filter(p -> p.getRemovedAt() == null && (p.getFundraiser().getStatus() == FundraiserStatus.ACTIVE || p.getFundraiser().getStatus() == FundraiserStatus.RECONCILING))
+                .collect(Collectors.toList());
 
-        if (hasActiveFundraisers) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot remove child. The child is a participant in one or more active or reconciling fundraisers. Please resolve them first.");
+        if (activeParticipations.isEmpty()) {
+            membership.setLeftAt(LocalDate.now());
+            membership.setStatus(EnrollmentStatus.REJECTED);
+            classMembershipRepository.save(membership);
+        } else {
+            membership.setStatus(EnrollmentStatus.REMOVAL_PENDING);
+            classMembershipRepository.save(membership);
         }
-
-        membership.setLeftAt(LocalDate.now());
-        classMembershipRepository.save(membership);
     }
 }
