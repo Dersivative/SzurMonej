@@ -62,6 +62,15 @@ public class FundraiserController {
         return ResponseEntity.ok(fundraiserService.updateGoal(fundraiserId, request.getNewGoalAmount()));
     }
 
+    @Operation(summary = "Zaktualizuj szczegóły zbiórki")
+    @PatchMapping("/api/fundraisers/{fundraiserId}/details")
+    public ResponseEntity<FundraiserResponse> updateDetails(
+            @PathVariable Long fundraiserId,
+            @RequestBody UpdateDetailsRequest request
+    ) {
+        return ResponseEntity.ok(fundraiserService.updateDetails(fundraiserId, request));
+    }
+
     @Operation(summary = "Dodaj uczestnika do zbiórki")
     @PostMapping("/api/fundraisers/{fundraiserId}/participants")
     public ResponseEntity<FundraiserResponse> addParticipant(

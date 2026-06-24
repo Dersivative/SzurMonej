@@ -5,6 +5,7 @@ import org.game.szurmonej.dto.FundraiserApplicationResponse;
 import org.game.szurmonej.dto.FundraiserCreateRequest;
 import org.game.szurmonej.dto.FundraiserResponse;
 import org.game.szurmonej.dto.TransferToFundraiserRequest;
+import org.game.szurmonej.dto.UpdateDetailsRequest;
 import org.game.szurmonej.entity.*;
 import org.game.szurmonej.exception.ForbiddenOperationException;
 import org.game.szurmonej.repository.*;
@@ -341,6 +342,36 @@ public class FundraiserService {
         if (newGoalAmount.compareTo(oldGoalAmount) < 0) {
             refundOverpayments(updatedFundraiser);
         }
+
+        List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_Id(fundraiserId);
+        List<AccountHistoryEntry> historyEntries = historyRepository.findByAccount_Fundraiser_Id(fundraiserId);
+        List<FundraiserParticipant> participants = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiserId);
+        List<Refund> refunds = refundRepository.findByAccountHistoryEntry_Account_Fundraiser_Id(fundraiserId);
+        return FundraiserResponse.from(updatedFundraiser, participants, contributions, historyEntries, refunds);
+    }
+
+    @Transactional
+    public FundraiserResponse updateDetails(Long fundraiserId, UpdateDetailsRequest request) {
+        User currentUser = currentUserService.getCurrentUser();
+        Fundraiser fundraiser = fundraiserRepository.findById(fundraiserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono zbiórki."));
+
+        if (!fundraiser.getSchoolClass().getTreasurer().getId().equals(currentUser.getId())) {
+            throw new ForbiddenOperationException("Tylko skarbnik może zaktualizować szczegóły.");
+        }
+
+        if (fundraiser.getStatus() != FundraiserStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Można aktualizować tylko aktywne zbiórki.");
+        }
+
+        if (request.getTitle() != null && !request.getTitle().isBlank()) {
+            fundraiser.setTitle(request.getTitle());
+        }
+        if (request.getDescription() != null) {
+            fundraiser.setDescription(request.getDescription());
+        }
+
+        Fundraiser updatedFundraiser = fundraiserRepository.save(fundraiser);
 
         List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_Id(fundraiserId);
         List<AccountHistoryEntry> historyEntries = historyRepository.findByAccount_Fundraiser_Id(fundraiserId);

@@ -87,6 +87,9 @@ const FundraiserDetailsPage: React.FC = () => {
     const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null);
     const [selectedChildToAdd, setSelectedChildToAdd] = useState<number | null>(null);
     const [pendingRefunds, setPendingRefunds] = useState<RefundRequest[]>([]);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editedTitle, setEditedTitle] = useState('');
+    const [editedDescription, setEditedDescription] = useState('');
 
     const fetchData = useCallback(async () => {
         if (!fundraiserId) return;
@@ -94,6 +97,8 @@ const FundraiserDetailsPage: React.FC = () => {
             setLoading(true);
             const response = await axios.get<FundraiserDetails>(`/api/fundraisers/${fundraiserId}`);
             setFundraiser(response.data);
+            setEditedTitle(response.data.title);
+            setEditedDescription(response.data.description);
 
             if (response.data.id && user?.isTreasurer) {
                 const refundRequests = await getPendingRefundRequests(response.data.id);
@@ -140,6 +145,22 @@ const FundraiserDetailsPage: React.FC = () => {
                 newGoalAmount: parseFloat(newGoalAmount)
             });
             setNewGoalAmount('');
+            fetchData();
+        } catch (err: any) {
+            const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Wystąpił nieoczekiwany błąd.';
+            setActionError(errorMessage);
+            alert(errorMessage);
+        }
+    };
+
+    const handleUpdateDetails = async () => {
+        setActionError(null);
+        try {
+            await axios.patch(`/api/fundraisers/${fundraiserId}/details`, {
+                title: editedTitle,
+                description: editedDescription
+            });
+            setIsEditing(false);
             fetchData();
         } catch (err: any) {
             const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Wystąpił nieoczekiwany błąd.';
@@ -320,7 +341,15 @@ const FundraiserDetailsPage: React.FC = () => {
 
     const renderGeneralInfo = () => (
         <div style={{ border: '1px solid #dee2e6', borderRadius: '8px', padding: '16px', marginBottom: '20px', backgroundColor: '#f8f9fa' }}>
-            <h3 style={{ marginTop: 0 }}>Informacje ogólne</h3>
+            {isEditing ? (
+                <div style={{ marginBottom: '15px' }}>
+                    <label htmlFor="edit-title" style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Tytuł zbiórki</label>
+                    <input id="edit-title" type="text" value={editedTitle} onChange={(e) => setEditedTitle(e.target.value)} style={{ width: '100%', padding: '8px', fontSize: '1.2em' }} />
+                </div>
+            ) : (
+                <h1 style={{ marginTop: '0', marginBottom: '20px' }}>{fundraiser.title}</h1>
+            )}
+            
             <p><strong>Typ zbiórki:</strong> {fundraiser.fundraiserType === 'TOTAL_GOAL' ? 'Cel całościowy' : 'Składka na ucznia'}</p>
             {fundraiser.fundraiserType === 'PER_CHILD_GOAL' && <p><strong>Kwota na dziecko:</strong> {fundraiser.perChildAmount?.toFixed(2)} PLN</p>}
             <p><strong>Klasa:</strong> {fundraiser.classLabel || '—'}</p>
@@ -330,7 +359,28 @@ const FundraiserDetailsPage: React.FC = () => {
             <p><strong>Status:</strong> {STATUS_LABELS[fundraiser.status]}</p>
             <p><strong>Rozpoczęcie:</strong> {formatDate(fundraiser.startedAt)}</p>
             <p><strong>Zakończenie:</strong> {fundraiser.endedAt ? formatDate(fundraiser.endedAt) : (fundraiser.status === 'ACTIVE' ? 'Trwa' : '—')}</p>
-            {fundraiser.description && <p><strong>Opis:</strong> {fundraiser.description}</p>}
+            
+            {isEditing ? (
+                <div style={{ marginTop: '15px' }}>
+                    <label htmlFor="edit-description" style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Opis</label>
+                    <textarea id="edit-description" value={editedDescription} onChange={(e) => setEditedDescription(e.target.value)} style={{ width: '100%', minHeight: '100px', padding: '8px' }} />
+                </div>
+            ) : (
+                fundraiser.description && <p><strong>Opis:</strong> {fundraiser.description}</p>
+            )}
+
+            {isTreasurer && fundraiser.status === 'ACTIVE' && (
+                <div style={{ marginTop: '20px', borderTop: '1px solid #dee2e6', paddingTop: '15px' }}>
+                    {isEditing ? (
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button onClick={handleUpdateDetails} style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>Zapisz zmiany</button>
+                            <button onClick={() => setIsEditing(false)} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '4px' }}>Anuluj</button>
+                        </div>
+                    ) : (
+                        <button onClick={() => setIsEditing(true)} style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}>Edytuj Tytuł/Opis</button>
+                    )}
+                </div>
+            )}
         </div>
     );
 
@@ -446,8 +496,7 @@ const FundraiserDetailsPage: React.FC = () => {
     return (
         <div style={{ padding: '20px', maxWidth: '800px', margin: 'auto', textAlign: 'left' }}>
             <Link to={backLink}>&larr; {backLabel}</Link>
-            <h1 style={{ marginTop: '20px' }}>{fundraiser.title}</h1>
-
+            
             {renderGeneralInfo()}
 
             <div style={{ backgroundColor: '#e9ecef', borderRadius: '5px', height: '24px', width: '100%', overflow: 'hidden', marginBottom: '15px' }}>
