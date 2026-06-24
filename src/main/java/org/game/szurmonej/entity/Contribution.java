@@ -34,9 +34,4 @@ public class Contribution {
     private LocalDateTime paidAt;
 
     private String note;
-
-    // This field is deprecated and will be removed. The payer is now directly linked.
-    @ManyToOne
-    @JoinColumn(name = "payer_account_id")
-    private Account payerAccount;
 }

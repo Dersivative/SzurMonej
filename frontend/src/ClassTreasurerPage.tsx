@@ -57,6 +57,7 @@ const ClassTreasurerPage: React.FC = () => {
     const [fundraisers, setFundraisers] = useState<Fundraiser[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [memberError, setMemberError] = useState<string | null>(null);
     const [isCreateFundraiserOpen, setCreateFundraiserOpen] = useState(false);
 
     const fetchData = useCallback(async () => {
@@ -142,14 +143,17 @@ const ClassTreasurerPage: React.FC = () => {
 
     const handleRemoveMember = async (membershipId: number) => {
         if (!window.confirm("Czy na pewno chcesz usunąć to dziecko z klasy?")) return;
+        setMemberError(null); // Reset error before new attempt
         try {
             await axios.delete(`/api/class-memberships/${membershipId}`);
             fetchData();
         } catch (err: any) {
-            if (err.response?.data?.message) {
-                alert(`Błąd: ${err.response.data.message}`);
+            if (err.response && err.response.data) {
+                // Backend often sends error details in a 'message' or 'error' field
+                const errorMessage = err.response.data.message || err.response.data.error || 'Wystąpił nieznany błąd.';
+                setMemberError(errorMessage);
             } else {
-                alert('Nie udało się usunąć dziecka z klasy.');
+                setMemberError('Nie udało się usunąć dziecka z klasy. Sprawdź połączenie z serwerem.');
             }
         }
     };
@@ -235,6 +239,14 @@ const ClassTreasurerPage: React.FC = () => {
 
             <div style={{ border: '1px solid #ccc', padding: '15px', marginBottom: '20px', borderRadius: '5px' }}>
                 <h2>Dzieci przypisane do klasy ({managedClass.children?.length || 0})</h2>
+                
+                {memberError && (
+                    <div style={{ backgroundColor: 'lightcoral', color: 'white', padding: '10px', borderRadius: '5px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>{memberError}</span>
+                        <button onClick={() => setMemberError(null)} style={{ background: 'none', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}>&times;</button>
+                    </div>
+                )}
+
                 {managedClass.children && managedClass.children.length > 0 ? (
                     <ul style={{ listStyleType: 'none', padding: 0 }}>
                         {managedClass.children.map(child => (

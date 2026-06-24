@@ -39,7 +39,7 @@ public class ClassMembershipService {
 
         boolean hasActiveFundraisers = fundraiserParticipantRepository.findByChild_Id(membership.getChild().getId())
                 .stream()
-                .anyMatch(p -> p.getFundraiser().getStatus() == FundraiserStatus.ACTIVE || p.getFundraiser().getStatus() == FundraiserStatus.RECONCILING);
+                .anyMatch(p -> p.getRemovedAt() == null && (p.getFundraiser().getStatus() == FundraiserStatus.ACTIVE || p.getFundraiser().getStatus() == FundraiserStatus.RECONCILING));
 
         if (hasActiveFundraisers) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot remove child. The child is a participant in one or more active or reconciling fundraisers. Please resolve them first.");

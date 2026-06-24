@@ -216,6 +216,10 @@ public class FundraiserService {
         if (contributions.isEmpty()) {
             participant.setRemovedAt(LocalDate.now());
             participantRepository.save(participant);
+            if (fundraiser.getFundraiserType() == FundraiserType.PER_CHILD_GOAL) {
+                fundraiser.setGoalAmount(fundraiser.getGoalAmount().subtract(fundraiser.getPerChildAmount()));
+            }
+            fundraiserRepository.save(fundraiser);
             return;
         }
 
