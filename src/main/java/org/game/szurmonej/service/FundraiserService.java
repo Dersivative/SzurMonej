@@ -1,5 +1,7 @@
 package org.game.szurmonej.service;
 
+import org.game.szurmonej.dto.ChildFundraisersView;
+import org.game.szurmonej.dto.FundraiserApplicationResponse;
 import org.game.szurmonej.dto.FundraiserCreateRequest;
 import org.game.szurmonej.dto.FundraiserResponse;
 import org.game.szurmonej.dto.TransferToFundraiserRequest;
@@ -37,8 +39,9 @@ public class FundraiserService {
     private final AccountService accountService;
     private final RefundRepository refundRepository;
     private final RefundRequestRepository refundRequestRepository;
+    private final FundraiserApplicationRepository fundraiserApplicationRepository;
 
-    public FundraiserService(FundraiserRepository fundraiserRepository, SchoolClassRepository schoolClassRepository, ChildRepository childRepository, FundraiserParticipantRepository participantRepository, ContributionRepository contributionRepository, AccountHistoryEntryRepository historyRepository, CurrentUserService currentUserService, AccountService accountService, RefundRepository refundRepository, RefundRequestRepository refundRequestRepository) {
+    public FundraiserService(FundraiserRepository fundraiserRepository, SchoolClassRepository schoolClassRepository, ChildRepository childRepository, FundraiserParticipantRepository participantRepository, ContributionRepository contributionRepository, AccountHistoryEntryRepository historyRepository, CurrentUserService currentUserService, AccountService accountService, RefundRepository refundRepository, RefundRequestRepository refundRequestRepository, FundraiserApplicationRepository fundraiserApplicationRepository) {
         this.fundraiserRepository = fundraiserRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.childRepository = childRepository;
@@ -49,6 +52,7 @@ public class FundraiserService {
         this.accountService = accountService;
         this.refundRepository = refundRepository;
         this.refundRequestRepository = refundRequestRepository;
+        this.fundraiserApplicationRepository = fundraiserApplicationRepository;
     }
 
     @Transactional
@@ -346,7 +350,7 @@ public class FundraiserService {
     }
 
     @Transactional(readOnly = true)
-    public List<FundraiserResponse> getFundraisersForChild(Long childId) {
+    public ChildFundraisersView getFundraisersForChild(Long childId) {
         User currentUser = currentUserService.getCurrentUser();
         Child child = childRepository.findById(childId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono dziecka."));
@@ -355,58 +359,73 @@ public class FundraiserService {
             throw new ForbiddenOperationException("Nie masz uprawnień do tego dziecka.");
         }
 
-        List<Fundraiser> fundraisers = fundraiserRepository.findActiveFundraisersByChildId(childId);
+        List<FundraiserResponse> activeFundraisers = fundraiserRepository.findActiveFundraisersByChildId(childId).stream()
+            .map(fundraiser -> {
+                List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_Id(fundraiser.getId());
+                List<AccountHistoryEntry> historyEntries = historyRepository.findByAccount_Fundraiser_Id(fundraiser.getId());
+                List<Refund> refunds = refundRepository.findByAccountHistoryEntry_Account_Fundraiser_Id(fundraiser.getId());
 
-        return fundraisers.stream().map(fundraiser -> {
-            List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_Id(fundraiser.getId());
-            List<AccountHistoryEntry> historyEntries = historyRepository.findByAccount_Fundraiser_Id(fundraiser.getId());
-            List<Refund> refunds = refundRepository.findByAccountHistoryEntry_Account_Fundraiser_Id(fundraiser.getId());
+                BigDecimal totalContributedByChild = contributions.stream()
+                    .filter(c -> c.getParticipant().getChild().getId().equals(childId))
+                    .map(Contribution::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+                
+                BigDecimal totalRefundedForChild = refunds.stream()
+                    .filter(r -> r.getContribution() != null && r.getContribution().getParticipant().getChild().getId().equals(childId))
+                    .map(Refund::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            BigDecimal totalContributedByChild = contributions.stream()
-                .filter(c -> c.getParticipant().getChild().getId().equals(childId))
-                .map(Contribution::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-            
-            BigDecimal totalRefundedForChild = refunds.stream()
-                .filter(r -> r.getContribution() != null && r.getContribution().getParticipant().getChild().getId().equals(childId))
-                .map(Refund::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal netContributedByChild = totalContributedByChild.subtract(totalRefundedForChild);
 
-            BigDecimal netContributedByChild = totalContributedByChild.subtract(totalRefundedForChild);
-
-            BigDecimal suggestedAmount = BigDecimal.ZERO;
-            if (fundraiser.getStatus() == FundraiserStatus.RECONCILING) {
-                FundraiserParticipant participant = participantRepository.findByFundraiser_IdAndChild_Id(fundraiser.getId(), childId).orElse(null);
-                if (participant != null && participant.getDebt() != null) {
-                    suggestedAmount = participant.getDebt();
-                }
-            } else if (fundraiser.getStatus() == FundraiserStatus.ACTIVE) {
-                List<FundraiserParticipant> activeParticipants = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiser.getId());
-                long numberOfParticipants = activeParticipants.size();
-                if (numberOfParticipants > 0) {
-                    BigDecimal perChildGoal;
-                    if (fundraiser.getFundraiserType() == FundraiserType.PER_CHILD_GOAL) {
-                        perChildGoal = fundraiser.getPerChildAmount();
-                    } else {
-                        BigDecimal baseCost = fundraiser.getGoalAmount().divide(new BigDecimal(numberOfParticipants), 2, RoundingMode.FLOOR);
-                        BigDecimal remainder = fundraiser.getGoalAmount().subtract(baseCost.multiply(new BigDecimal(numberOfParticipants)));
-                        perChildGoal = baseCost;
-                        if (activeParticipants.get(0).getChild().getId().equals(childId)) {
-                             if (remainder.compareTo(BigDecimal.ZERO) > 0) {
-                                 perChildGoal = perChildGoal.add(new BigDecimal("0.01"));
-                             }
+                BigDecimal suggestedAmount = BigDecimal.ZERO;
+                if (fundraiser.getStatus() == FundraiserStatus.RECONCILING) {
+                    FundraiserParticipant participant = participantRepository.findByFundraiser_IdAndChild_Id(fundraiser.getId(), childId).orElse(null);
+                    if (participant != null && participant.getDebt() != null) {
+                        suggestedAmount = participant.getDebt();
+                    }
+                } else if (fundraiser.getStatus() == FundraiserStatus.ACTIVE) {
+                    List<FundraiserParticipant> activeParticipants = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiser.getId());
+                    long numberOfParticipants = activeParticipants.size();
+                    if (numberOfParticipants > 0) {
+                        BigDecimal perChildGoal;
+                        if (fundraiser.getFundraiserType() == FundraiserType.PER_CHILD_GOAL) {
+                            perChildGoal = fundraiser.getPerChildAmount();
+                        } else {
+                            BigDecimal baseCost = fundraiser.getGoalAmount().divide(new BigDecimal(numberOfParticipants), 2, RoundingMode.FLOOR);
+                            BigDecimal remainder = fundraiser.getGoalAmount().subtract(baseCost.multiply(new BigDecimal(numberOfParticipants)));
+                            perChildGoal = baseCost;
+                            if (activeParticipants.get(0).getChild().getId().equals(childId)) {
+                                 if (remainder.compareTo(BigDecimal.ZERO) > 0) {
+                                     perChildGoal = perChildGoal.add(new BigDecimal("0.01"));
+                                 }
+                            }
+                        }
+                        suggestedAmount = perChildGoal.subtract(netContributedByChild);
+                        if (suggestedAmount.compareTo(BigDecimal.ZERO) < 0) {
+                            suggestedAmount = BigDecimal.ZERO;
                         }
                     }
-                    suggestedAmount = perChildGoal.subtract(netContributedByChild);
-                    if (suggestedAmount.compareTo(BigDecimal.ZERO) < 0) {
-                        suggestedAmount = BigDecimal.ZERO;
-                    }
                 }
-            }
 
-            List<FundraiserParticipant> participants = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiser.getId());
-            return FundraiserResponse.from(fundraiser, participants, suggestedAmount, contributions, historyEntries, refunds);
-        }).collect(Collectors.toList());
+                List<FundraiserParticipant> participants = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiser.getId());
+                return FundraiserResponse.from(fundraiser, participants, suggestedAmount, contributions, historyEntries, refunds);
+            }).collect(Collectors.toList());
+
+        Long classId = child.getClassMemberships().stream()
+                .filter(m -> m.getLeftAt() == null)
+                .findFirst()
+                .map(m -> m.getSchoolClass().getId())
+                .orElse(null);
+
+        List<FundraiserApplicationResponse> pendingApplications = new ArrayList<>();
+        if (classId != null) {
+            pendingApplications = fundraiserApplicationRepository.findBySchoolClass_IdAndStatus(classId, EnrollmentStatus.PENDING)
+                    .stream()
+                    .map(FundraiserApplicationResponse::from)
+                    .collect(Collectors.toList());
+        }
+
+        return new ChildFundraisersView(activeFundraisers, pendingApplications);
     }
 
     @Transactional

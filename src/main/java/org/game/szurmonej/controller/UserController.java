@@ -1,30 +1,23 @@
 package org.game.szurmonej.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.game.szurmonej.dto.ChildCreateRequest;
-import org.game.szurmonej.dto.ChildResponse;
-import org.game.szurmonej.dto.EnrollmentApplicationResponse;
-import org.game.szurmonej.dto.UserCreateRequest;
-import org.game.szurmonej.dto.UserResponse;
-import org.game.szurmonej.dto.UserWithChildrenResponse;
+import org.game.szurmonej.dto.*;
 import org.game.szurmonej.entity.Account;
 import org.game.szurmonej.entity.User;
 import org.game.szurmonej.repository.ChildRepository;
 import org.game.szurmonej.repository.UserRepository;
 import org.game.szurmonej.service.ClassEnrollmentService;
 import org.game.szurmonej.service.CurrentUserService;
+import org.game.szurmonej.service.FundraiserService;
 import org.game.szurmonej.service.ParentChildService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.validation.Valid;
@@ -43,6 +36,7 @@ public class UserController {
     private final ChildRepository childRepository;
     private final ParentChildService parentChildService;
     private final ClassEnrollmentService classEnrollmentService;
+    private final FundraiserService fundraiserService;
 
     public UserController(
             UserRepository userRepository,
@@ -50,7 +44,8 @@ public class UserController {
             CurrentUserService currentUserService,
             ChildRepository childRepository,
             ParentChildService parentChildService,
-            ClassEnrollmentService classEnrollmentService
+            ClassEnrollmentService classEnrollmentService,
+            FundraiserService fundraiserService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -58,6 +53,7 @@ public class UserController {
         this.childRepository = childRepository;
         this.parentChildService = parentChildService;
         this.classEnrollmentService = classEnrollmentService;
+        this.fundraiserService = fundraiserService;
     }
 
     @Transactional(readOnly = true)
@@ -92,6 +88,12 @@ public class UserController {
                 .map(ChildResponse::from)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(children);
+    }
+
+    @Operation(summary = "Pobierz wszystkie zbiórki i wnioski dla danego dziecka")
+    @GetMapping("/me/children/{childId}/fundraisers")
+    public ResponseEntity<ChildFundraisersView> getFundraisersForChild(@PathVariable Long childId) {
+        return ResponseEntity.ok(fundraiserService.getFundraisersForChild(childId));
     }
 
     @PostMapping("/me/children")

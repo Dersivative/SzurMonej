@@ -41,9 +41,9 @@ public class FundraiserController {
         return ResponseEntity.ok(fundraiserService.createFundraiser(request, classId));
     }
 
-    @Operation(summary = "Pobierz wszystkie zbiórki dla danego dziecka")
+    @Operation(summary = "Pobierz wszystkie zbiórki i wnioski o zbiórki dla danego dziecka")
     @GetMapping("/api/children/{childId}/fundraisers")
-    public ResponseEntity<List<FundraiserResponse>> getFundraisersForChild(@PathVariable Long childId) {
+    public ResponseEntity<ChildFundraisersView> getFundraisersForChild(@PathVariable Long childId) {
         return ResponseEntity.ok(fundraiserService.getFundraisersForChild(childId));
     }
 

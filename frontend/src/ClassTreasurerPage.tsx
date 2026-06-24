@@ -3,6 +3,7 @@ import { useAuth } from './AuthContext';
 import { Navigate, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import CreateFundraiser from './CreateFundraiser';
+import FundraiserApplicationEditor from './FundraiserApplicationEditor';
 import { getOrCreateClassChat } from './api/chatApi';
 
 interface Child {
@@ -49,12 +50,25 @@ interface Fundraiser {
     }[];
 }
 
+interface FundraiserApplication {
+    id: number;
+    title: string;
+    description: string;
+    fundraiserType: string;
+    goalAmount?: number;
+    perChildAmount?: number;
+    participantIds: number[];
+    requestingParent: { fullName: string; };
+}
+
 const ClassTreasurerPage: React.FC = () => {
     const { user, isAuthenticated } = useAuth();
     const navigate = useNavigate();
     const [managedClass, setManagedClass] = useState<SchoolClass | null>(null);
     const [enrollmentLink, setEnrollmentLink] = useState<EnrollmentLink | null>(null);
     const [applications, setApplications] = useState<EnrollmentApplication[]>([]);
+    const [fundraiserApplications, setFundraiserApplications] = useState<FundraiserApplication[]>([]);
+    const [selectedApplication, setSelectedApplication] = useState<FundraiserApplication | null>(null);
     const [fundraisers, setFundraisers] = useState<Fundraiser[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -76,15 +90,17 @@ const ClassTreasurerPage: React.FC = () => {
             }
             setManagedClass(myClass);
 
-            const [linkResponse, appsResponse, fundraisersResponse] = await Promise.allSettled([
+            const [linkResponse, appsResponse, fundraisersResponse, fundraiserAppsResponse] = await Promise.allSettled([
                 axios.get<EnrollmentLink>(`/api/school-classes/${myClass.id}/enrollment-link`),
                 axios.get<EnrollmentApplication[]>(`/api/school-classes/${myClass.id}/enrollment-applications?status=PENDING`),
-                axios.get<Fundraiser[]>(`/api/school-classes/${myClass.id}/fundraisers`)
+                axios.get<Fundraiser[]>(`/api/school-classes/${myClass.id}/fundraisers`),
+                axios.get<FundraiserApplication[]>(`/api/fundraiser-applications/class/${myClass.id}/pending`)
             ]);
 
             if (linkResponse.status === 'fulfilled') setEnrollmentLink(linkResponse.value.data);
             if (appsResponse.status === 'fulfilled') setApplications(appsResponse.value.data);
             if (fundraisersResponse.status === 'fulfilled') setFundraisers(fundraisersResponse.value.data);
+            if (fundraiserAppsResponse.status === 'fulfilled') setFundraiserApplications(fundraiserAppsResponse.value.data);
 
         } catch (err) {
             console.error('Błąd podczas pobierania danych klasy', err);
@@ -181,6 +197,14 @@ const ClassTreasurerPage: React.FC = () => {
                     onClose={() => setCreateFundraiserOpen(false)}
                 />
             )}
+            {selectedApplication && (
+                <FundraiserApplicationEditor
+                    application={selectedApplication}
+                    classChildren={managedClass.children || []}
+                    onClose={() => setSelectedApplication(null)}
+                    onSuccess={fetchData}
+                />
+            )}
 
             <h1>Zarządzanie klasą: {managedClass.label}</h1>
 
@@ -213,6 +237,24 @@ const ClassTreasurerPage: React.FC = () => {
                     ))
                 ) : (
                     <p>Brak aktywnych zbiórek.</p>
+                )}
+            </div>
+
+            <div style={{ border: '1px solid #ccc', padding: '15px', marginBottom: '20px', borderRadius: '5px' }}>
+                <h2>Oczekujące wnioski o zbiórki ({fundraiserApplications.length})</h2>
+                {fundraiserApplications.length > 0 ? (
+                    <ul style={{ listStyleType: 'none', padding: 0 }}>
+                        {fundraiserApplications.map(app => (
+                            <li key={app.id} onClick={() => setSelectedApplication(app)} style={{ borderBottom: '1px solid #eee', padding: '10px', cursor: 'pointer' }}>
+                                <div>
+                                    <strong>Tytuł:</strong> {app.title}<br/>
+                                    <strong>Wnioskujący:</strong> {app.requestingParent.fullName}<br/>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <p>Brak oczekujących wniosków o zbiórki.</p>
                 )}
             </div>
 
