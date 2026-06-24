@@ -8,19 +8,22 @@ import org.game.szurmonej.entity.Account;
 import org.game.szurmonej.entity.User;
 import org.game.szurmonej.repository.ChildRepository;
 import org.game.szurmonej.repository.UserRepository;
-import org.game.szurmonej.service.ClassEnrollmentService;
-import org.game.szurmonej.service.CurrentUserService;
-import org.game.szurmonej.service.FundraiserService;
-import org.game.szurmonej.service.ParentChildService;
+import org.game.szurmonej.service.*;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StreamUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.validation.Valid;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -37,6 +40,9 @@ public class UserController {
     private final ParentChildService parentChildService;
     private final ClassEnrollmentService classEnrollmentService;
     private final FundraiserService fundraiserService;
+    private final UserService userService;
+    private final ResourceLoader resourceLoader;
+    private byte[] defaultAvatarBytes;
 
     public UserController(
             UserRepository userRepository,
@@ -45,7 +51,9 @@ public class UserController {
             ChildRepository childRepository,
             ParentChildService parentChildService,
             ClassEnrollmentService classEnrollmentService,
-            FundraiserService fundraiserService
+            FundraiserService fundraiserService,
+            UserService userService,
+            ResourceLoader resourceLoader
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -54,6 +62,9 @@ public class UserController {
         this.parentChildService = parentChildService;
         this.classEnrollmentService = classEnrollmentService;
         this.fundraiserService = fundraiserService;
+        this.userService = userService;
+        this.resourceLoader = resourceLoader;
+        loadDefaultAvatar();
     }
 
     @Transactional(readOnly = true)
@@ -78,6 +89,28 @@ public class UserController {
     @GetMapping("/me")
     public ResponseEntity<UserResponse> me() {
         return ResponseEntity.ok(UserResponse.from(currentUserService.getCurrentUser()));
+    }
+
+    @PatchMapping("/me/email")
+    public ResponseEntity<UserResponse> updateEmail(@RequestBody EmailChangeRequest request) {
+        return ResponseEntity.ok(userService.updateEmail(request));
+    }
+
+    @PatchMapping("/me/password")
+    public ResponseEntity<Void> updatePassword(@RequestBody PasswordChangeRequest request) {
+        userService.updatePassword(request);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/me/avatar")
+    public ResponseEntity<UserResponse> updateAvatar(@RequestParam("avatar") MultipartFile avatar) throws IOException {
+        return ResponseEntity.ok(userService.updateAvatar(avatar));
+    }
+
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteAccount() {
+        userService.deleteCurrentUser();
+        return ResponseEntity.ok().build();
     }
 
     @Transactional(readOnly = true)
@@ -121,6 +154,10 @@ public class UserController {
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setAdmin(false);
 
+        if (defaultAvatarBytes != null) {
+            user.setAvatar(defaultAvatarBytes);
+        }
+
         if (user.getAccount() == null) {
             Account account = new Account();
             account.setAccountNumber(UUID.randomUUID().toString());
@@ -128,5 +165,17 @@ public class UserController {
             user.setAccount(account);
         }
         return ResponseEntity.ok(UserResponse.from(userRepository.save(user)));
+    }
+
+    private void loadDefaultAvatar() {
+        try {
+            Resource resource = resourceLoader.getResource("classpath:avatar.png");
+            try (InputStream inputStream = resource.getInputStream()) {
+                this.defaultAvatarBytes = StreamUtils.copyToByteArray(inputStream);
+            }
+        } catch (IOException e) {
+            System.err.println("Could not load default avatar from classpath:avatar.png. Default avatar will not be set. " + e.getMessage());
+            this.defaultAvatarBytes = null;
+        }
     }
 }

@@ -36,7 +36,7 @@ public class Child {
     @Column(name = "is_archived", nullable = false)
     private boolean isArchived = false;
 
-    @Lob
+    @Column(columnDefinition = "BYTEA")
     @Basic(fetch = FetchType.LAZY)
     private byte[] avatar;
 

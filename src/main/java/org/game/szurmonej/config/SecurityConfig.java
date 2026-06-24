@@ -74,6 +74,7 @@ public class SecurityConfig {
                     "/swagger-ui/**"
                 ).permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/users").permitAll()
+                .requestMatchers(HttpMethod.PATCH, "/api/users/me/**").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/enrollment-links/*").permitAll()
                 .anyRequest().authenticated()
             )

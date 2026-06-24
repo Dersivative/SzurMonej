@@ -8,12 +8,14 @@ interface User {
     balance: number;
     isTreasurer: boolean;
     isAdmin: boolean;
+    avatar?: string;
     children: { id: number; name: string; surname: string }[];
 }
 
 interface AuthContextType {
     isAuthenticated: boolean;
     user: User | null;
+    setUser: React.Dispatch<React.SetStateAction<User | null>>;
     loading: boolean;
     login: (user: User) => void;
     logout: () => void;
@@ -71,7 +73,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     return (
-        <AuthContext.Provider value={{ isAuthenticated, user, loading, login, logout, fetchUser }}>
+        <AuthContext.Provider value={{ isAuthenticated, user, setUser, loading, login, logout, fetchUser }}>
             {children}
         </AuthContext.Provider>
     );

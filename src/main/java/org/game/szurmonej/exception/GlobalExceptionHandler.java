@@ -1,76 +1,56 @@
 package org.game.szurmonej.exception;
 
-import org.springframework.dao.OptimisticLockingFailureException;
+import org.game.szurmonej.dto.ErrorResponse;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.core.AuthenticationException;
-import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
-import java.util.HashMap;
-import java.util.Map;
+@ControllerAdvice
+public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
-@RestControllerAdvice
-public class GlobalExceptionHandler {
-
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ResponseEntity<Map<String, Object>> handleValidationExceptions(MethodArgumentNotValidException ex) {
-        Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult().getFieldErrors().forEach(error ->
-                errors.put(error.getField(), error.getDefaultMessage()));
-
-        Map<String, Object> body = new HashMap<>();
-        body.put("timestamp", System.currentTimeMillis());
-        body.put("status", HttpStatus.BAD_REQUEST.value());
-        body.put("errors", errors);
-
-        return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+    @ExceptionHandler(value = { EmailAlreadyExistsException.class })
+    protected ResponseEntity<Object> handleEmailConflict(EmailAlreadyExistsException ex, WebRequest request) {
+        ErrorResponse bodyOfResponse = new ErrorResponse(ex.getMessage());
+        return handleExceptionInternal(ex, bodyOfResponse, new HttpHeaders(), HttpStatus.BAD_REQUEST, request);
     }
 
-    @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<Map<String, String>> handleResponseStatusException(ResponseStatusException ex) {
-        return ResponseEntity.status(ex.getStatusCode()).body(Map.of("error", ex.getReason()));
+    @ExceptionHandler(value = { DataIntegrityViolationException.class })
+    public ResponseEntity<Object> handleDataIntegrityViolation(DataIntegrityViolationException ex, WebRequest request) {
+        String message = "Naruszenie integralności danych. Prawdopodobnie próbujesz użyć wartości, która już istnieje (np. email).";
+        // Check for more specific constraint violation if possible
+        if (ex.getMostSpecificCause().getMessage().contains("ConstraintViolationException")) {
+             message = "Użytkownik o podanym adresie email już istnieje.";
+        }
+        ErrorResponse bodyOfResponse = new ErrorResponse(message);
+        return new ResponseEntity<>(bodyOfResponse, HttpStatus.CONFLICT);
     }
 
-    @ExceptionHandler(InsufficientFundsException.class)
-    public ResponseEntity<Map<String, String>> handleInsufficientFunds(InsufficientFundsException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
+    @ExceptionHandler(value = { ForbiddenOperationException.class })
+    protected ResponseEntity<Object> handleForbidden(ForbiddenOperationException ex, WebRequest request) {
+        ErrorResponse bodyOfResponse = new ErrorResponse(ex.getMessage());
+        return handleExceptionInternal(ex, bodyOfResponse, new HttpHeaders(), HttpStatus.FORBIDDEN, request);
     }
 
-    @ExceptionHandler(ForbiddenOperationException.class)
-    public ResponseEntity<Map<String, String>> handleForbidden(ForbiddenOperationException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", ex.getMessage()));
+    @ExceptionHandler(value = { ResponseStatusException.class })
+    protected ResponseEntity<Object> handleResponseStatus(ResponseStatusException ex, WebRequest request) {
+        ErrorResponse bodyOfResponse = new ErrorResponse(ex.getReason());
+        return handleExceptionInternal(ex, bodyOfResponse, new HttpHeaders(), ex.getStatusCode(), request);
     }
 
-    @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<Map<String, String>> handleAccessDenied(AccessDeniedException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler({BadCredentialsException.class, AuthenticationException.class})
-    public ResponseEntity<Map<String, String>> handleAuthentication(AuthenticationException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid credentials"));
-    }
-
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<Map<String, String>> handleNotFound(ResourceNotFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
-    }
-
-    @ExceptionHandler(OptimisticLockingFailureException.class)
-    public ResponseEntity<Map<String, String>> handleOptimisticLock(OptimisticLockingFailureException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(Map.of("error", "Account was modified concurrently, please retry"));
+    // A final catch-all for any other unexpected exceptions
+    @ExceptionHandler(value = { Exception.class })
+    public ResponseEntity<Object> handleAllExceptions(Exception ex, WebRequest request) {
+        // Pass the actual, specific exception message to the frontend.
+        String errorMessage = ex.getMessage() != null ? ex.getMessage() : "An unexpected error occurred without a specific message.";
+        ErrorResponse bodyOfResponse = new ErrorResponse(errorMessage);
+        // Log the full error for debugging on the server
+        ex.printStackTrace();
+        return new ResponseEntity<>(bodyOfResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

@@ -100,8 +100,19 @@ const UserPage: React.FC = () => {
 
   return (
     <div style={{ padding: '20px' }}>
-      <h1>Witaj, {user?.fullName}!</h1>
-      <p>Twój adres email: {user?.email}</p>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '20px' }}>
+        {user?.avatar && (
+            <img 
+                src={user.avatar} 
+                alt={`Awatar ${user.fullName}`} 
+                style={{ width: '80px', height: '80px', borderRadius: '50%', marginRight: '20px', objectFit: 'cover' }}
+            />
+        )}
+        <div>
+            <h1>Witaj, {user?.fullName}!</h1>
+            <p style={{ margin: 0 }}>Twój adres email: {user?.email}</p>
+        </div>
+      </div>
 
       {error && (
         <div style={{ backgroundColor: 'lightcoral', color: 'white', padding: '10px', borderRadius: '5px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

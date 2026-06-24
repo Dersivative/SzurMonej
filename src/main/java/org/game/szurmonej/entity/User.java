@@ -35,6 +35,10 @@ public class User {
 
     private boolean isAdmin;
 
+    @Column(columnDefinition = "BYTEA")
+    @Basic(fetch = FetchType.EAGER)
+    private byte[] avatar;
+
     @ManyToMany
     @JoinTable(
             name = "user_children",

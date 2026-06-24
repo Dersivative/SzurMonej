@@ -4,6 +4,7 @@ import lombok.Data;
 import org.game.szurmonej.entity.User;
 
 import java.math.BigDecimal;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -18,6 +19,7 @@ public class UserResponse {
     private boolean isAdmin;
     private BigDecimal balance;
     private List<ChildResponse> children;
+    private String avatar; // Base64 encoded avatar
 
     public static UserResponse from(User user) {
         UserResponse response = new UserResponse();
@@ -34,6 +36,9 @@ public class UserResponse {
             response.setChildren(user.getChildren().stream().map(ChildResponse::from).collect(Collectors.toList()));
         } else {
             response.setChildren(Collections.emptyList());
+        }
+        if (user.getAvatar() != null) {
+            response.setAvatar("data:image/png;base64," + Base64.getEncoder().encodeToString(user.getAvatar()));
         }
         return response;
     }

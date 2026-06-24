@@ -14,6 +14,7 @@ import ChildFundraisersPage from './ChildFundraisersPage';
 import FundraiserDetailsPage from './FundraiserDetailsPage';
 import ChatPage from './ChatPage';
 import CreateFundraiserApplicationPage from './CreateFundraiserApplicationPage';
+import SettingsPage from './SettingsPage';
 
 const App: React.FC = () => {
     return (
@@ -35,6 +36,7 @@ const App: React.FC = () => {
                         <Route path="/chats" element={<ChatPage />} />
                         <Route path="/chats/:chatId" element={<ChatPage />} />
                         <Route path="/create-fundraiser-application" element={<CreateFundraiserApplicationPage />} />
+                        <Route path="/settings" element={<SettingsPage />} />
                     </Routes>
                 </div>
             </Router>

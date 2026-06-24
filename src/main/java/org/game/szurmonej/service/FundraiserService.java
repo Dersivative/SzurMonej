@@ -249,6 +249,17 @@ public class FundraiserService {
             }
         }
 
+        if (netPaymentsByPayer.isEmpty()) {
+            participant.setRemovedAt(LocalDate.now());
+            participant.setStatus(EnrollmentStatus.REMOVED);
+            participantRepository.save(participant);
+            if (fundraiser.getFundraiserType() == FundraiserType.PER_CHILD_GOAL) {
+                fundraiser.setGoalAmount(fundraiser.getGoalAmount().subtract(fundraiser.getPerChildAmount()));
+                fundraiserRepository.save(fundraiser);
+            }
+            return;
+        }
+
         for (Map.Entry<User, BigDecimal> entry : netPaymentsByPayer.entrySet()) {
             User payer = entry.getKey();
             BigDecimal amountToRefund = entry.getValue();

@@ -36,6 +36,7 @@ const NavBar: React.FC = () => {
       <div>
         {isAuthenticated && user && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <Link to="/settings" style={{ marginRight: '15px', textDecoration: 'none', color: '#007bff' }}>Ustawienia</Link>
             <div style={{ padding: '8px 12px', backgroundColor: '#e9ecef', borderRadius: '5px', fontWeight: 'bold' }}>
               Stan konta: {user.balance.toFixed(2)} PLN
             </div>

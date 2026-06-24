@@ -93,6 +93,7 @@ public class StartupDataLoader implements ApplicationRunner {
             admin.setLastName("User");
             admin.setPasswordHash(passwordEncoder.encode(plainPassword));
             admin.setAdmin(true);
+            admin.setAvatar(defaultAvatarBytes);
 
             Account account = new Account();
             account.setAccountNumber(UUID.randomUUID().toString());
@@ -126,6 +127,7 @@ public class StartupDataLoader implements ApplicationRunner {
             treasurer.setLastName("Skarbnikowski");
             treasurer.setPasswordHash(passwordEncoder.encode("rodzic"));
             treasurer.setAdmin(false);
+            treasurer.setAvatar(defaultAvatarBytes);
 
             Account account = new Account();
             account.setAccountNumber(UUID.randomUUID().toString());
@@ -171,6 +173,7 @@ public class StartupDataLoader implements ApplicationRunner {
             parent.setLastName("Rodzicielski");
             parent.setPasswordHash(passwordEncoder.encode("rodzic"));
             parent.setAdmin(false);
+            parent.setAvatar(defaultAvatarBytes);
 
             Account account = new Account();
             account.setAccountNumber(UUID.randomUUID().toString());
