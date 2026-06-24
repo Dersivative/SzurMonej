@@ -87,7 +87,6 @@ public class FundraiserResponse {
             }
 
             Set<Long> participantChildIds = participants.stream()
-                    .filter(p -> p.getRemovedAt() == null)
                     .map(p -> p.getChild().getId())
                     .collect(Collectors.toSet());
 
@@ -115,7 +114,6 @@ public class FundraiserResponse {
                 .collect(Collectors.groupingBy(r -> r.getContribution().getId()));
 
         List<ParticipantResponse> participantResponses = participants.stream()
-                .filter(p -> p.getRemovedAt() == null)
                 .map(p -> {
                     List<Contribution> pContributions = contributionsByParticipant.getOrDefault(p.getId(), Collections.emptyList());
                     BigDecimal totalParticipantContributions = pContributions.stream().map(Contribution::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);

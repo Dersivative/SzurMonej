@@ -19,9 +19,15 @@ public class Refund {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = true) // Changed to optional = true
+    // This field is unreliable and should not be used for financial calculations.
+    // A refund might not correspond to a single contribution.
+    @ManyToOne(optional = true)
     @JoinColumn(name = "contribution_id")
     private Contribution contribution;
+
+    @OneToOne
+    @JoinColumn(name = "history_entry_id", nullable = false)
+    private AccountHistoryEntry accountHistoryEntry;
 
     @Column(nullable = false)
     private BigDecimal amount;

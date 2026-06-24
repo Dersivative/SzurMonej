@@ -33,6 +33,9 @@ public class Child {
     @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
 
+    @Column(name = "is_archived", nullable = false)
+    private boolean isArchived = false;
+
     @Lob
     @Basic(fetch = FetchType.LAZY)
     private byte[] avatar;

@@ -25,6 +25,7 @@ public class RefundRequestService {
     private final CurrentUserService currentUserService;
     private final AccountService accountService;
     private final ClassMembershipRepository classMembershipRepository;
+    private final FundraiserRepository fundraiserRepository;
 
     public RefundRequestService(
             RefundRequestRepository refundRequestRepository,
@@ -33,7 +34,8 @@ public class RefundRequestService {
             RefundRepository refundRepository,
             CurrentUserService currentUserService,
             AccountService accountService,
-            ClassMembershipRepository classMembershipRepository
+            ClassMembershipRepository classMembershipRepository,
+            FundraiserRepository fundraiserRepository
     ) {
         this.refundRequestRepository = refundRequestRepository;
         this.participantRepository = participantRepository;
@@ -42,6 +44,7 @@ public class RefundRequestService {
         this.currentUserService = currentUserService;
         this.accountService = accountService;
         this.classMembershipRepository = classMembershipRepository;
+        this.fundraiserRepository = fundraiserRepository;
     }
 
     @Transactional
@@ -116,6 +119,11 @@ public class RefundRequestService {
         FundraiserParticipant participant = refundRequest.getParticipant();
         participant.setRemovedAt(LocalDate.now());
         participantRepository.save(participant);
+
+        if (fundraiser.getFundraiserType() == FundraiserType.PER_CHILD_GOAL) {
+            fundraiser.setGoalAmount(fundraiser.getGoalAmount().subtract(fundraiser.getPerChildAmount()));
+            fundraiserRepository.save(fundraiser);
+        }
 
         checkAndFinalizeClassRemoval(participant.getChild());
     }

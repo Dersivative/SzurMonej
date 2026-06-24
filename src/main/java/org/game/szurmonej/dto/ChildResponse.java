@@ -16,6 +16,7 @@ public class ChildResponse {
     private Long schoolClassId;
     private Long membershipId;
     private EnrollmentStatus status;
+    private boolean isArchived;
 
     public static ChildResponse from(Child child) {
         ChildResponse response = new ChildResponse();
@@ -23,6 +24,7 @@ public class ChildResponse {
         response.setName(child.getName());
         response.setSurname(child.getSurname());
         response.setDateOfBirth(child.getDateOfBirth());
+        response.setArchived(child.isArchived());
         
         if (child.getClassMemberships() != null) {
             child.getClassMemberships().stream()

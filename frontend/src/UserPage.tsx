@@ -9,6 +9,7 @@ interface Child {
   surname?: string;
   schoolClassName?: string;
   membershipId?: number;
+  isArchived: boolean;
 }
 
 interface SchoolClass {
@@ -78,22 +79,24 @@ const UserPage: React.FC = () => {
     }
   };
 
-  const handleDeleteChild = async (childId: number) => {
-    if (!window.confirm("Czy na pewno chcesz TRWALE usunąć to dziecko z systemu? Ta operacja jest NIEODWRACALNA.")) return;
+  const handleArchiveChild = async (childId: number) => {
+    if (!window.confirm("Czy na pewno chcesz zarchiwizować to dziecko? Nie będzie ono już widoczne w Twoim panelu, ale historia jego wpłat zostanie zachowana.")) return;
     setError(null);
     try {
-        await axios.delete(`/api/children/${childId}`);
+        await axios.post(`/api/children/${childId}/archive`);
         fetchAllData();
     } catch (err: any) {
-        const errorMessage = err.response?.data?.message || 'Nie udało się usunąć dziecka. Upewnij się, że nie jest zapisane do żadnej klasy.';
+        const errorMessage = err.response?.data?.message || 'Nie udało się zarchiwizować dziecka. Upewnij się, że nie jest zapisane do żadnej klasy.';
         setError(errorMessage);
-        console.error('Failed to delete child', err);
+        console.error('Failed to archive child', err);
     }
   };
 
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
+
+  const activeChildren = children.filter(child => !child.isArchived);
 
   return (
     <div style={{ padding: '20px' }}>
@@ -163,9 +166,9 @@ const UserPage: React.FC = () => {
 
       {loading ? (
         <p>Ładowanie...</p>
-      ) : children.length > 0 ? (
+      ) : activeChildren.length > 0 ? (
         <ul style={{ listStyleType: 'none', padding: 0 }}>
-          {children.map(child => (
+          {activeChildren.map(child => (
             <li key={child.id} style={{ marginBottom: '10px', padding: '10px', border: '1px solid #ccc', borderRadius: '5px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Link to={`/child/${child.id}/fundraisers`} style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', flexGrow: 1 }}>
@@ -191,20 +194,21 @@ const UserPage: React.FC = () => {
                         </div>
                     </Link>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                        {child.membershipId && (
+                        {child.membershipId ? (
                             <button 
                                 onClick={() => handleLeaveClass(child.membershipId!)}
                                 style={{ backgroundColor: '#ffc107', color: 'black', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}
                             >
                                 Opuść klasę
                             </button>
+                        ) : (
+                            <button 
+                                onClick={() => handleArchiveChild(child.id)}
+                                style={{ backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}
+                            >
+                                Archiwizuj
+                            </button>
                         )}
-                        <button 
-                            onClick={() => handleDeleteChild(child.id)}
-                            style={{ backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}
-                        >
-                            Usuń
-                        </button>
                     </div>
                 </div>
             </li>

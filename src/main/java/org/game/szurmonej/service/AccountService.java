@@ -126,13 +126,20 @@ public class AccountService {
                 .map(Contribution::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        List<Refund> refunds = refundRepository.findByContribution_Participant_Id(participant.getId());
+        BigDecimal totalRefundedForChild = refunds.stream()
+                .map(Refund::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal netContributedByChild = totalContributedByChild.subtract(totalRefundedForChild);
+
         if (fundraiser.getFundraiserType() == FundraiserType.PER_CHILD_GOAL) {
-            return fundraiser.getPerChildAmount().subtract(totalContributedByChild);
+            return fundraiser.getPerChildAmount().subtract(netContributedByChild);
         } else { // TOTAL_GOAL
             long numberOfParticipants = participantRepository.countByFundraiser_IdAndRemovedAtIsNull(fundraiser.getId());
             if (numberOfParticipants > 0) {
                 BigDecimal perChildGoal = fundraiser.getGoalAmount().divide(new BigDecimal(numberOfParticipants), 2, RoundingMode.CEILING);
-                return perChildGoal.subtract(totalContributedByChild);
+                return perChildGoal.subtract(netContributedByChild);
             }
             return BigDecimal.ZERO;
         }
@@ -231,16 +238,17 @@ public class AccountService {
         historyEntry.setType("REFUND");
         historyRepository.save(historyEntry);
 
-        // Find a contribution to link the refund to
-        List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_IdAndPayer_Id(fundraiserId, targetUserId);
-        if (!contributions.isEmpty()) {
-            Refund refund = new Refund();
-            refund.setContribution(contributions.get(0)); // Link to the first contribution
-            refund.setAmount(amount);
-            refund.setRefundedAt(LocalDateTime.now());
-            refund.setNote(finalNote);
-            refundRepository.save(refund);
-        }
+        Refund refund = new Refund();
+        refund.setAccountHistoryEntry(historyEntry);
+        refund.setAmount(amount);
+        refund.setRefundedAt(LocalDateTime.now());
+        refund.setNote(finalNote);
+        
+        // Try to link to a contribution, but it's not critical for financial calculations
+        contributionRepository.findByParticipant_Fundraiser_IdAndPayer_Id(fundraiserId, targetUserId)
+                .stream().findFirst().ifPresent(refund::setContribution);
+
+        refundRepository.save(refund);
 
         return MoneyOperationResponse.transfer(
                 fundraiserAccount.getId(),

@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.game.szurmonej.entity.Contribution;
+import org.game.szurmonej.entity.EnrollmentStatus;
 import org.game.szurmonej.entity.FundraiserParticipant;
 
 import java.math.BigDecimal;
@@ -23,6 +24,7 @@ public class ParticipantResponse {
     private BigDecimal totalContribution;
     private BigDecimal debt;
     private BigDecimal credit;
+    private EnrollmentStatus status;
     private List<ContributionSummaryResponse> contributions;
 
     public static ParticipantResponse from(FundraiserParticipant participant, BigDecimal totalContribution, List<Contribution> contributions) {
@@ -40,6 +42,7 @@ public class ParticipantResponse {
 
         response.setDebt(participant.getDebt());
         response.setCredit(participant.getCredit());
+        response.setStatus(participant.getStatus());
 
         return response;
     }

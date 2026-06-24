@@ -228,8 +228,7 @@ public class StartupDataLoader implements ApplicationRunner {
             fundraiserAccount1.setAccountNumber(UUID.randomUUID().toString());
             fundraiserAccount1.setFundraiser(fundraiser1);
             fundraiser1.setAccount(fundraiserAccount1);
-            fundraiserRepository.save(fundraiser1);
-
+            
             managedClass.getMemberships().stream()
                 .filter(m -> m.getLeftAt() == null)
                 .forEach(membership -> {
@@ -237,8 +236,9 @@ public class StartupDataLoader implements ApplicationRunner {
                     participant.setFundraiser(fundraiser1);
                     participant.setChild(membership.getChild());
                     participant.setAddedAt(LocalDate.now());
-                    fundraiserParticipantRepository.save(participant);
+                    fundraiser1.getParticipants().add(participant);
                 });
+            fundraiserRepository.save(fundraiser1);
             log.info("Created TOTAL_GOAL fundraiser for class '{}'.", managedClass.getLabel());
 
             // Fundraiser 2: Per Child
@@ -256,7 +256,6 @@ public class StartupDataLoader implements ApplicationRunner {
             fundraiserAccount2.setAccountNumber(UUID.randomUUID().toString());
             fundraiserAccount2.setFundraiser(fundraiser2);
             fundraiser2.setAccount(fundraiserAccount2);
-            fundraiserRepository.save(fundraiser2);
 
             managedClass.getMemberships().stream()
                 .filter(m -> m.getLeftAt() == null)
@@ -265,8 +264,9 @@ public class StartupDataLoader implements ApplicationRunner {
                     participant.setFundraiser(fundraiser2);
                     participant.setChild(membership.getChild());
                     participant.setAddedAt(LocalDate.now());
-                    fundraiserParticipantRepository.save(participant);
+                    fundraiser2.getParticipants().add(participant);
                 });
+            fundraiserRepository.save(fundraiser2);
             log.info("Created PER_CHILD_GOAL fundraiser for class '{}'.", managedClass.getLabel());
         }
 

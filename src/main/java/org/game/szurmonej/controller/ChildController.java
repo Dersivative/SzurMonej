@@ -33,9 +33,9 @@ public class ChildController {
         return parentChildService.addChildToCurrentUser(request);
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteChild(@PathVariable Long id) {
-        childService.deleteChild(id);
+    @PostMapping("/{id}/archive")
+    public ResponseEntity<Void> archiveChild(@PathVariable Long id) {
+        childService.archiveChild(id);
         return ResponseEntity.noContent().build();
     }
 

@@ -5,7 +5,6 @@ import org.game.szurmonej.entity.User;
 import org.game.szurmonej.exception.ForbiddenOperationException;
 import org.game.szurmonej.repository.ChildRepository;
 import org.game.szurmonej.repository.ClassMembershipRepository;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,20 +16,17 @@ public class ChildService {
     private final ChildRepository childRepository;
     private final ClassMembershipRepository classMembershipRepository;
     private final CurrentUserService currentUserService;
-    private final ClassMembershipService classMembershipService;
 
     public ChildService(ChildRepository childRepository,
                         ClassMembershipRepository classMembershipRepository,
-                        CurrentUserService currentUserService,
-                        @Lazy ClassMembershipService classMembershipService) {
+                        CurrentUserService currentUserService) {
         this.childRepository = childRepository;
         this.classMembershipRepository = classMembershipRepository;
         this.currentUserService = currentUserService;
-        this.classMembershipService = classMembershipService;
     }
 
     @Transactional
-    public void deleteChild(Long childId) {
+    public void archiveChild(Long childId) {
         User currentUser = currentUserService.getCurrentUser();
         Child child = childRepository.findById(childId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Child not found."));
@@ -41,13 +37,16 @@ public class ChildService {
         boolean isAdmin = currentUser.isAdmin();
 
         if (!isParent && !isAdmin) {
-            throw new ForbiddenOperationException("You are not authorized to perform this action.");
+            throw new ForbiddenOperationException("You are not authorized to archive this child.");
         }
 
-        // Find active class membership and initiate removal.
-        // This will trigger the fundraiser removal process.
-        // If the child is not in a class, this does nothing.
-        classMembershipRepository.findByChild_IdAndLeftAtIsNull(childId)
-                .forEach(membership -> classMembershipService.removeChildFromClass(membership.getId()));
+        // Business Rule: Check if the child is a member of any class.
+        boolean isMemberOfAnyClass = classMembershipRepository.existsByChild_IdAndLeftAtIsNull(childId);
+        if (isMemberOfAnyClass) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot archive child. Please remove the child from their class first.");
+        }
+
+        child.setArchived(true);
+        childRepository.save(child);
     }
 }
