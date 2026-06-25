@@ -18,6 +18,7 @@ public class UserResponse {
     private String fullName;
     private boolean isAdmin;
     private BigDecimal balance;
+    private String accountNumber;
     private List<ChildResponse> children;
     private String avatar; // Base64 encoded avatar
 
@@ -31,6 +32,7 @@ public class UserResponse {
         response.setAdmin(user.isAdmin());
         if (user.getAccount() != null) {
             response.setBalance(user.getAccount().getBalance());
+            response.setAccountNumber(user.getAccount().getAccountNumber());
         }
         if (user.getChildren() != null) {
             response.setChildren(user.getChildren().stream().map(ChildResponse::from).collect(Collectors.toList()));
