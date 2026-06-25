@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AccountChildGroup } from "@/components/AccountChildGroup";
+import { MyBankAccountCard } from "@/components/MyBankAccountCard";
 import { ProfileCard } from "@/components/ProfileCard";
 import { Menubar, MenubarMenu, MenubarTrigger } from "@/components/ui/menubar";
 import {
@@ -8,11 +9,12 @@ import {
 } from "@/lib/nav-link";
 import { cn } from "@/lib/utils";
 
-type AccountTab = "profil" | "dzieci";
+type AccountTab = "profil" | "dzieci" | "finanse";
 
 const accountTabs = [
   { id: "profil" as const, label: "Profil" },
   { id: "dzieci" as const, label: "Dzieci" },
+  { id: "finanse" as const, label: "Finanse" },
 ];
 
 export function AccountPage() {
@@ -22,7 +24,9 @@ export function AccountPage() {
     <section className="space-y-4">
       <header className="space-y-1">
         <h1 className="text-3xl font-semibold tracking-tight">Moje konto</h1>
-        <p className="text-muted-foreground">Zarządzaj swoimi danymi i dziećmi</p>
+        <p className="text-muted-foreground">
+          Zarządzaj profilem, dziećmi i saldem konta
+        </p>
       </header>
 
       <Menubar className="h-auto w-fit gap-1 border-0 p-0">
@@ -47,6 +51,7 @@ export function AccountPage() {
 
       {activeTab === "profil" && <ProfileCard />}
       {activeTab === "dzieci" && <AccountChildGroup />}
+      {activeTab === "finanse" && <MyBankAccountCard />}
     </section>
   );
 }

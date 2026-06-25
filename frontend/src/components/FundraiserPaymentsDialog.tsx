@@ -199,9 +199,9 @@ export function FundraiserPaymentsDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
-      <AlertDialogContent className="max-h-[85vh] w-[calc(100%-2rem)] overflow-y-auto sm:max-w-lg">
+      <AlertDialogContent className="sm:max-w-lg">
         <AlertDialogHeader className="w-full sm:place-items-stretch">
-          <AlertDialogTitle>Lista wpłat — {fundraiserTitle}</AlertDialogTitle>
+          <AlertDialogTitle>Historia — {fundraiserTitle}</AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="w-full min-w-0 space-y-4 pt-2 text-left text-foreground">
               {isLoading && (

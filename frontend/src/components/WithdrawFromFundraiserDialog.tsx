@@ -23,6 +23,7 @@ const fundraiserInputClassName =
 
 interface WithdrawFromFundraiserDialogProps {
   fundraiser: FundraiserResponseDTO;
+  availableBalance?: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: (fundraiser: FundraiserResponseDTO) => void;
@@ -52,6 +53,7 @@ function invalidateFundraiserQueries(
 
 export function WithdrawFromFundraiserDialog({
   fundraiser,
+  availableBalance,
   open,
   onOpenChange,
   onSuccess,
@@ -129,6 +131,15 @@ export function WithdrawFromFundraiserDialog({
                   Środki trafią na Twoje konto skarbnika. Zebrana kwota na karcie
                   zbiórki nie zmieni się — maleje tylko saldo konta zbiórki.
                 </p>
+
+                {availableBalance != null && (
+                  <p className="text-sm text-muted-foreground">
+                    Zostało:{" "}
+                    <span className="font-medium text-foreground">
+                      {formatMoney(availableBalance)}
+                    </span>
+                  </p>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="withdraw-amount">Kwota (PLN)</Label>

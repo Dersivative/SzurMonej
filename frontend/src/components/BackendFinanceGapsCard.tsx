@@ -14,7 +14,7 @@ export function BackendFinanceGapsCard() {
       <CardHeader>
         <CardTitle className="text-lg font-semibold">Braki API (dla backendu)</CardTitle>
         <CardDescription>
-          Endpointy wymagane do pełnej obsługi przelewów na tej stronie
+          Endpointy wymagane do pełnej obsługi finansów na tej stronie
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

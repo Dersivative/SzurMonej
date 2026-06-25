@@ -114,6 +114,8 @@ export function ClassChildrenDialog({
     queryClient.invalidateQueries({ queryKey: ["my-pending-removals"] });
     queryClient.invalidateQueries({ queryKey: ["treasurer-pending-removals"] });
     queryClient.invalidateQueries({ queryKey: ["my-fundraisers"] });
+    queryClient.invalidateQueries({ queryKey: ["all-users-with-children"] });
+    queryClient.invalidateQueries({ queryKey: ["all-fundraisers"] });
   };
 
   const { mutate: approveApplication, isPending: isApproving } = useMutation({
@@ -254,7 +256,7 @@ export function ClassChildrenDialog({
   return (
     <>
       <AlertDialog open={open} onOpenChange={handleOpenChange}>
-        <AlertDialogContent className="max-h-[85vh] w-[calc(100%-2rem)] overflow-y-auto sm:max-w-lg">
+        <AlertDialogContent className="sm:max-w-lg">
           <AlertDialogHeader className="w-full sm:place-items-stretch">
             <AlertDialogTitle>Dzieci — {classLabel}</AlertDialogTitle>
             <AlertDialogDescription asChild>

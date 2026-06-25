@@ -1,34 +1,24 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AuthLayout } from "@/app/layouts/AuthLayout";
+import { AdminLayout } from "@/app/layouts/AdminLayout";
 import { MainLayout } from "@/app/layouts/MainLayout";
+import { AdminRoute } from "@/shared/components/AdminRoute";
 import { ProtectedRoute } from "@/shared/components/ProtectedRoute";
+import { UserRoute } from "@/shared/components/UserRoute";
+import { ApplicationsPage } from "@/app/pages/ApplicationsPage";
 import { DashboardPage } from "@/app/pages/DashboardPage";
 import { LoginPage } from "@/app/pages/LoginPage";
 import { AccountPage } from "./pages/AccountPage";
+import { AdminPage } from "./pages/AdminPage";
+import { AdminClassApplicationsPage } from "./pages/admin/AdminClassApplicationsPage";
+import { AdminUsersPage } from "./pages/admin/AdminUsersPage";
+import { AdminClassesPage } from "./pages/admin/AdminClassesPage";
+import { AdminFundraisersPage } from "./pages/admin/AdminFundraisersPage";
+import { AdminChatsPage } from "./pages/admin/AdminChatsPage";
 import { ClassPage } from "./pages/ClassPage";
 import { FundraisingPage } from "./pages/FundraisingPage";
-import { FinancesPage } from "./pages/FinancesPage";
 import { EnrollmentPage } from "./pages/EnrollmentPage";
-
-// function RegisterPage() {
-//   return <h1 className="text-foreground">Rejestracja</h1>;
-// }
-
-// function ProjectsPage() {
-//   return <h1 className="text-foreground">Projekty</h1>;
-// }
-
-// function ProjectDetailsPage() {
-//   return <h1 className="text-foreground">Szczegóły projektu</h1>;
-// }
-
-// function SettingsPage() {
-//   return <h1 className="text-foreground">Ustawienia</h1>;
-// }
-
-// function NotFoundPage() {
-//   return <h1 className="text-foreground">404 — strona nie istnieje</h1>;
-// }
+import { ChatPage } from "./pages/ChatPage";
 
 export const router = createBrowserRouter([
   {
@@ -46,10 +36,6 @@ export const router = createBrowserRouter([
         path: "/enroll/:token",
         element: <EnrollmentPage />,
       },
-      // {
-      //   path: "/register",
-      //   element: <RegisterPage />,
-      // },
     ],
   },
   {
@@ -57,50 +43,94 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       {
-        element: <MainLayout />,
+        element: <UserRoute />,
         children: [
           {
-            index: true,
-            element: <Navigate to="dashboard" replace />,
+            element: <MainLayout />,
+            children: [
+              {
+                index: true,
+                element: <Navigate to="dashboard" replace />,
+              },
+              {
+                path: "dashboard",
+                element: <DashboardPage />,
+              },
+              {
+                path: "applications",
+                element: <ApplicationsPage />,
+              },
+              {
+                path: "account",
+                element: <AccountPage />,
+              },
+              {
+                path: "classes",
+                element: <ClassPage />,
+              },
+              {
+                path: "fundraisers",
+                element: <FundraisingPage />,
+              },
+              {
+                path: "chats",
+                element: <ChatPage />,
+              },
+              {
+                path: "chats/:chatId",
+                element: <ChatPage />,
+              },
+            ],
           },
+        ],
+      },
+    ],
+  },
+  {
+    path: "/admin",
+    element: <ProtectedRoute />,
+    children: [
+      {
+        element: <AdminRoute />,
+        children: [
           {
-            path: "dashboard",
-            element: <DashboardPage />,
+            element: <AdminLayout />,
+            children: [
+              {
+                index: true,
+                element: <AdminPage />,
+              },
+              {
+                path: "class-applications",
+                element: <AdminClassApplicationsPage />,
+              },
+              {
+                path: "users",
+                element: <AdminUsersPage />,
+              },
+              {
+                path: "classes",
+                element: <AdminClassesPage />,
+              },
+              {
+                path: "fundraisers",
+                element: <AdminFundraisersPage />,
+              },
+              {
+                path: "chats",
+                element: <AdminChatsPage />,
+              },
+              {
+                path: "chats/:chatId",
+                element: <AdminChatsPage />,
+              },
+            ],
           },
-          {
-            path: "account",
-            element: <AccountPage />,
-          },
-          {
-            path: "classes",
-            element: <ClassPage />,
-          },
-          {
-            path: "fundraisers",
-            element: <FundraisingPage />,
-          },
-          {
-            path: "finances",
-            element: <FinancesPage />,
-          },
-          // {
-          //   path: "projects",
-          //   element: <ProjectsPage />,
-          // },
-          // {
-          //   path: "projects/:id",
-          //   element: <ProjectDetailsPage />,
-          // },
-          // {
-          //   path: "settings",
-          //   element: <SettingsPage />,
-          // },
         ],
       },
     ],
   },
   {
     path: "*",
-    // element: <NotFoundPage />,
   },
 ]);

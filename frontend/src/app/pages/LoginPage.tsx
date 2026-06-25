@@ -16,11 +16,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const TEST_ACCOUNTS = [
-  { email: "rodzic1@example.com", label: "rodzic1@example.com" },
-  { email: "skarbnik1@example.com", label: "skarbnik1@example.com" },
+  { email: "rodzic1@example.com", label: "rodzic1@example.com", password: "rodzic" },
+  { email: "skarbnik1@example.com", label: "skarbnik1@example.com", password: "rodzic" },
+  { email: "admin@example.com", label: "admin@example.com (admin)", password: "admin" },
 ] as const;
-
-const TEST_PASSWORD = "rodzic";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -31,20 +30,24 @@ export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const redirectPath =
-    (location.state as { from?: { pathname?: string } } | null)?.from
-      ?.pathname ?? "/app/dashboard";
+  const defaultRedirect =
+    (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ??
+    "/app/dashboard";
 
   const { mutate, isPending, isError } = useMutation({
     mutationFn: login,
     onSuccess: (user) => {
       setAuth(user);
       queryClient.setQueryData(["auth-me"], user);
+      const redirectPath =
+        user.role === "ADMIN" ? "/admin" : defaultRedirect;
       navigate(redirectPath, { replace: true });
     },
   });
 
   if (isAuthenticated) {
+    const user = useAuthStore.getState().user;
+    const redirectPath = user?.role === "ADMIN" ? "/admin" : defaultRedirect;
     return <Navigate to={redirectPath} replace />;
   }
 
@@ -54,9 +57,9 @@ export function LoginPage() {
     mutate({ email, password });
   }
 
-  function fillTestAccount(testEmail: string) {
+  function fillTestAccount(testEmail: string, testPassword: string) {
     setEmail(testEmail);
-    setPassword(TEST_PASSWORD);
+    setPassword(testPassword);
   }
 
   return (
@@ -109,16 +112,16 @@ export function LoginPage() {
             {isPending ? "Logowanie..." : "Zaloguj się"}
           </Button>
           <div className="w-full space-y-1 pt-3 text-center text-xs text-muted-foreground">
-            <p>Konta testowe (hasło: {TEST_PASSWORD})</p>
+            <p>Konta testowe</p>
             {TEST_ACCOUNTS.map((account) => (
               <button
                 key={account.email}
                 type="button"
                 className="block w-full hover:text-foreground hover:underline"
                 disabled={isPending}
-                onClick={() => fillTestAccount(account.email)}
+                onClick={() => fillTestAccount(account.email, account.password)}
               >
-                {account.label}
+                {account.label} (hasło: {account.password})
               </button>
             ))}
           </div>

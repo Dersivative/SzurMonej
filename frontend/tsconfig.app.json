@@ -32,5 +32,10 @@
     "src/features",
     "src/lib",
     "src/shared"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/test"
   ]
 }
