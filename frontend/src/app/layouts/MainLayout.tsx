@@ -4,7 +4,7 @@ import { TopBar } from "@/components/TopBar";
 
 export function MainLayout() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pt-16">
       <TopBar />
       <Navigation />
       <div className="pl-76 pr-4 pt-4">

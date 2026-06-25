@@ -56,3 +56,22 @@ export function getMyChildIdsInFundraiser(
 
   return myChildIds.filter((childId) => participantChildIds.has(childId));
 }
+
+export function partitionParticipants(
+  participants: ParticipantResponseDTO[],
+  myChildIds: number[],
+): {
+  mine: ParticipantResponseDTO[];
+  others: ParticipantResponseDTO[];
+} {
+  const myChildIdSet = new Set(myChildIds);
+
+  return {
+    mine: participants.filter((participant) =>
+      myChildIdSet.has(participant.childId),
+    ),
+    others: participants.filter(
+      (participant) => !myChildIdSet.has(participant.childId),
+    ),
+  };
+}

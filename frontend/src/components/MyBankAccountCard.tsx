@@ -11,7 +11,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -92,13 +91,6 @@ export function MyBankAccountCard() {
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Właściciel konta</p>
               <p className="text-base font-semibold">{user.fullName}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Numer konta</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="font-mono text-sm text-muted-foreground">—</p>
-                <Badge variant="outline">Brak w API</Badge>
-              </div>
             </div>
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Stan konta</p>

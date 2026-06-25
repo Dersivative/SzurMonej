@@ -1,405 +1,238 @@
-import { useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
-import { EnrollmentAcceptCard } from "@/components/EnrollmentAcceptCard";
-import { FundraiserApplicationCard } from "@/components/FundraiserApplicationCard";
-import { PendingEnrollmentCard } from "@/components/PendingEnrollmentCard";
-import { PendingFundraiserApplicationCard } from "@/components/PendingFundraiserApplicationCard";
-import { PendingRefundRequestCard } from "@/components/PendingRefundRequestCard";
-import { PendingRemovalCard } from "@/components/PendingRemovalCard";
-import { RefundRequestActionCard } from "@/components/RefundRequestActionCard";
-import { RemovalAcceptCard } from "@/components/RemovalAcceptCard";
-import { Card, CardContent } from "@/components/ui/card";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FundraisingCard } from "@/components/FundraisingCard";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { useAuthStore } from "@/features/auth/store/authStore";
-import { fetchMyPendingRemovals } from "@/features/classes/api/get-my-pending-removals";
-import { fetchTreasurerPendingEnrollmentApplications } from "@/features/classes/api/get-treasurer-pending-enrollment-applications";
-import { fetchTreasurerPendingRemovals } from "@/features/classes/api/get-treasurer-pending-removals";
-import { fetchMyPendingFundraiserApplications } from "@/features/fundraisers/api/get-my-pending-fundraiser-applications";
-import { fetchMyPendingRefundRequests } from "@/features/fundraisers/api/get-my-pending-refund-requests";
-import { fetchTreasurerPendingFundraiserApplications } from "@/features/fundraisers/api/get-treasurer-pending-fundraiser-applications";
-import { fetchTreasurerPendingRefundRequests } from "@/features/fundraisers/api/get-treasurer-pending-refund-requests";
-import { fetchMyEnrollmentApplications } from "@/features/users/api/get-my-enrollment-applications";
+import { fetchFundraisersForChild } from "@/features/fundraisers/api/get-fundraisers-for-child";
+import type {
+  ChildFundraisersViewDTO,
+  FundraiserResponseDTO,
+} from "@/features/fundraisers/api/types";
+import { fetchMyChildren } from "@/features/users/api/get-my-children";
+import type { ChildResponseDTO } from "@/features/users/api/types";
 import { cn } from "@/lib/utils";
 
-function EnrollmentCardsGrid({
-  children,
-  count,
-}: {
-  children: ReactNode;
-  count: number;
-}) {
-  return (
-    <div
-      className={cn("grid grid-cols-1 gap-4", count > 1 && "lg:grid-cols-2")}
-    >
-      {children}
-    </div>
-  );
+function isFundraiserTreasurer(
+  fundraiser: FundraiserResponseDTO,
+  userId?: number,
+): boolean {
+  if (!userId) {
+    return false;
+  }
+
+  return fundraiser.treasurer?.id === userId;
+}
+
+function getChildInitials(child: ChildResponseDTO): string {
+  return `${child.name.charAt(0)}${child.surname.charAt(0)}`.toUpperCase();
 }
 
 export function DashboardPage() {
   const user = useAuthStore((state) => state.user);
+  const queryClient = useQueryClient();
 
   const {
-    data: enrollmentApplications = [],
-    isLoading: isParentApplicationsLoading,
-    isError: isParentApplicationsError,
+    data: children = [],
+    isLoading: isChildrenLoading,
+    isError: isChildrenError,
   } = useQuery({
-    queryKey: ["my-enrollment-applications"],
-    queryFn: fetchMyEnrollmentApplications,
+    queryKey: ["my-children"],
+    queryFn: fetchMyChildren,
   });
 
-  const {
-    data: treasurerPendingApplications = [],
-    isLoading: isTreasurerApplicationsLoading,
-    isError: isTreasurerApplicationsError,
-  } = useQuery({
-    queryKey: ["treasurer-pending-enrollment-applications"],
-    queryFn: fetchTreasurerPendingEnrollmentApplications,
+  const childFundraiserQueries = useQueries({
+    queries: children.map((child) => ({
+      queryKey: ["child-fundraisers", child.id],
+      queryFn: () => fetchFundraisersForChild(child.id),
+      enabled: children.length > 0,
+    })),
   });
 
-  const {
-    data: myPendingRemovals = [],
-    isLoading: isMyRemovalsLoading,
-    isError: isMyRemovalsError,
-  } = useQuery({
-    queryKey: ["my-pending-removals"],
-    queryFn: fetchMyPendingRemovals,
-  });
-
-  const {
-    data: treasurerPendingRemovals = [],
-    isLoading: isTreasurerRemovalsLoading,
-    isError: isTreasurerRemovalsError,
-  } = useQuery({
-    queryKey: ["treasurer-pending-removals"],
-    queryFn: fetchTreasurerPendingRemovals,
-  });
-
-  const {
-    data: myPendingFundraiserApplications = [],
-    isLoading: isMyFundraiserApplicationsLoading,
-    isError: isMyFundraiserApplicationsError,
-  } = useQuery({
-    queryKey: ["my-pending-fundraiser-applications", user?.id],
-    queryFn: () => fetchMyPendingFundraiserApplications(user!.id),
-    enabled: Boolean(user),
-  });
-
-  const {
-    data: treasurerPendingFundraiserApplications = [],
-    isLoading: isTreasurerFundraiserApplicationsLoading,
-    isError: isTreasurerFundraiserApplicationsError,
-  } = useQuery({
-    queryKey: ["treasurer-pending-fundraiser-applications"],
-    queryFn: fetchTreasurerPendingFundraiserApplications,
-  });
-
-  const {
-    data: myPendingRefundRequests = [],
-    isLoading: isMyRefundRequestsLoading,
-    isError: isMyRefundRequestsError,
-  } = useQuery({
-    queryKey: ["my-pending-refund-requests"],
-    queryFn: fetchMyPendingRefundRequests,
-  });
-
-  const {
-    data: treasurerPendingRefundRequests = [],
-    isLoading: isTreasurerRefundRequestsLoading,
-    isError: isTreasurerRefundRequestsError,
-  } = useQuery({
-    queryKey: ["treasurer-pending-refund-requests"],
-    queryFn: fetchTreasurerPendingRefundRequests,
-  });
-
-  const pendingParentApplications = enrollmentApplications.filter(
-    (application) => application.status === "PENDING",
+  const isChildFundraisersLoading = childFundraiserQueries.some(
+    (query) => query.isLoading,
+  );
+  const isChildFundraisersError = childFundraiserQueries.some(
+    (query) => query.isError,
   );
 
-  const isLoading =
-    isParentApplicationsLoading ||
-    isTreasurerApplicationsLoading ||
-    isMyRemovalsLoading ||
-    isTreasurerRemovalsLoading ||
-    isMyFundraiserApplicationsLoading ||
-    isTreasurerFundraiserApplicationsLoading ||
-    isMyRefundRequestsLoading ||
-    isTreasurerRefundRequestsLoading;
-  const hasParentEnrollmentSection = pendingParentApplications.length > 0;
-  const hasTreasurerEnrollmentSection = treasurerPendingApplications.length > 0;
-  const hasParentRemovalSection = myPendingRemovals.length > 0;
-  const hasTreasurerRemovalSection = treasurerPendingRemovals.length > 0;
-  const hasParentFundraiserSection = myPendingFundraiserApplications.length > 0;
-  const hasTreasurerFundraiserSection =
-    treasurerPendingFundraiserApplications.length > 0;
-  const hasParentRefundSection = myPendingRefundRequests.length > 0;
-  const hasTreasurerRefundSection = treasurerPendingRefundRequests.length > 0;
-  const hasAnySection =
-    hasParentEnrollmentSection ||
-    hasTreasurerEnrollmentSection ||
-    hasParentRemovalSection ||
-    hasTreasurerRemovalSection ||
-    hasParentFundraiserSection ||
-    hasTreasurerFundraiserSection ||
-    hasParentRefundSection ||
-    hasTreasurerRefundSection;
-  const hasAnyError =
-    isParentApplicationsError ||
-    isTreasurerApplicationsError ||
-    isMyRemovalsError ||
-    isTreasurerRemovalsError ||
-    isMyFundraiserApplicationsError ||
-    isTreasurerFundraiserApplicationsError ||
-    isMyRefundRequestsError ||
-    isTreasurerRefundRequestsError;
+  const handleChildFundraiserUpdate = (
+    childId: number,
+    updatedFundraiser: FundraiserResponseDTO,
+  ) => {
+    queryClient.setQueryData<ChildFundraisersViewDTO>(
+      ["child-fundraisers", childId],
+      (current) => {
+        if (!current) {
+          return current;
+        }
+
+        return {
+          ...current,
+          activeFundraisers: current.activeFundraisers.map((fundraiser) =>
+            fundraiser.id === updatedFundraiser.id
+              ? updatedFundraiser
+              : fundraiser,
+          ),
+        };
+      },
+    );
+  };
 
   return (
     <section className="space-y-4">
       <header className="space-y-1">
         <h1 className="text-3xl font-semibold tracking-tight">Pulpit</h1>
         <p className="text-muted-foreground">
-          Podsumowanie Twoich spraw w systemie
+          Twoje dzieci i ich zbiórki
         </p>
       </header>
 
-      {isLoading && (
-        <p className="text-sm text-muted-foreground">Ładowanie...</p>
-      )}
+      <Card>
+        <CardHeader>
+          <div className="space-y-1">
+            <CardTitle className="text-lg font-semibold">
+              Dzieci i ich zbiórki
+            </CardTitle>
+            <CardDescription>
+              Zbiórki, w których uczestniczą Twoje dzieci
+            </CardDescription>
+          </div>
+        </CardHeader>
 
-      {!isLoading && isParentApplicationsError && (
-        <p className="text-sm text-destructive">
-          Nie udało się pobrać Twoich oczekujących zapisów.
-        </p>
-      )}
+        <CardContent className="space-y-4">
+          {isChildrenLoading && (
+            <p className="text-sm text-muted-foreground">Ładowanie dzieci...</p>
+          )}
 
-      {!isLoading && isTreasurerApplicationsError && (
-        <p className="text-sm text-destructive">
-          Nie udało się pobrać wniosków o zapis do rozpatrzenia.
-        </p>
-      )}
+          {isChildrenError && (
+            <p className="text-sm text-destructive">
+              Nie udało się pobrać listy dzieci.
+            </p>
+          )}
 
-      {!isLoading && isMyRemovalsError && (
-        <p className="text-sm text-destructive">
-          Nie udało się pobrać Twoich oczekujących wypisań.
-        </p>
-      )}
+          {!isChildrenLoading && !isChildrenError && children.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Nie masz jeszcze dodanych dzieci.
+            </p>
+          )}
 
-      {!isLoading && isTreasurerRemovalsError && (
-        <p className="text-sm text-destructive">
-          Nie udało się pobrać wniosków o wypisanie do rozpatrzenia.
-        </p>
-      )}
-
-      {!isLoading && isMyFundraiserApplicationsError && (
-        <p className="text-sm text-destructive">
-          Nie udało się pobrać Twoich oczekujących wniosków o zbiórki.
-        </p>
-      )}
-
-      {!isLoading && isTreasurerFundraiserApplicationsError && (
-        <p className="text-sm text-destructive">
-          Nie udało się pobrać wniosków o zbiórki do rozpatrzenia.
-        </p>
-      )}
-
-      {!isLoading && isMyRefundRequestsError && (
-        <p className="text-sm text-destructive">
-          Nie udało się pobrać Twoich wniosków o zwrot.
-        </p>
-      )}
-
-      {!isLoading && isTreasurerRefundRequestsError && (
-        <p className="text-sm text-destructive">
-          Nie udało się pobrać wniosków o zwrot do rozpatrzenia.
-        </p>
-      )}
-
-      {!isLoading && !hasAnySection && !hasAnyError && (
-        <p className="text-sm text-muted-foreground">
-          Brak oczekujących spraw do rozpatrzenia.
-        </p>
-      )}
-
-      {!isLoading && hasTreasurerEnrollmentSection && (
-        <Card>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold">
-                Wnioski o zapis do klas
-              </h2>
+          {!isChildrenLoading &&
+            !isChildrenError &&
+            children.length > 0 &&
+            isChildFundraisersLoading && (
               <p className="text-sm text-muted-foreground">
-                Prośby rodziców oczekujące na Twoją decyzję.
+                Ładowanie zbiórek...
               </p>
-            </div>
+            )}
 
-            <EnrollmentCardsGrid count={treasurerPendingApplications.length}>
-              {treasurerPendingApplications.map((item) => (
-                <EnrollmentAcceptCard
-                  key={`${item.classId}-${item.application.id}`}
-                  item={item}
-                />
-              ))}
-            </EnrollmentCardsGrid>
-          </CardContent>
-        </Card>
-      )}
-
-      {!isLoading && hasTreasurerRemovalSection && (
-        <Card>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold">
-                Wnioski o wypisanie z klas
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Dzieci oczekujące na rozliczenie i zakończenie wypisania.
+          {!isChildrenLoading &&
+            !isChildrenError &&
+            children.length > 0 &&
+            isChildFundraisersError && (
+              <p className="text-sm text-destructive">
+                Nie udało się pobrać zbiórek dla dzieci.
               </p>
-            </div>
+            )}
 
-            <EnrollmentCardsGrid count={treasurerPendingRemovals.length}>
-              {treasurerPendingRemovals.map((item) => (
-                <RemovalAcceptCard
-                  key={`${item.classId}-${item.child.id}`}
-                  item={item}
-                />
-              ))}
-            </EnrollmentCardsGrid>
-          </CardContent>
-        </Card>
-      )}
+          {!isChildrenLoading &&
+            !isChildrenError &&
+            children.length > 0 &&
+            !isChildFundraisersLoading &&
+            !isChildFundraisersError && (
+              <Accordion
+                type="multiple"
+                defaultValue={children.map((child) => String(child.id))}
+                className="w-full"
+              >
+                {children.map((child, index) => {
+                  const fundraisers =
+                    childFundraiserQueries[index]?.data?.activeFundraisers ??
+                    [];
+                  const fundraiserCount = fundraisers.length;
 
-      {!isLoading && hasParentEnrollmentSection && (
-        <Card>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold">Oczekujące zapisy do klas</h2>
-              <p className="text-sm text-muted-foreground">
-                Prośby wysłane do skarbnika, które czekają na decyzję.
-              </p>
-            </div>
-
-            <EnrollmentCardsGrid count={pendingParentApplications.length}>
-              {pendingParentApplications.map((application) => (
-                <PendingEnrollmentCard
-                  key={application.id}
-                  application={application}
-                />
-              ))}
-            </EnrollmentCardsGrid>
-          </CardContent>
-        </Card>
-      )}
-
-      {!isLoading && hasParentRemovalSection && (
-        <Card>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold">
-                Oczekujące wypisania z klas
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Wypisania zainicjowane przez Ciebie, oczekujące na rozliczenie
-                przez skarbnika.
-              </p>
-            </div>
-
-            <EnrollmentCardsGrid count={myPendingRemovals.length}>
-              {myPendingRemovals.map((item) => (
-                <PendingRemovalCard
-                  key={`${item.classId}-${item.child.id}`}
-                  item={item}
-                />
-              ))}
-            </EnrollmentCardsGrid>
-          </CardContent>
-        </Card>
-      )}
-
-      {!isLoading && hasTreasurerFundraiserSection && (
-        <Card>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold">Wnioski o zbiórki</h2>
-              <p className="text-sm text-muted-foreground">
-                Propozycje rodziców oczekujące na Twoją decyzję.
-              </p>
-            </div>
-
-            <EnrollmentCardsGrid
-              count={treasurerPendingFundraiserApplications.length}
-            >
-              {treasurerPendingFundraiserApplications.map((item) => (
-                <FundraiserApplicationCard
-                  key={item.application.id}
-                  application={item.application}
-                  isTreasurer
-                />
-              ))}
-            </EnrollmentCardsGrid>
-          </CardContent>
-        </Card>
-      )}
-
-      {!isLoading && hasTreasurerRefundSection && (
-        <Card>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold">Wnioski o zwrot</h2>
-              <p className="text-sm text-muted-foreground">
-                Prośby rodziców o zwrot wpłat ze zbiórek oczekujące na Twoją
-                decyzję.
-              </p>
-            </div>
-
-            <EnrollmentCardsGrid count={treasurerPendingRefundRequests.length}>
-              {treasurerPendingRefundRequests.map((request) => (
-                <RefundRequestActionCard key={request.id} request={request} />
-              ))}
-            </EnrollmentCardsGrid>
-          </CardContent>
-        </Card>
-      )}
-
-      {!isLoading && hasParentFundraiserSection && (
-        <Card>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold">Oczekujące wnioski o zbiórki</h2>
-              <p className="text-sm text-muted-foreground">
-                Wnioski wysłane do skarbnika, które czekają na decyzję.
-              </p>
-            </div>
-
-            <EnrollmentCardsGrid count={myPendingFundraiserApplications.length}>
-              {myPendingFundraiserApplications.map((application) => (
-                <PendingFundraiserApplicationCard
-                  key={application.id}
-                  application={application}
-                />
-              ))}
-            </EnrollmentCardsGrid>
-          </CardContent>
-        </Card>
-      )}
-
-      {!isLoading && hasParentRefundSection && (
-        <Card>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold">Moje wnioski o zwrot</h2>
-              <p className="text-sm text-muted-foreground">
-                Prośby o zwrot wpłat ze zbiórek oczekujące na decyzję skarbnika.
-              </p>
-            </div>
-
-            <EnrollmentCardsGrid count={myPendingRefundRequests.length}>
-              {myPendingRefundRequests.map((request) => (
-                <PendingRefundRequestCard key={request.id} request={request} />
-              ))}
-            </EnrollmentCardsGrid>
-          </CardContent>
-        </Card>
-      )}
+                  return (
+                    <AccordionItem key={child.id} value={String(child.id)}>
+                      <AccordionTrigger className="py-4 hover:no-underline">
+                        <span className="flex flex-1 items-center justify-between gap-4 pr-2">
+                          <span className="flex items-center gap-4">
+                            <Avatar className="size-14 after:border-0">
+                              <AvatarFallback className="bg-violet-600 text-lg font-semibold text-white">
+                                {getChildInitials(child)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="space-y-1 text-left">
+                              <span className="block text-xl font-semibold leading-tight">
+                                {child.name} {child.surname}
+                              </span>
+                              {child.schoolClassName ? (
+                                <Badge variant="secondary" className="text-sm">
+                                  {child.schoolClassName}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-sm">
+                                  Brak klasy
+                                </Badge>
+                              )}
+                            </span>
+                          </span>
+                          <span className="text-sm font-normal text-muted-foreground">
+                            {fundraiserCount === 1
+                              ? "1 zbiórka"
+                              : `${fundraiserCount} zbiórek`}
+                          </span>
+                        </span>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        {fundraiserCount === 0 ? (
+                          <p className="text-sm text-muted-foreground">
+                            Brak aktywnych zbiórek.
+                          </p>
+                        ) : (
+                          <div
+                            className={cn(
+                              "grid grid-cols-1 gap-4",
+                              fundraiserCount > 1 && "lg:grid-cols-2",
+                            )}
+                          >
+                            {fundraisers.map((fundraiser) => (
+                              <FundraisingCard
+                                key={fundraiser.id}
+                                fundraiser={fundraiser}
+                                isTreasurer={isFundraiserTreasurer(
+                                  fundraiser,
+                                  user?.id,
+                                )}
+                                onUpdate={(updatedFundraiser) =>
+                                  handleChildFundraiserUpdate(
+                                    child.id,
+                                    updatedFundraiser,
+                                  )
+                                }
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
+              </Accordion>
+            )}
+        </CardContent>
+      </Card>
     </section>
   );
 }

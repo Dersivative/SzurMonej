@@ -6,6 +6,7 @@ import { FundraisingCard } from "@/components/FundraisingCard";
 import { PendingFundraiserApplicationCard } from "@/components/PendingFundraiserApplicationCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Menubar, MenubarMenu, MenubarTrigger } from "@/components/ui/menubar";
 import { fetchClassesForFundraiserCreation } from "@/features/fundraisers/api/get-classes-for-fundraiser-creation";
 import { fetchMyFundraisers } from "@/features/fundraisers/api/get-my-fundraisers";
 import type {
@@ -14,7 +15,18 @@ import type {
   MyFundraisersResult,
 } from "@/features/fundraisers/api/types";
 import { useAuthStore } from "@/features/auth/store/authStore";
+import {
+  navLinkActiveClassName,
+  navLinkInactiveClassName,
+} from "@/lib/nav-link";
 import { cn } from "@/lib/utils";
+
+type FundraisingTab = "aktywne" | "oczekujace";
+
+const fundraisingTabs = [
+  { id: "aktywne" as const, label: "Aktywne" },
+  { id: "oczekujace" as const, label: "Oczekujące" },
+];
 
 function isFundraiserTreasurer(
   fundraiser: FundraiserResponseDTO,
@@ -36,23 +48,10 @@ function isApplicationTreasurer(
   );
 }
 
-type FundraisingListItem =
-  | {
-      kind: "application";
-      id: string;
-      application: FundraiserApplicationListItemDTO;
-      sortDate: string;
-    }
-  | {
-      kind: "fundraiser";
-      id: string;
-      fundraiser: FundraiserResponseDTO;
-      sortDate: string;
-    };
-
 export function FundraisingPage() {
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<FundraisingTab>("aktywne");
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data: availableClasses = [] } = useQuery({
@@ -84,30 +83,26 @@ export function FundraisingPage() {
     [availableClasses],
   );
 
-  const sortedItems = useMemo(() => {
-    const items: FundraisingListItem[] = [
-      ...pendingApplications.map((application) => ({
-        kind: "application" as const,
-        id: `application-${application.id}`,
-        application,
-        sortDate: application.requestedAt ?? "",
-      })),
-      ...fundraisers.map((fundraiser) => ({
-        kind: "fundraiser" as const,
-        id: `fundraiser-${fundraiser.id}`,
-        fundraiser,
-        sortDate: fundraiser.startedAt,
-      })),
-    ];
+  const sortedFundraisers = useMemo(
+    () =>
+      [...fundraisers].sort((left, right) =>
+        right.startedAt.localeCompare(left.startedAt),
+      ),
+    [fundraisers],
+  );
 
-    return items.sort((left, right) => {
-      if (left.kind !== right.kind) {
-        return left.kind === "application" ? -1 : 1;
-      }
+  const sortedPendingApplications = useMemo(
+    () =>
+      [...pendingApplications].sort((left, right) =>
+        (right.requestedAt ?? "").localeCompare(left.requestedAt ?? ""),
+      ),
+    [pendingApplications],
+  );
 
-      return right.sortDate.localeCompare(left.sortDate);
-    });
-  }, [fundraisers, pendingApplications]);
+  const visibleItemCount =
+    activeTab === "aktywne"
+      ? sortedFundraisers.length
+      : sortedPendingApplications.length;
 
   const handleFundraiserUpdate = (updatedFundraiser: FundraiserResponseDTO) => {
     queryClient.setQueryData<MyFundraisersResult>(
@@ -129,7 +124,7 @@ export function FundraisingPage() {
     );
   };
 
-  const isEmpty = !isLoading && !isError && sortedItems.length === 0;
+  const isEmpty = !isLoading && !isError && visibleItemCount === 0;
 
   return (
     <section className="space-y-4">
@@ -151,6 +146,26 @@ export function FundraisingPage() {
         </Button>
       </header>
 
+      <Menubar className="h-auto w-fit gap-1 border-0 p-0">
+        {fundraisingTabs.map(({ id, label }) => {
+          const active = activeTab === id;
+
+          return (
+            <MenubarMenu key={id}>
+              <MenubarTrigger
+                className={cn(
+                  active ? navLinkActiveClassName : navLinkInactiveClassName,
+                  active ? "aria-expanded:bg-active" : "aria-expanded:bg-hover",
+                )}
+                onClick={() => setActiveTab(id)}
+              >
+                {label}
+              </MenubarTrigger>
+            </MenubarMenu>
+          );
+        })}
+      </Menubar>
+
       <Card>
         <CardContent>
           {isLoading && (
@@ -165,43 +180,42 @@ export function FundraisingPage() {
 
           {isEmpty && (
             <p className="text-sm text-muted-foreground">
-              Nie masz jeszcze żadnych zbiórek.
+              {activeTab === "aktywne"
+                ? "Nie masz jeszcze żadnych aktywnych zbiórek."
+                : "Brak zbiórek oczekujących na zatwierdzenie."}
             </p>
           )}
 
-          {!isLoading && !isError && sortedItems.length > 0 && (
+          {!isLoading && !isError && !isEmpty && (
             <div
               className={cn(
                 "grid grid-cols-1 gap-4",
-                sortedItems.length > 1 && "lg:grid-cols-2",
+                visibleItemCount > 1 && "lg:grid-cols-2",
               )}
             >
-              {sortedItems.map((item) =>
-                item.kind === "application" ? (
-                  isApplicationTreasurer(
-                    item.application,
-                    treasurerClassIds,
-                  ) ? (
-                    <FundraiserApplicationCard
-                      key={item.id}
-                      application={item.application}
-                      isTreasurer
+              {activeTab === "aktywne"
+                ? sortedFundraisers.map((fundraiser) => (
+                    <FundraisingCard
+                      key={fundraiser.id}
+                      fundraiser={fundraiser}
+                      isTreasurer={isFundraiserTreasurer(fundraiser, user?.id)}
+                      onUpdate={handleFundraiserUpdate}
                     />
-                  ) : (
-                    <PendingFundraiserApplicationCard
-                      key={item.id}
-                      application={item.application}
-                    />
-                  )
-                ) : (
-                  <FundraisingCard
-                    key={item.id}
-                    fundraiser={item.fundraiser}
-                    isTreasurer={isFundraiserTreasurer(item.fundraiser, user?.id)}
-                    onUpdate={handleFundraiserUpdate}
-                  />
-                ),
-              )}
+                  ))
+                : sortedPendingApplications.map((application) =>
+                    isApplicationTreasurer(application, treasurerClassIds) ? (
+                      <FundraiserApplicationCard
+                        key={application.id}
+                        application={application}
+                        isTreasurer
+                      />
+                    ) : (
+                      <PendingFundraiserApplicationCard
+                        key={application.id}
+                        application={application}
+                      />
+                    ),
+                  )}
             </div>
           )}
         </CardContent>

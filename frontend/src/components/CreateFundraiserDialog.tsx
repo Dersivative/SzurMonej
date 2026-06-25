@@ -194,7 +194,7 @@ export function CreateFundraiserDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
-      <AlertDialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <AlertDialogContent className="sm:max-w-lg">
         <AlertDialogHeader>
           <AlertDialogTitle>
             {isParentApplication ? "Zaproponuj zbiórkę" : "Utwórz zbiórkę"}

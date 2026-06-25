@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ClassChildrenDialog } from "@/components/ClassChildrenDialog";
 import { ClassEnrollmentLinkDialog } from "@/components/ClassEnrollmentLinkDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { openClassChat } from "@/features/chat/lib/open-chat";
 import type { SchoolClassResponseDTO } from "@/features/classes/api/types";
 
 interface ClassCardProps {
@@ -28,12 +30,30 @@ export function ClassCard({
   pendingLabel,
   isTreasurer = false,
 }: ClassCardProps) {
+  const navigate = useNavigate();
   const [childrenDialogOpen, setChildrenDialogOpen] = useState(false);
   const [enrollmentLinkDialogOpen, setEnrollmentLinkDialogOpen] = useState(false);
+  const [isOpeningChat, setIsOpeningChat] = useState(false);
   const label = pendingLabel ?? schoolClass?.label ?? "";
   const isPending = Boolean(pendingLabel);
   const studentsCount = schoolClass?.children.length ?? 0;
   const treasurerName = schoolClass?.treasurer?.fullName;
+
+  const handleOpenChat = async () => {
+    if (!schoolClass) {
+      return;
+    }
+
+    setIsOpeningChat(true);
+    try {
+      const chatId = await openClassChat(schoolClass.id);
+      navigate(`/app/chats/${chatId}`);
+    } catch {
+      window.alert("Nie udało się otworzyć czatu klasy.");
+    } finally {
+      setIsOpeningChat(false);
+    }
+  };
 
   return (
     <div className="h-full">
@@ -66,6 +86,18 @@ export function ClassCard({
               onClick={() => setEnrollmentLinkDialogOpen(true)}
             >
               Link do zapisów
+            </Button>
+          )}
+          {!isPending && schoolClass && (
+            <Button
+              type="button"
+              size="lg"
+              variant="outline"
+              className="h-11 px-5 text-base"
+              disabled={isOpeningChat}
+              onClick={() => void handleOpenChat()}
+            >
+              {isOpeningChat ? "Otwieranie..." : "Czat"}
             </Button>
           )}
           {!isPending && schoolClass && (

@@ -19,6 +19,8 @@ export interface SchoolClassApplicationResponseDTO {
   status: string;
   requestedAt: string;
   reviewedAt?: string | null;
+  requestingParent?: UserResponseDTO | null;
+  reviewedBy?: UserResponseDTO | null;
 }
 
 export interface SchoolClassApplicationRequestDTO {
