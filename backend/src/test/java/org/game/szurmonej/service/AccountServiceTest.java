@@ -98,6 +98,33 @@ class AccountServiceTest {
     }
 
     @Test
+    void withdrawFromOwnAccount_decreasesBalance() {
+        loginAs(scenario.parent());
+
+        MoneyOperationResponse response = accountService.withdrawFromOwnAccount(new BigDecimal("100.00"));
+
+        assertThat(response.getSourceBalance()).isEqualByComparingTo("400.00");
+        assertThat(accountRepository.findByUser_Id(scenario.parent().getId()).orElseThrow().getBalance())
+                .isEqualByComparingTo("400.00");
+    }
+
+    @Test
+    void withdrawFromOwnAccount_throwsWhenInsufficientFunds() {
+        loginAs(scenario.parent());
+
+        assertThatThrownBy(() -> accountService.withdrawFromOwnAccount(new BigDecimal("600.00")))
+                .isInstanceOf(InsufficientFundsException.class);
+    }
+
+    @Test
+    void withdrawFromOwnAccount_throwsWhenAmountNotPositive() {
+        loginAs(scenario.parent());
+
+        assertThatThrownBy(() -> accountService.withdrawFromOwnAccount(BigDecimal.ZERO))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void transferToFundraiser_movesMoneyAndCreatesContribution() {
         loginAs(scenario.parent());
 
@@ -131,9 +158,8 @@ class AccountServiceTest {
     @Test
     void transferToFundraiser_throwsWhenInsufficientFunds() {
         loginAs(scenario.parent());
-        
-        // Drain the parent's account
-        accountService.withdrawFromFundraiser(scenario.fundraiser().getId(), new BigDecimal("500.00"), "test");
+
+        accountService.withdrawFromOwnAccount(new BigDecimal("500.00"));
 
         TransferToFundraiserRequest request = new TransferToFundraiserRequest();
         request.setFundraiserId(scenario.fundraiser().getId());

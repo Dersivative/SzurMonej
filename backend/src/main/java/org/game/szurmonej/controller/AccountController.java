@@ -38,6 +38,12 @@ public class AccountController {
         return ResponseEntity.ok(accountService.depositToOwnAccount(request.getAmount()));
     }
 
+    @Operation(summary = "Wypłata z własnego konta rodzica")
+    @PostMapping("/withdraw")
+    public ResponseEntity<MoneyOperationResponse> withdraw(@RequestBody AmountRequest request) {
+        return ResponseEntity.ok(accountService.withdrawFromOwnAccount(request.getAmount()));
+    }
+
     @Operation(summary = "Przelew z konta rodzica na zbiórkę za wybrane dziecko")
     @PostMapping("/transfer-to-fundraiser")
     public ResponseEntity<MoneyOperationResponse> transfer(@RequestBody TransferToFundraiserRequest request) {

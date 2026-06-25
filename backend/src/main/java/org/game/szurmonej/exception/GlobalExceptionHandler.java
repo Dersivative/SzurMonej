@@ -43,6 +43,24 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return handleExceptionInternal(ex, bodyOfResponse, new HttpHeaders(), ex.getStatusCode(), request);
     }
 
+    @ExceptionHandler(value = { ResourceNotFoundException.class })
+    protected ResponseEntity<Object> handleNotFound(ResourceNotFoundException ex, WebRequest request) {
+        ErrorResponse bodyOfResponse = new ErrorResponse(ex.getMessage());
+        return handleExceptionInternal(ex, bodyOfResponse, new HttpHeaders(), HttpStatus.NOT_FOUND, request);
+    }
+
+    @ExceptionHandler(value = { IllegalArgumentException.class })
+    protected ResponseEntity<Object> handleIllegalArgument(IllegalArgumentException ex, WebRequest request) {
+        ErrorResponse bodyOfResponse = new ErrorResponse(ex.getMessage());
+        return handleExceptionInternal(ex, bodyOfResponse, new HttpHeaders(), HttpStatus.BAD_REQUEST, request);
+    }
+
+    @ExceptionHandler(value = { InsufficientFundsException.class })
+    protected ResponseEntity<Object> handleInsufficientFunds(InsufficientFundsException ex, WebRequest request) {
+        ErrorResponse bodyOfResponse = new ErrorResponse(ex.getMessage());
+        return handleExceptionInternal(ex, bodyOfResponse, new HttpHeaders(), HttpStatus.BAD_REQUEST, request);
+    }
+
     // A final catch-all for any other unexpected exceptions
     @ExceptionHandler(value = { Exception.class })
     public ResponseEntity<Object> handleAllExceptions(Exception ex, WebRequest request) {
