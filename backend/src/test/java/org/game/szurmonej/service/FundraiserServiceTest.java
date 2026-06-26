@@ -426,6 +426,7 @@ class FundraiserServiceTest {
             participant.setAddedAt(LocalDate.now());
             fundraiser.getParticipants().add(participant);
         });
+        fundraiser.setGoalAmount(fundraiser.getPerChildAmount().multiply(new BigDecimal(fundraiser.getParticipants().size())));
         fundraiserRepository.saveAndFlush(fundraiser);
         // End of workaround
 
@@ -488,6 +489,7 @@ class FundraiserServiceTest {
             participant.setAddedAt(LocalDate.now());
             fundraiser.getParticipants().add(participant);
         });
+        fundraiser.setGoalAmount(fundraiser.getPerChildAmount().multiply(new BigDecimal(fundraiser.getParticipants().size())));
         fundraiserRepository.saveAndFlush(fundraiser);
         // 2. Two parents pay 200 each
         loginAs(scenario.parent1());
@@ -581,9 +583,12 @@ class FundraiserServiceTest {
 
     @Test
     void parentPaysForAnotherChild_thenRequestsRefund_fundsAreReturnedToOriginalPayer() {
-        // 1. Setup: Fundraiser with goal 1200 (400 per child). All parents have 1000.
+        // 1. Setup: Fundraiser with goal 900 (300 per child). All parents have 1000.
+        loginAs(scenario.treasurer());
         Fundraiser fundraiser = scenario.fundraiser();
         Long fundraiserId = fundraiser.getId();
+        // Przekazujemy kwotę NA DZIECKO, aby ustawić cel całkowity na 900 zł.
+        fundraiserService.updateGoal(fundraiserId, new BigDecimal("300.00"));
 
         // 2. Parent1 pays for their child (child1) and for parent2's child (child2)
         loginAs(scenario.parent1());
@@ -596,13 +601,14 @@ class FundraiserServiceTest {
         var request2 = new TransferToFundraiserRequest();
         request2.setFundraiserId(fundraiserId);
         request2.setChildId(scenario.child2().getId());
-        request2.setNote("Payment for other child");
-        accountService.transferToFundraiser(request2);
-        // Parent1 balance: 1000 - 400 - 400 = 200
+        accountService.transferToFundraiser(request2); // Stan konta: 700 - 300 = 400
+        
+        // Weryfikacja stanu konta po pierwszych wpłatach
+        assertThat(accountRepository.findByUser_Id(scenario.parent1().getId()).get().getBalance()).isEqualByComparingTo("400.00");
 
-        // 3. Treasurer increases goal to 1500 (500 per child)
+        // 3. Treasurer increases goal to 1200 (400 per child)
         loginAs(scenario.treasurer());
-        fundraiserService.updateGoal(fundraiserId, new BigDecimal("500.00"));
+        fundraiserService.updateGoal(fundraiserId, new BigDecimal("400.00"));
 
         // 4. Parent1 pays the remaining 100 for both children
         loginAs(scenario.parent1());
@@ -617,9 +623,12 @@ class FundraiserServiceTest {
         request4.setChildId(scenario.child2().getId());
         request4.setNote("Top-up for other child");
         accountService.transferToFundraiser(request4);
-        // Parent1 balance: 200 - 100 - 100 = 0
+        // Parent1 balance: 400 - 100 - 100 = 200
 
-        // 5. Parent1 requests a refund for the payment made for child2
+        // Weryfikacja stanu konta po dopłatach
+        assertThat(accountRepository.findByUser_Id(scenario.parent1().getId()).get().getBalance()).isEqualByComparingTo("200.00");
+
+        // 5. Rodzic1 składa wniosek o zwrot całej wpłaty za dziecko Rodzica2 (300 + 100 = 400 zł)
         var refundRequestDto = refundRequestService.createRefundRequest(fundraiserId, scenario.child2().getId());
         
         // 6. Treasurer approves the refund request
@@ -631,9 +640,9 @@ class FundraiserServiceTest {
         var parent2Account = accountRepository.findByUser_Id(scenario.parent2().getId()).orElseThrow();
         var treasurerAccount = accountRepository.findByUser_Id(scenario.treasurer().getId()).orElseThrow();
 
-        // Parent1 paid 500 for child2 and should get it all back.
-        // Initial 1000 - 500 (for child1) - 500 (for child2) + 500 (refund) = 500
-        assertThat(parent1Account.getBalance()).isEqualByComparingTo("500.00");
+        // Rodzic1 powinien odzyskać 400 zł.
+        // Stan końcowy: 200 zł (po wszystkich wpłatach) + 400 zł (zwrot) = 600 zł
+        assertThat(parent1Account.getBalance()).isEqualByComparingTo("600.00");
 
         // Parent2's balance should be untouched.
         assertThat(parent2Account.getBalance()).isEqualByComparingTo("1000.00");
@@ -641,6 +650,7 @@ class FundraiserServiceTest {
         // Treasurer's balance should be untouched.
         assertThat(treasurerAccount.getBalance()).isEqualByComparingTo("1000.00");
     }
+
 
     private User saveUnrelatedParent() {
         User user = new User();

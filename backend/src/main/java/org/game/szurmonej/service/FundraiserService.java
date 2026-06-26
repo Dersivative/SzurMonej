@@ -814,13 +814,15 @@ public class FundraiserService {
             BigDecimal overpaymentForChild = totalNetContributedForChild.subtract(actualCostPerParticipant);
 
             if (overpaymentForChild.compareTo(BigDecimal.ZERO) > 0) {
-                for (Map.Entry<User, BigDecimal> entry : netPaymentsByPayerForChild.entrySet()) {
-                    User payer = entry.getKey();
-                    BigDecimal netAmountPaidByPayer = entry.getValue();
-                    BigDecimal payerShareOfOverpayment = overpaymentForChild.multiply(netAmountPaidByPayer).divide(totalNetContributedForChild, 2, RoundingMode.HALF_UP);
+                if (totalNetContributedForChild.compareTo(BigDecimal.ZERO) > 0) {
+                    for (Map.Entry<User, BigDecimal> entry : netPaymentsByPayerForChild.entrySet()) {
+                        User payer = entry.getKey();
+                        BigDecimal netAmountPaidByPayer = entry.getValue();
+                        BigDecimal payerShareOfOverpayment = overpaymentForChild.multiply(netAmountPaidByPayer).divide(totalNetContributedForChild, 2, RoundingMode.HALF_UP);
 
-                    if (payerShareOfOverpayment.compareTo(BigDecimal.ZERO) > 0) {
-                        pendingRefunds.add(new PendingRefund(payer, participant, payerShareOfOverpayment));
+                        if (payerShareOfOverpayment.compareTo(BigDecimal.ZERO) > 0) {
+                            pendingRefunds.add(new PendingRefund(payer, participant, payerShareOfOverpayment));
+                        }
                     }
                 }
             }
