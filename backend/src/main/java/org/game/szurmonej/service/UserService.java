@@ -1,5 +1,6 @@
 package org.game.szurmonej.service;
 
+import org.apache.commons.validator.routines.IBANValidator;
 import org.game.szurmonej.dto.BankAccountRequest;
 import org.game.szurmonej.dto.EmailChangeRequest;
 import org.game.szurmonej.dto.PasswordChangeRequest;
@@ -80,8 +81,12 @@ public class UserService {
 
     @Transactional
     public UserResponse updateBankAccount(BankAccountRequest request) {
+        String bankAccountNumber = request.getBankAccountNumber();
+        if (!IBANValidator.getInstance().isValid(bankAccountNumber)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Podany numer konta bankowego jest nieprawidłowy.");
+        }
         User currentUser = currentUserService.getCurrentUser();
-        currentUser.setBankAccountNumber(request.getBankAccountNumber());
+        currentUser.setBankAccountNumber(bankAccountNumber);
         return UserResponse.from(userRepository.save(currentUser));
     }
 
