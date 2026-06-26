@@ -35,7 +35,7 @@ public class AccountService {
             ContributionRepository contributionRepository,
             FundraiserRepository fundraiserRepository,
             FundraiserParticipantRepository participantRepository,
-            AccountHistoryEntryRepository historyRepository, 
+            AccountHistoryEntryRepository historyRepository,
             CurrentUserService currentUserService,
             UserRepository userRepository,
             RefundRepository refundRepository
@@ -103,11 +103,11 @@ public class AccountService {
 
         Fundraiser fundraiser = fundraiserRepository.findById(request.getFundraiserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Fundraiser not found: " + request.getFundraiserId()));
-        
+
         if (fundraiser.getStatus() != FundraiserStatus.ACTIVE) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Można wpłacać tylko na aktywne zbiórki.");
         }
-        
+
         Account fundraiserAccount = accountRepository.findByFundraiser_Id(fundraiser.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Fundraiser account not found"));
 
@@ -124,7 +124,7 @@ public class AccountService {
 
         debit(payerAccount, amountToPay);
         credit(fundraiserAccount, amountToPay);
-        
+
         Account savedPayerAccount = accountRepository.save(payerAccount);
         Account savedFundraiserAccount = accountRepository.save(fundraiserAccount);
 
@@ -184,7 +184,7 @@ public class AccountService {
         credit(fundraiserAccount, amount);
         Account savedTreasurerAccount = accountRepository.save(treasurerAccount);
         Account savedFundraiserAccount = accountRepository.save(fundraiserAccount);
-        
+
         AccountHistoryEntry historyEntry = new AccountHistoryEntry();
         historyEntry.setAccount(savedFundraiserAccount);
         historyEntry.setAmount(amount);
@@ -235,7 +235,7 @@ public class AccountService {
     }
 
     @Transactional
-    public MoneyOperationResponse refundFromFundraiser(Long fundraiserId, Long targetUserId, BigDecimal amount, String note) {
+    public MoneyOperationResponse refundFromFundraiser(Long fundraiserId, Long participantId, Long targetUserId, BigDecimal amount, String note) {
         validatePositiveAmount(amount);
         User currentUser = currentUserService.getCurrentUser();
         Fundraiser fundraiser = assertTreasurerAndGetFundraiser(fundraiserId, currentUser);
@@ -249,7 +249,7 @@ public class AccountService {
 
         debit(fundraiserAccount, amount);
         credit(targetAccount, amount);
-        
+
         accountRepository.save(fundraiserAccount);
         accountRepository.save(targetAccount);
 
@@ -268,9 +268,9 @@ public class AccountService {
         refund.setAmount(amount);
         refund.setRefundedAt(LocalDateTime.now());
         refund.setNote(finalNote);
-        
-        // Try to link to a contribution, but it's not critical for financial calculations
-        contributionRepository.findByParticipant_Fundraiser_IdAndPayer_Id(fundraiserId, targetUserId)
+
+        // Link to the specific contribution being refunded
+        contributionRepository.findByParticipant_IdAndPayer_Id(participantId, targetUserId)
                 .stream().findFirst().ifPresent(refund::setContribution);
 
         refundRepository.save(refund);

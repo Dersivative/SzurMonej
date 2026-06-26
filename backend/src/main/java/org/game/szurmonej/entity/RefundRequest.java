@@ -34,6 +34,10 @@ public class RefundRequest {
     @Column(nullable = false)
     private EnrollmentStatus status = EnrollmentStatus.PENDING;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private RefundRequestType type;
+
     @Column(nullable = false)
     private LocalDateTime requestedAt;
 

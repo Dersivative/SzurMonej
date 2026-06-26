@@ -10,9 +10,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,8 +24,7 @@ public class RefundRequestService {
     private final RefundRepository refundRepository;
     private final CurrentUserService currentUserService;
     private final AccountService accountService;
-    private final ClassMembershipRepository classMembershipRepository;
-    private final FundraiserRepository fundraiserRepository;
+    private final ChildRepository childRepository;
 
     public RefundRequestService(
             RefundRequestRepository refundRequestRepository,
@@ -34,8 +33,7 @@ public class RefundRequestService {
             RefundRepository refundRepository,
             CurrentUserService currentUserService,
             AccountService accountService,
-            ClassMembershipRepository classMembershipRepository,
-            FundraiserRepository fundraiserRepository
+            ChildRepository childRepository
     ) {
         this.refundRequestRepository = refundRequestRepository;
         this.participantRepository = participantRepository;
@@ -43,8 +41,7 @@ public class RefundRequestService {
         this.refundRepository = refundRepository;
         this.currentUserService = currentUserService;
         this.accountService = accountService;
-        this.classMembershipRepository = classMembershipRepository;
-        this.fundraiserRepository = fundraiserRepository;
+        this.childRepository = childRepository;
     }
 
     @Transactional
@@ -52,33 +49,49 @@ public class RefundRequestService {
         User currentUser = currentUserService.getCurrentUser();
         FundraiserParticipant participant = participantRepository.findByFundraiser_IdAndChild_Id(fundraiserId, childId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Participant not found."));
+        Child child = childRepository.findById(childId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Child not found."));
 
         if (participant.getFundraiser().getStatus() != FundraiserStatus.ACTIVE) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Refunds can only be requested for active fundraisers.");
         }
+        if (refundRequestRepository.existsByParticipant_IdAndStatus(participant.getId(), EnrollmentStatus.PENDING)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A refund request for this participant is already pending.");
+        }
 
-        List<Contribution> contributions = contributionRepository.findByParticipant_Id(participant.getId());
-        List<Refund> refunds = refundRepository.findByContribution_Participant_Fundraiser_Id(fundraiserId);
+        boolean isParent = child.getParents().stream().anyMatch(parent -> parent.getId().equals(currentUser.getId()));
+        BigDecimal amountToRefund;
+        RefundRequestType type;
 
-        BigDecimal totalContributed = contributions.stream()
-                .map(Contribution::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (isParent) {
+            // Parent requests a full withdrawal for their child.
+            type = RefundRequestType.FULL_WITHDRAWAL;
+            BigDecimal totalContributed = contributionRepository.findByParticipant_Id(participant.getId()).stream()
+                    .map(Contribution::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal totalRefunded = refundRepository.findByContribution_Participant_Id(participant.getId()).stream()
+                    .map(Refund::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            amountToRefund = totalContributed.subtract(totalRefunded);
+        } else {
+            // Non-parent requests a refund of their personal contribution.
+            type = RefundRequestType.PERSONAL_CONTRIBUTION;
+            List<Contribution> contributionsByUser = contributionRepository.findByParticipant_IdAndPayer_Id(participant.getId(), currentUser.getId());
+            List<Refund> refundsForUser = refundRepository.findByContribution_Participant_IdAndContribution_Payer_Id(participant.getId(), currentUser.getId());
+            BigDecimal totalContributedByUser = contributionsByUser.stream().map(Contribution::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal totalRefundedForUser = refundsForUser.stream().map(Refund::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+            amountToRefund = totalContributedByUser.subtract(totalRefundedForUser);
+        }
 
-        BigDecimal totalRefunded = refunds.stream()
-                .filter(refund -> refund.getContribution() != null && refund.getContribution().getParticipant().getId().equals(participant.getId()))
-                .map(Refund::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal netContribution = totalContributed.subtract(totalRefunded);
-
-        if (netContribution.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No funds to refund for this participant.");
+        if (amountToRefund.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No funds to refund.");
         }
 
         RefundRequest refundRequest = new RefundRequest();
         refundRequest.setParticipant(participant);
         refundRequest.setRequester(currentUser);
-        refundRequest.setAmount(netContribution);
+        refundRequest.setAmount(amountToRefund);
+        refundRequest.setType(type);
         refundRequest.setRequestedAt(LocalDateTime.now());
         refundRequest.setStatus(EnrollmentStatus.PENDING);
 
@@ -91,40 +104,69 @@ public class RefundRequestService {
         RefundRequest refundRequest = refundRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Refund request not found."));
 
-        Fundraiser fundraiser = refundRequest.getParticipant().getFundraiser();
+        FundraiserParticipant participant = refundRequest.getParticipant();
+        Fundraiser fundraiser = participant.getFundraiser();
+
         if (!fundraiser.getSchoolClass().getTreasurer().getId().equals(currentUser.getId())) {
             throw new ForbiddenOperationException("Only the treasurer can approve refund requests.");
         }
-
         if (refundRequest.getStatus() != EnrollmentStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request is not pending.");
         }
 
-        String note = String.format("Zwrot na prośbę %s za dziecko: %s %s",
-                refundRequest.getRequester().getFullName(),
-                refundRequest.getParticipant().getChild().getName(),
-                refundRequest.getParticipant().getChild().getSurname());
-
-        accountService.refundFromFundraiser(
-                fundraiser.getId(),
-                refundRequest.getRequester().getId(),
-                refundRequest.getAmount(),
-                note
-        );
+        if (refundRequest.getType() == RefundRequestType.FULL_WITHDRAWAL) {
+            processFullWithdrawal(refundRequest, participant, fundraiser);
+        } else { // PERSONAL_CONTRIBUTION
+            processPersonalContributionRefund(refundRequest, fundraiser);
+        }
 
         refundRequest.setStatus(EnrollmentStatus.APPROVED);
         refundRequest.setReviewedAt(LocalDateTime.now());
         refundRequestRepository.save(refundRequest);
+    }
 
-        FundraiserParticipant participant = refundRequest.getParticipant();
+    private void processFullWithdrawal(RefundRequest refundRequest, FundraiserParticipant participant, Fundraiser fundraiser) {
+        // Smart refund: find all original payers and refund them proportionally.
+        Map<User, BigDecimal> contributionsByPayer = contributionRepository.findByParticipant_Id(participant.getId()).stream()
+                .collect(Collectors.groupingBy(Contribution::getPayer, Collectors.mapping(Contribution::getAmount, Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))));
+        Map<User, BigDecimal> refundsByPayer = refundRepository.findByContribution_Participant_Id(participant.getId()).stream()
+                .filter(refund -> refund.getContribution() != null)
+                .collect(Collectors.groupingBy(refund -> refund.getContribution().getPayer(), Collectors.mapping(Refund::getAmount, Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))));
+
+        contributionsByPayer.forEach((payer, totalPaid) -> {
+            BigDecimal totalRefunded = refundsByPayer.getOrDefault(payer, BigDecimal.ZERO);
+            BigDecimal netToRefund = totalPaid.subtract(totalRefunded);
+            if (netToRefund.compareTo(BigDecimal.ZERO) > 0) {
+                validateFundraiserBalance(fundraiser, netToRefund);
+                String note = String.format("Zwrot za dziecko: %s %s (pełne wycofanie na wniosek rodzica: %s)",
+                        participant.getChild().getName(), participant.getChild().getSurname(), refundRequest.getRequester().getFullName());
+                accountService.refundFromFundraiser(fundraiser.getId(), participant.getId(), payer.getId(), netToRefund, note);
+            }
+        });
+
+        // Reset participant's financial state after a full withdrawal.
+        participant.setDebt(participant.getDebt().add(refundRequest.getAmount()));
+        participant.setCredit(BigDecimal.ZERO);
         participantRepository.save(participant);
+    }
 
-        if (fundraiser.getFundraiserType() == FundraiserType.PER_CHILD_GOAL) {
-            fundraiser.setGoalAmount(fundraiser.getGoalAmount().subtract(fundraiser.getPerChildAmount()));
-            fundraiserRepository.save(fundraiser);
+    private void processPersonalContributionRefund(RefundRequest refundRequest, Fundraiser fundraiser) {
+        // Simple refund: return the requested amount to the user who made the request.
+        validateFundraiserBalance(fundraiser, refundRequest.getAmount());
+        FundraiserParticipant participant = refundRequest.getParticipant();
+        String note = String.format("Zwrot własnej wpłaty za dziecko: %s %s",
+                participant.getChild().getName(), participant.getChild().getSurname());
+        accountService.refundFromFundraiser(fundraiser.getId(), participant.getId(), refundRequest.getRequester().getId(), refundRequest.getAmount(), note);
+
+        // Restore debt for the participant for the refunded amount.
+        participant.setDebt(participant.getDebt().add(refundRequest.getAmount()));
+        participantRepository.save(participant);
+    }
+
+    private void validateFundraiserBalance(Fundraiser fundraiser, BigDecimal amount) {
+        if (fundraiser.getAccount().getBalance().compareTo(amount) < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Fundraiser has insufficient funds for this refund operation.");
         }
-
-        checkAndFinalizeClassRemoval(participant.getChild());
     }
 
     @Transactional
@@ -136,7 +178,6 @@ public class RefundRequestService {
         if (!refundRequest.getParticipant().getFundraiser().getSchoolClass().getTreasurer().getId().equals(currentUser.getId())) {
             throw new ForbiddenOperationException("Only the treasurer can reject refund requests.");
         }
-
         if (refundRequest.getStatus() != EnrollmentStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request is not pending.");
         }
@@ -144,31 +185,6 @@ public class RefundRequestService {
         refundRequest.setStatus(EnrollmentStatus.REJECTED);
         refundRequest.setReviewedAt(LocalDateTime.now());
         refundRequestRepository.save(refundRequest);
-
-        FundraiserParticipant participant = refundRequest.getParticipant();
-        participant.setStatus(EnrollmentStatus.APPROVED);
-        participantRepository.save(participant);
-
-        classMembershipRepository.findByChild_IdAndStatus(participant.getChild().getId(), EnrollmentStatus.REMOVAL_PENDING)
-                .ifPresent(membership -> {
-                    membership.setStatus(EnrollmentStatus.APPROVED);
-                    classMembershipRepository.save(membership);
-                });
-    }
-
-    private void checkAndFinalizeClassRemoval(Child child) {
-        boolean hasOtherActiveParticipations = participantRepository.findByChild_Id(child.getId())
-                .stream()
-                .anyMatch(p -> p.getRemovedAt() == null);
-
-        if (!hasOtherActiveParticipations) {
-            classMembershipRepository.findByChild_IdAndStatus(child.getId(), EnrollmentStatus.REMOVAL_PENDING)
-                    .ifPresent(membership -> {
-                        membership.setLeftAt(LocalDate.now());
-                        membership.setStatus(EnrollmentStatus.REJECTED); // Using REJECTED as a final "left" status
-                        classMembershipRepository.save(membership);
-                    });
-        }
     }
 
     @Transactional(readOnly = true)

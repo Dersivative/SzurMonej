@@ -745,7 +745,7 @@ public class FundraiserService {
             if (refundForPayer.compareTo(BigDecimal.ZERO) > 0) {
                 String refundNote = String.format("Zwrot nadpłaty przy rozliczeniu dla %s za dziecko: %s %s",
                         payer.getFullName(), participant.getChild().getName(), participant.getChild().getSurname());
-                accountService.refundFromFundraiser(participant.getFundraiser().getId(), payer.getId(), refundForPayer, refundNote);
+                accountService.refundFromFundraiser(participant.getFundraiser().getId(), participant.getId(), payer.getId(), refundForPayer, refundNote);
                 refundedInThisStep = refundedInThisStep.add(refundForPayer);
             }
         }
@@ -858,7 +858,7 @@ public class FundraiserService {
                 if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
                     String refundNote = String.format("Automatyczny zwrot z powodu zmniejszenia celu dla: %s za: %s %s",
                             pending.payer().getFullName(), pending.participant().getChild().getName(), pending.participant().getChild().getSurname());
-                    accountService.refundFromFundraiser(fundraiser.getId(), pending.payer().getId(), refundAmount, refundNote);
+                    accountService.refundFromFundraiser(fundraiser.getId(), pending.participant().getId(), pending.payer().getId(), refundAmount, refundNote);
                     totalRefundedAcc = totalRefundedAcc.add(refundAmount);
                     refundedByParticipant.merge(pending.participant(), refundAmount, BigDecimal::add);
                 }

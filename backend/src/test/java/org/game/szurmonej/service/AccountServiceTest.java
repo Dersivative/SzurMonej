@@ -192,6 +192,7 @@ class AccountServiceTest {
         loginAs(scenario.parent2());
         assertThatThrownBy(() -> accountService.refundFromFundraiser(
                 scenario.fundraiser().getId(),
+                scenario.participant1().getId(),
                 scenario.parent1().getId(),
                 new BigDecimal("10.00"),
                 "Test refund"
@@ -200,6 +201,7 @@ class AccountServiceTest {
         loginAs(scenario.treasurer());
         MoneyOperationResponse response = accountService.refundFromFundraiser(
                 scenario.fundraiser().getId(),
+                scenario.participant1().getId(),
                 scenario.parent1().getId(),
                 new BigDecimal("10.00"),
                 "Test refund"

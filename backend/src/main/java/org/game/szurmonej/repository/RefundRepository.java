@@ -11,4 +11,5 @@ public interface RefundRepository extends JpaRepository<Refund, Long> {
     List<Refund> findByContribution_Participant_Fundraiser_Id(Long fundraiserId);
     List<Refund> findByAccountHistoryEntry_Account_Fundraiser_Id(Long fundraiserId);
     List<Refund> findByContribution_Participant_Id(Long participantId);
+    List<Refund> findByContribution_Participant_IdAndContribution_Payer_Id(Long participantId, Long payerId);
 }

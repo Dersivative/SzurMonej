@@ -11,4 +11,5 @@ import java.util.List;
 public interface RefundRequestRepository extends JpaRepository<RefundRequest, Long> {
     List<RefundRequest> findByParticipant_Fundraiser_IdAndStatus(Long fundraiserId, EnrollmentStatus status);
     List<RefundRequest> findByParticipant_Child_Id(Long childId);
+    boolean existsByParticipant_IdAndStatus(Long participantId, EnrollmentStatus status);
 }

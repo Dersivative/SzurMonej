@@ -12,4 +12,5 @@ public interface ContributionRepository extends JpaRepository<Contribution, Long
     List<Contribution> findByParticipant_Id(Long participantId);
     List<Contribution> findByParticipant_Fundraiser_IdAndPayer_Id(Long fundraiserId, Long payerId);
     List<Contribution> findByParticipant_Child_Id(Long childId);
+    List<Contribution> findByParticipant_IdAndPayer_Id(Long participantId, Long payerId);
 }

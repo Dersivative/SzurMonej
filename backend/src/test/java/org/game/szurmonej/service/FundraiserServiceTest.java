@@ -601,10 +601,9 @@ class FundraiserServiceTest {
         var request2 = new TransferToFundraiserRequest();
         request2.setFundraiserId(fundraiserId);
         request2.setChildId(scenario.child2().getId());
-        accountService.transferToFundraiser(request2); // Stan konta: 700 - 300 = 400
-        
-        // Weryfikacja stanu konta po pierwszych wpłatach
-        assertThat(accountRepository.findByUser_Id(scenario.parent1().getId()).get().getBalance()).isEqualByComparingTo("400.00");
+        request2.setNote("Payment for other child");
+        accountService.transferToFundraiser(request2);
+        // Parent1 balance: 1000 - 400 - 400 = 200
 
         // 3. Treasurer increases goal to 1200 (400 per child)
         loginAs(scenario.treasurer());
@@ -649,6 +648,41 @@ class FundraiserServiceTest {
 
         // Treasurer's balance should be untouched.
         assertThat(treasurerAccount.getBalance()).isEqualByComparingTo("1000.00");
+    }
+
+    @Test
+    void refundResetsParticipantStateCorrectly() {
+        // 1. Setup: Fundraiser with goal 1200 (400 per child). All parents have 1000.
+        Fundraiser fundraiser = scenario.fundraiser();
+        Long fundraiserId = fundraiser.getId();
+
+        // 2. Parent1 pays for Parent2's child
+        loginAs(scenario.parent1());
+        var request = new TransferToFundraiserRequest();
+        request.setFundraiserId(fundraiserId);
+        request.setChildId(scenario.child2().getId());
+        accountService.transferToFundraiser(request); // Parent1 pays 400 for Child2
+        assertThat(accountRepository.findByUser_Id(scenario.parent1().getId()).get().getBalance()).isEqualByComparingTo("600.00");
+
+        // 3. Parent1 requests a refund because the child is no longer participating
+        var refundRequestDto = refundRequestService.createRefundRequest(fundraiserId, scenario.child2().getId());
+        assertThat(refundRequestDto).isNotNull();
+        assertThat(refundRequestDto.getAmount()).isEqualByComparingTo("400.00");
+
+        // 4. Treasurer approves the refund
+        loginAs(scenario.treasurer());
+        refundRequestService.approveRefundRequest(refundRequestDto.getId());
+
+        // 5. Verification: Check if participant state is reset
+        var participantAfterRefund = participantRepository.findByFundraiser_IdAndChild_Id(fundraiserId, scenario.child2().getId()).orElseThrow();
+        var parent1Account = accountRepository.findByUser_Id(scenario.parent1().getId()).orElseThrow();
+
+        // Parent1's balance should be restored to its initial state
+        assertThat(parent1Account.getBalance()).isEqualByComparingTo("1000.00"); // 600 + 400
+
+        // Participant's debt should be reset to the original goal, and credit should be zero
+        assertThat(participantAfterRefund.getDebt()).isEqualByComparingTo("400.00");
+        assertThat(participantAfterRefund.getCredit()).isEqualByComparingTo("0.00");
     }
 
 

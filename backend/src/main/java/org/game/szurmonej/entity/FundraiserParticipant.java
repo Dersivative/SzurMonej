@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,8 +41,8 @@ public class FundraiserParticipant {
     private EnrollmentStatus status = EnrollmentStatus.APPROVED; // APPROVED, REMOVAL_PENDING
 
     @Column(precision = 19, scale = 2)
-    private java.math.BigDecimal debt;
+    private BigDecimal debt = BigDecimal.ZERO;
 
     @Column(precision = 19, scale = 2)
-    private java.math.BigDecimal credit;
+    private BigDecimal credit = BigDecimal.ZERO;
 }
