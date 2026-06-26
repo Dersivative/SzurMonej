@@ -1,5 +1,6 @@
 package org.game.szurmonej.service;
 
+import org.game.szurmonej.dto.BankAccountRequest;
 import org.game.szurmonej.dto.EmailChangeRequest;
 import org.game.szurmonej.dto.PasswordChangeRequest;
 import org.game.szurmonej.dto.UserResponse;
@@ -73,5 +74,12 @@ public class UserService {
             }
         }
         userRepository.delete(currentUser);
+    }
+
+    @Transactional
+    public UserResponse updateBankAccount(BankAccountRequest request) {
+        User currentUser = currentUserService.getCurrentUser();
+        currentUser.setBankAccountNumber(request.getBankAccountNumber());
+        return UserResponse.from(userRepository.save(currentUser));
     }
 }

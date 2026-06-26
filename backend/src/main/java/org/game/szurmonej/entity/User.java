@@ -39,6 +39,8 @@ public class User {
     @Basic(fetch = FetchType.EAGER)
     private byte[] avatar;
 
+    private String bankAccountNumber;
+
     @ManyToMany
     @JoinTable(
             name = "user_children",

@@ -19,6 +19,7 @@ public class UserResponse {
     private boolean isAdmin;
     private BigDecimal balance;
     private String accountNumber;
+    private String bankAccountNumber;
     private List<ChildResponse> children;
     private String avatar; // Base64 encoded avatar
 
@@ -30,6 +31,7 @@ public class UserResponse {
         response.setLastName(user.getLastName());
         response.setFullName(user.getFullName());
         response.setAdmin(user.isAdmin());
+        response.setBankAccountNumber(user.getBankAccountNumber());
         if (user.getAccount() != null) {
             response.setBalance(user.getAccount().getBalance());
             response.setAccountNumber(user.getAccount().getAccountNumber());

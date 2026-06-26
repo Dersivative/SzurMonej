@@ -113,6 +113,11 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
 
+    @PatchMapping("/me/bank-account")
+    public ResponseEntity<UserResponse> updateBankAccount(@RequestBody BankAccountRequest request) {
+        return ResponseEntity.ok(userService.updateBankAccount(request));
+    }
+
     @Transactional(readOnly = true)
     @GetMapping("/me/children")
     public ResponseEntity<List<ChildResponse>> getChildrenForCurrentUser() {
