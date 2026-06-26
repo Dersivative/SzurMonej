@@ -22,4 +22,6 @@ public interface ClassMembershipRepository extends JpaRepository<ClassMembership
     Optional<ClassMembership> findByChild_IdAndStatus(Long childId, EnrollmentStatus status);
 
     List<ClassMembership> findAllByChild_Id(Long childId);
+
+    boolean existsBySchoolClassIdAndChild_Parents_Id(Long schoolClassId, Long parentId);
 }

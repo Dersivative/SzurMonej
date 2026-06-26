@@ -16,15 +16,15 @@ public final class FinancialTestFixtures {
     }
 
     public record FinancialScenario(
-            User parent,
-            User otherParent,
+            User parent1,
+            User parent2,
             User treasurer,
-            Child child,
-            Child otherChild,
+            Child child1,
+            Child child2,
             Child treasurerChild,
             SchoolClass schoolClass,
             Fundraiser fundraiser,
-            FundraiserParticipant participant
+            FundraiserParticipant participant1
     ) {
     }
 
@@ -39,18 +39,18 @@ public final class FinancialTestFixtures {
             ClassMembershipRepository classMembershipRepository
     ) {
         // Create Users
-        User parent = saveUser(userRepository, passwordEncoder, "rodzic1@example.com", "pass123", "Rodzic", "Jeden");
-        User otherParent = saveUser(userRepository, passwordEncoder, "rodzic2@example.com", "pass123", "Rodzic", "Dwa");
+        User parent1 = saveUser(userRepository, passwordEncoder, "rodzic1@example.com", "pass123", "Rodzic", "Jeden");
+        User parent2 = saveUser(userRepository, passwordEncoder, "rodzic2@example.com", "pass123", "Rodzic", "Dwa");
         User treasurer = saveUser(userRepository, passwordEncoder, "skarbnik@example.com", "pass123", "Skarbnik", "Klasowy");
 
         // Create Accounts with sufficient funds
-        createUserAccount(accountRepository, parent, new BigDecimal("500.00"));
-        createUserAccount(accountRepository, otherParent, new BigDecimal("500.00"));
-        createUserAccount(accountRepository, treasurer, new BigDecimal("500.00"));
+        createUserAccount(accountRepository, parent1, new BigDecimal("1000.00"));
+        createUserAccount(accountRepository, parent2, new BigDecimal("1000.00"));
+        createUserAccount(accountRepository, treasurer, new BigDecimal("1000.00"));
 
         // Create Children and link to parents
-        Child child = saveChild(childRepository, userRepository, "Adam", "Kowalski", parent);
-        Child otherChild = saveChild(childRepository, userRepository, "Ewa", "Nowak", otherParent);
+        Child child1 = saveChild(childRepository, userRepository, "Adam", "Kowalski", parent1);
+        Child child2 = saveChild(childRepository, userRepository, "Ewa", "Nowak", parent2);
         Child treasurerChild = saveChild(childRepository, userRepository, "Krzysztof", "Skarbnikowski", treasurer);
 
         // Create School Class and link treasurer
@@ -60,16 +60,17 @@ public final class FinancialTestFixtures {
         schoolClass = schoolClassRepository.save(schoolClass);
 
         // Create Memberships
-        createMembership(classMembershipRepository, schoolClass, child);
-        createMembership(classMembershipRepository, schoolClass, otherChild);
+        createMembership(classMembershipRepository, schoolClass, child1);
+        createMembership(classMembershipRepository, schoolClass, child2);
         createMembership(classMembershipRepository, schoolClass, treasurerChild);
 
         // Create Fundraiser
         Fundraiser fundraiser = new Fundraiser();
         fundraiser.setTitle("Wycieczka");
         fundraiser.setSchoolClass(schoolClass);
-        fundraiser.setFundraiserType(FundraiserType.TOTAL_GOAL);
-        fundraiser.setGoalAmount(new BigDecimal("600.00"));
+        fundraiser.setFundraiserType(FundraiserType.PER_CHILD_GOAL);
+        fundraiser.setPerChildAmount(new BigDecimal("400.00"));
+        fundraiser.setGoalAmount(new BigDecimal("1200.00"));
         fundraiser.setStartedAt(LocalDate.now());
         
         Account fundraiserAccount = new Account();
@@ -80,11 +81,11 @@ public final class FinancialTestFixtures {
         fundraiser = fundraiserRepository.save(fundraiser);
         
         // Create Participants
-        FundraiserParticipant participant1 = createFundraiserParticipant(participantRepository, fundraiser, child);
-        createFundraiserParticipant(participantRepository, fundraiser, otherChild);
+        FundraiserParticipant participant1 = createFundraiserParticipant(participantRepository, fundraiser, child1);
+        createFundraiserParticipant(participantRepository, fundraiser, child2);
         createFundraiserParticipant(participantRepository, fundraiser, treasurerChild);
 
-        return new FinancialScenario(parent, otherParent, treasurer, child, otherChild, treasurerChild, schoolClass, fundraiser, participant1);
+        return new FinancialScenario(parent1, parent2, treasurer, child1, child2, treasurerChild, schoolClass, fundraiser, participant1);
     }
 
     private static Child saveChild(ChildRepository repository, UserRepository userRepository, String name, String surname, User parent) {

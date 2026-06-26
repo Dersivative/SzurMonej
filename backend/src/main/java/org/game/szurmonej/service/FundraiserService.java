@@ -41,8 +41,9 @@ public class FundraiserService {
     private final RefundRepository refundRepository;
     private final RefundRequestRepository refundRequestRepository;
     private final FundraiserApplicationRepository fundraiserApplicationRepository;
+    private final ClassMembershipRepository classMembershipRepository;
 
-    public FundraiserService(FundraiserRepository fundraiserRepository, SchoolClassRepository schoolClassRepository, ChildRepository childRepository, FundraiserParticipantRepository participantRepository, ContributionRepository contributionRepository, AccountHistoryEntryRepository historyRepository, CurrentUserService currentUserService, AccountService accountService, RefundRepository refundRepository, RefundRequestRepository refundRequestRepository, FundraiserApplicationRepository fundraiserApplicationRepository) {
+    public FundraiserService(FundraiserRepository fundraiserRepository, SchoolClassRepository schoolClassRepository, ChildRepository childRepository, FundraiserParticipantRepository participantRepository, ContributionRepository contributionRepository, AccountHistoryEntryRepository historyRepository, CurrentUserService currentUserService, AccountService accountService, RefundRepository refundRepository, RefundRequestRepository refundRequestRepository, FundraiserApplicationRepository fundraiserApplicationRepository, ClassMembershipRepository classMembershipRepository) {
         this.fundraiserRepository = fundraiserRepository;
         this.schoolClassRepository = schoolClassRepository;
         this.childRepository = childRepository;
@@ -54,6 +55,7 @@ public class FundraiserService {
         this.refundRepository = refundRepository;
         this.refundRequestRepository = refundRequestRepository;
         this.fundraiserApplicationRepository = fundraiserApplicationRepository;
+        this.classMembershipRepository = classMembershipRepository;
     }
 
     @Transactional
@@ -281,9 +283,7 @@ public class FundraiserService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono klasy."));
 
         boolean isTreasurer = schoolClass.getTreasurer().getId().equals(currentUser.getId());
-        boolean isParentInClass = schoolClass.getMemberships().stream()
-                .anyMatch(membership -> membership.getChild().getParents().stream()
-                        .anyMatch(parent -> parent.getId().equals(currentUser.getId())));
+        boolean isParentInClass = classMembershipRepository.existsBySchoolClassIdAndChild_Parents_Id(classId, currentUser.getId());
 
         if (!isTreasurer && !currentUser.isAdmin() && !isParentInClass) {
             throw new ForbiddenOperationException("Nie masz uprawnień do przeglądania zbiórek tej klasy.");
@@ -766,10 +766,7 @@ public class FundraiserService {
         participants.sort(Comparator.comparing(FundraiserParticipant::getId));
 
         int numParticipants = participants.size();
-        BigDecimal totalGoal = fundraiser.getGoalAmount();
-        BigDecimal baseCost = totalGoal.divide(new BigDecimal(numParticipants), 2, RoundingMode.FLOOR);
-        BigDecimal remainder = totalGoal.subtract(baseCost.multiply(new BigDecimal(numParticipants)));
-
+        
         List<Contribution> contributions = contributionRepository.findByParticipant_Fundraiser_Id(fundraiser.getId());
         List<Refund> existingRefunds = refundRepository.findByAccountHistoryEntry_Account_Fundraiser_Id(fundraiser.getId());
 
@@ -785,9 +782,17 @@ public class FundraiserService {
             FundraiserParticipant participant = participants.get(i);
             participant.setCredit(BigDecimal.ZERO); // Clear previous credit
 
-            BigDecimal actualCostPerParticipant = baseCost;
-            if (i < remainder.multiply(new BigDecimal("100")).intValue()) {
-                actualCostPerParticipant = actualCostPerParticipant.add(new BigDecimal("0.01"));
+            BigDecimal actualCostPerParticipant;
+            if (fundraiser.getFundraiserType() == FundraiserType.PER_CHILD_GOAL) {
+                actualCostPerParticipant = fundraiser.getPerChildAmount();
+            } else {
+                BigDecimal totalGoal = fundraiser.getGoalAmount();
+                BigDecimal baseCost = totalGoal.divide(new BigDecimal(numParticipants), 2, RoundingMode.FLOOR);
+                BigDecimal remainder = totalGoal.subtract(baseCost.multiply(new BigDecimal(numParticipants)));
+                actualCostPerParticipant = baseCost;
+                if (i < remainder.multiply(new BigDecimal("100")).intValue()) {
+                    actualCostPerParticipant = actualCostPerParticipant.add(new BigDecimal("0.01"));
+                }
             }
 
             List<Contribution> participantContributions = contributionsByParticipant.getOrDefault(participant.getId(), Collections.emptyList());

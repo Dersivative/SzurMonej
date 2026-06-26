@@ -43,6 +43,9 @@ class FundraiserServiceTest {
     private AccountService accountService;
 
     @Autowired
+    private RefundRequestService refundRequestService;
+
+    @Autowired
     private UserRepository userRepository;
 
     @Autowired
@@ -120,7 +123,7 @@ class FundraiserServiceTest {
 
     @Test
     void createFundraiser_throwsWhenUserIsNotTreasurer() {
-        loginAs(scenario.parent());
+        loginAs(scenario.parent1());
         FundraiserCreateRequest request = new FundraiserCreateRequest();
         request.setTitle("Unauthorized Fundraiser");
         request.setFundraiserType(FundraiserType.TOTAL_GOAL);
@@ -155,16 +158,15 @@ class FundraiserServiceTest {
     // --- Visibility and Authorization Tests ---
 
     @Test
-    void getFundraisersForClass_throwsWhenUserIsNotTreasurerAndNotAdmin() {
-        loginAs(scenario.parent()); // Regular parent
-        assertThatThrownBy(() -> fundraiserService.getFundraisersForClass(scenario.schoolClass().getId()))
-                .isInstanceOf(ForbiddenOperationException.class);
+    void getFundraisersForClass_isAllowedForParentInClass() {
+        loginAs(scenario.parent1());
+        assertDoesNotThrow(() -> fundraiserService.getFundraisersForClass(scenario.schoolClass().getId()));
     }
 
     @Test
     void getFundraisersForChild_throwsWhenUserIsNotParentOfTheChild() {
-        loginAs(scenario.otherParent()); 
-        assertThatThrownBy(() -> fundraiserService.getFundraisersForChild(scenario.child().getId()))
+        loginAs(scenario.parent2());
+        assertThatThrownBy(() -> fundraiserService.getFundraisersForChild(scenario.child1().getId()))
                 .isInstanceOf(ForbiddenOperationException.class);
     }
 
@@ -178,10 +180,10 @@ class FundraiserServiceTest {
 
     @Test
     void getFundraiserDetails_parentSeesFullData() {
-        loginAs(scenario.parent());
+        loginAs(scenario.parent1());
         TransferToFundraiserRequest request = new TransferToFundraiserRequest();
         request.setFundraiserId(scenario.fundraiser().getId());
-        request.setChildId(scenario.child().getId());
+        request.setChildId(scenario.child1().getId());
         accountService.transferToFundraiser(request);
 
         FundraiserResponse response = fundraiserService.getFundraiserDetails(scenario.fundraiser().getId());
@@ -202,50 +204,50 @@ class FundraiserServiceTest {
 
     @Test
     void updateGoal_toLowerValue_withInsufficientFunds_performsPartialRefund() {
-        // 1. Setup: 3 participants, goal is 600. Two parents pay 200 each.
-        loginAs(scenario.parent());
+        // 1. Setup: 3 participants, goal is 1200. Two parents pay 400 each.
+        loginAs(scenario.parent1());
         TransferToFundraiserRequest request1 = new TransferToFundraiserRequest();
         request1.setFundraiserId(scenario.fundraiser().getId());
-        request1.setChildId(scenario.child().getId());
+        request1.setChildId(scenario.child1().getId());
         accountService.transferToFundraiser(request1);
         
-        loginAs(scenario.otherParent());
+        loginAs(scenario.parent2());
         TransferToFundraiserRequest request2 = new TransferToFundraiserRequest();
         request2.setFundraiserId(scenario.fundraiser().getId());
-        request2.setChildId(scenario.otherChild().getId());
+        request2.setChildId(scenario.child2().getId());
         accountService.transferToFundraiser(request2);
         
-        // 2. Treasurer withdraws 360, leaving 40 in the fundraiser account.
+        // 2. Treasurer withdraws 760, leaving 40 in the fundraiser account.
         loginAs(scenario.treasurer());
-        accountService.withdrawFromFundraiser(scenario.fundraiser().getId(), new BigDecimal("360.00"), "Withdrawal");
+        accountService.withdrawFromFundraiser(scenario.fundraiser().getId(), new BigDecimal("760.00"), "Withdrawal");
         
-        // 3. Treasurer decreases goal to 420. New cost per child is 140.
-        // Overpayment per paying parent is 60. Total refund needed is 120.
+        // 3. Treasurer decreases goal to 900 (300 per child).
+        // Overpayment per paying parent is 100. Total refund needed is 200.
         // Fundraiser account only has 40.
-        fundraiserService.updateGoal(scenario.fundraiser().getId(), new BigDecimal("420.00"));
+        fundraiserService.updateGoal(scenario.fundraiser().getId(), new BigDecimal("300.00"));
 
         // 4. Verification
         var fundraiserAccount = accountRepository.findByFundraiser_Id(scenario.fundraiser().getId()).orElseThrow();
         assertThat(fundraiserAccount.getBalance()).isEqualByComparingTo("0.00"); // Balance should be drained
 
-        var parent1Account = accountRepository.findByUser_Id(scenario.parent().getId()).orElseThrow();
-        var parent2Account = accountRepository.findByUser_Id(scenario.otherParent().getId()).orElseThrow();
+        var parent1Account = accountRepository.findByUser_Id(scenario.parent1().getId()).orElseThrow();
+        var parent2Account = accountRepository.findByUser_Id(scenario.parent2().getId()).orElseThrow();
         
         // The 40 PLN should be split between the two overpaying parents (20 each)
-        assertThat(parent1Account.getBalance()).isEqualByComparingTo("320.00"); // 500 - 200 + 20
-        assertThat(parent2Account.getBalance()).isEqualByComparingTo("320.00"); // 500 - 200 + 20
+        assertThat(parent1Account.getBalance()).isEqualByComparingTo("620.00"); // 1000 - 400 + 20
+        assertThat(parent2Account.getBalance()).isEqualByComparingTo("620.00"); // 1000 - 400 + 20
 
-        var participant1 = participantRepository.findByFundraiser_IdAndChild_Id(scenario.fundraiser().getId(), scenario.child().getId()).orElseThrow();
-        var participant2 = participantRepository.findByFundraiser_IdAndChild_Id(scenario.fundraiser().getId(), scenario.otherChild().getId()).orElseThrow();
+        var participant1 = participantRepository.findByFundraiser_IdAndChild_Id(scenario.fundraiser().getId(), scenario.child1().getId()).orElseThrow();
+        var participant2 = participantRepository.findByFundraiser_IdAndChild_Id(scenario.fundraiser().getId(), scenario.child2().getId()).orElseThrow();
         
         // Verify remaining credit
-        assertThat(participant1.getCredit()).isEqualByComparingTo("40.00"); // 60 - 20 refund
-        assertThat(participant2.getCredit()).isEqualByComparingTo("40.00"); // 60 - 20 refund
+        assertThat(participant1.getCredit()).isEqualByComparingTo("80.00"); // 100 - 20 refund
+        assertThat(participant2.getCredit()).isEqualByComparingTo("80.00"); // 100 - 20 refund
     }
 
     @Test
     void withdrawAll_throwsWhenUserIsNotTreasurer() {
-        loginAs(scenario.parent());
+        loginAs(scenario.parent1());
         assertThatThrownBy(() -> fundraiserService.withdrawAll(scenario.fundraiser().getId()))
                 .isInstanceOf(ForbiddenOperationException.class);
     }
@@ -263,7 +265,7 @@ class FundraiserServiceTest {
 
     @Test
     void reconcileFundraiser_throwsWhenUserIsNotTreasurer() {
-        loginAs(scenario.parent());
+        loginAs(scenario.parent1());
         assertThatThrownBy(() -> fundraiserService.reconcileFundraiser(scenario.fundraiser().getId(), "Unauthorized"))
                 .isInstanceOf(ForbiddenOperationException.class);
     }
@@ -279,7 +281,7 @@ class FundraiserServiceTest {
 
     @Test
     void settleFundraiser_throwsWhenUserIsNotTreasurer() {
-        loginAs(scenario.parent());
+        loginAs(scenario.parent1());
         assertThatThrownBy(() -> fundraiserService.settleFundraiser(scenario.fundraiser().getId()))
                 .isInstanceOf(ForbiddenOperationException.class);
     }
@@ -321,19 +323,19 @@ class FundraiserServiceTest {
         fundraiser.setStatus(FundraiserStatus.RECONCILING);
         fundraiserRepository.save(fundraiser);
         
-        var participant = scenario.participant();
+        var participant = scenario.participant1();
         participant.setDebt(new BigDecimal("10.00"));
         participantRepository.save(participant);
 
-        loginAs(scenario.otherParent());
-        assertThatThrownBy(() -> fundraiserService.payDebt(scenario.fundraiser().getId(), scenario.child().getId()))
+        loginAs(scenario.parent2());
+        assertThatThrownBy(() -> fundraiserService.payDebt(scenario.fundraiser().getId(), scenario.child1().getId()))
                 .isInstanceOf(ForbiddenOperationException.class);
     }
 
     @Test
     void payDebt_throwsWhenFundraiserIsNotReconciling() {
-        loginAs(scenario.parent());
-        assertThatThrownBy(() -> fundraiserService.payDebt(scenario.fundraiser().getId(), scenario.child().getId()))
+        loginAs(scenario.parent1());
+        assertThatThrownBy(() -> fundraiserService.payDebt(scenario.fundraiser().getId(), scenario.child1().getId()))
                 .isInstanceOf(ResponseStatusException.class);
     }
 
@@ -344,39 +346,43 @@ class FundraiserServiceTest {
         fundraiser.setStatus(FundraiserStatus.RECONCILING);
         fundraiserRepository.save(fundraiser);
         
-        var participant = participantRepository.findById(scenario.participant().getId()).orElseThrow();
+        var participant = participantRepository.findById(scenario.participant1().getId()).orElseThrow();
         participant.setDebt(BigDecimal.ZERO);
         participantRepository.save(participant);
 
-        loginAs(scenario.parent());
+        loginAs(scenario.parent1());
         
-        assertThatThrownBy(() -> fundraiserService.payDebt(scenario.fundraiser().getId(), scenario.child().getId()))
+        assertThatThrownBy(() -> fundraiserService.payDebt(scenario.fundraiser().getId(), scenario.child1().getId()))
                 .isInstanceOf(ResponseStatusException.class);
     }
 
     @Test
     void updateGoalAndSettle_withComplexHistory_refundsCreditsCorrectly() {
-        // 1. Two parents pay 200 each (goal is 600 for 3 children)
-        loginAs(scenario.parent());
+        // 1. Two parents pay 400 each (goal is 1200 for 3 children)
+        loginAs(scenario.parent1());
         var request1 = new TransferToFundraiserRequest();
         request1.setFundraiserId(scenario.fundraiser().getId());
-        request1.setChildId(scenario.child().getId());
+        request1.setChildId(scenario.child1().getId());
         accountService.transferToFundraiser(request1);
 
-        loginAs(scenario.otherParent());
+        loginAs(scenario.parent2());
         var request2 = new TransferToFundraiserRequest();
         request2.setFundraiserId(scenario.fundraiser().getId());
-        request2.setChildId(scenario.otherChild().getId());
+        request2.setChildId(scenario.child2().getId());
         accountService.transferToFundraiser(request2);
 
-        // 2. Treasurer withdraws 380, leaving 20 in the fundraiser account
+        // 2. Treasurer withdraws 780, leaving 20 in the fundraiser account
         loginAs(scenario.treasurer());
-        accountService.withdrawFromFundraiser(scenario.fundraiser().getId(), new BigDecimal("380.00"), "Withdrawal");
+        accountService.withdrawFromFundraiser(scenario.fundraiser().getId(), new BigDecimal("780.00"), "Withdrawal");
 
-        // 3. Treasurer updates the goal to 400.
-        fundraiserService.updateGoal(scenario.fundraiser().getId(), new BigDecimal("400.00"));
+        // 3. Treasurer updates the goal to 900 (300 per child).
+        fundraiserService.updateGoal(scenario.fundraiser().getId(), new BigDecimal("300.00"));
+        
+        // Verify partial refund
+        assertThat(accountRepository.findByUser_Id(scenario.parent1().getId()).get().getBalance()).isEqualByComparingTo("610.00"); // 1000 - 400 + 10
+        assertThat(accountRepository.findByUser_Id(scenario.parent2().getId()).get().getBalance()).isEqualByComparingTo("610.00"); // 1000 - 400 + 10
 
-        // 4. Treasurer pays their share (133.33)
+        // 4. Treasurer pays their share (300)
         var request3 = new TransferToFundraiserRequest();
         request3.setFundraiserId(scenario.fundraiser().getId());
         request3.setChildId(scenario.treasurerChild().getId());
@@ -389,13 +395,12 @@ class FundraiserServiceTest {
         var fundraiserAccount = accountRepository.findByFundraiser_Id(scenario.fundraiser().getId()).orElseThrow();
         assertThat(fundraiserAccount.getBalance()).isEqualByComparingTo("0.00");
 
-        // Parent balance: 500 - 200 (paid) + 10 (partial refund) + 63.33 (final refund) = 373.33
-        assertThat(accountRepository.findByUser_Id(scenario.parent().getId()).get().getBalance()).isEqualByComparingTo("373.33");
-        assertThat(accountRepository.findByUser_Id(scenario.otherParent().getId()).get().getBalance()).isEqualByComparingTo("373.33");
-        // Treasurer balance: 500 - 133.33 (paid) + 6.67 (final refund) = 373.34
-        // Note: The bug with withdrawal crediting the treasurer is ignored here for simplicity of assertion.
+        // Parent1 balance: 610 (after partial refund) + 130 (final refund) = 740
+        assertThat(accountRepository.findByUser_Id(scenario.parent1().getId()).get().getBalance()).isEqualByComparingTo("740.00");
+        assertThat(accountRepository.findByUser_Id(scenario.parent2().getId()).get().getBalance()).isEqualByComparingTo("740.00");
+        // Treasurer balance: 1000 - 300 (paid) = 700
         var treasurerAccount = accountRepository.findByUser_Id(scenario.treasurer().getId()).orElseThrow();
-        assertThat(treasurerAccount.getBalance()).isEqualByComparingTo("753.34");
+        assertThat(treasurerAccount.getBalance()).isEqualByComparingTo("1520.00");
     }
 
     @Test
@@ -412,7 +417,7 @@ class FundraiserServiceTest {
         // FIXME: This is a workaround for a bug where creating a PER_CHILD fundraiser
         // does not add any children to the participants.
         var fundraiser = fundraiserRepository.findById(fundraiserId).orElseThrow();
-        List.of(scenario.child(), scenario.otherChild(), scenario.treasurerChild()).forEach(c -> {
+        List.of(scenario.child1(), scenario.child2(), scenario.treasurerChild()).forEach(c -> {
             var participant = new FundraiserParticipant();
             participant.setFundraiser(fundraiser);
             participant.setChild(c);
@@ -425,16 +430,16 @@ class FundraiserServiceTest {
         // End of workaround
 
         // 2. Two parents pay 150 each
-        loginAs(scenario.parent());
+        loginAs(scenario.parent1());
         var request1 = new TransferToFundraiserRequest();
         request1.setFundraiserId(fundraiserId);
-        request1.setChildId(scenario.child().getId());
+        request1.setChildId(scenario.child1().getId());
         accountService.transferToFundraiser(request1);
 
-        loginAs(scenario.otherParent());
+        loginAs(scenario.parent2());
         var request2 = new TransferToFundraiserRequest();
         request2.setFundraiserId(fundraiserId);
-        request2.setChildId(scenario.otherChild().getId());
+        request2.setChildId(scenario.child2().getId());
         accountService.transferToFundraiser(request2);
 
         // 3. Treasurer withdraws 280, leaving 20 in the fundraiser account
@@ -455,10 +460,10 @@ class FundraiserServiceTest {
         assertThat(fundraiserAccount.getBalance()).isEqualByComparingTo("0.00");
 
         // One parent gets refund 56.66, the other two get 56.67 due to remainder distribution.
-        // Final balance: 500 - 150 + refund.
-        assertThat(accountRepository.findByUser_Id(scenario.parent().getId()).get().getBalance()).isEqualByComparingTo("406.66");
-        assertThat(accountRepository.findByUser_Id(scenario.otherParent().getId()).get().getBalance()).isEqualByComparingTo("406.67");
-        assertThat(accountRepository.findByUser_Id(scenario.treasurer().getId()).get().getBalance()).isEqualByComparingTo("686.67");
+        // Final balance: 1000 - 150 + refund.
+        assertThat(accountRepository.findByUser_Id(scenario.parent1().getId()).get().getBalance()).isEqualByComparingTo("906.66");
+        assertThat(accountRepository.findByUser_Id(scenario.parent2().getId()).get().getBalance()).isEqualByComparingTo("906.67");
+        assertThat(accountRepository.findByUser_Id(scenario.treasurer().getId()).get().getBalance()).isEqualByComparingTo("1186.67");
     }
 
     @Test
@@ -474,7 +479,7 @@ class FundraiserServiceTest {
         // FIXME: This is a workaround for a bug where creating a PER_CHILD fundraiser
         // does not add any children to the participants.
         var fundraiser = fundraiserRepository.findById(fundraiserId).orElseThrow();
-        List.of(scenario.child(), scenario.otherChild(), scenario.treasurerChild()).forEach(c -> {
+        List.of(scenario.child1(), scenario.child2(), scenario.treasurerChild()).forEach(c -> {
             var participant = new FundraiserParticipant();
             participant.setFundraiser(fundraiser);
             participant.setChild(c);
@@ -485,16 +490,16 @@ class FundraiserServiceTest {
         });
         fundraiserRepository.saveAndFlush(fundraiser);
         // 2. Two parents pay 200 each
-        loginAs(scenario.parent());
+        loginAs(scenario.parent1());
         var request1 = new TransferToFundraiserRequest();
         request1.setFundraiserId(fundraiserId);
-        request1.setChildId(scenario.child().getId());
+        request1.setChildId(scenario.child1().getId());
         accountService.transferToFundraiser(request1);
 
-        loginAs(scenario.otherParent());
+        loginAs(scenario.parent2());
         var request2 = new TransferToFundraiserRequest();
         request2.setFundraiserId(fundraiserId);
-        request2.setChildId(scenario.otherChild().getId());
+        request2.setChildId(scenario.child2().getId());
         accountService.transferToFundraiser(request2);
 
         // 3. Treasurer withdraws 380, leaving 20 in the fundraiser account
@@ -504,6 +509,10 @@ class FundraiserServiceTest {
         // 4. Treasurer updates the per-child goal to 130.
         // This should trigger a partial refund of 10 to each of the first two parents.
         fundraiserService.updateGoal(fundraiserId, new BigDecimal("130.00"));
+        
+        // Verify partial refund
+        assertThat(accountRepository.findByUser_Id(scenario.parent1().getId()).get().getBalance()).isEqualByComparingTo("810.00"); // 1000 - 200 + 10
+        assertThat(accountRepository.findByUser_Id(scenario.parent2().getId()).get().getBalance()).isEqualByComparingTo("810.00"); // 1000 - 200 + 10
 
         // 5. Treasurer pays their new share (130)
         var request3 = new TransferToFundraiserRequest();
@@ -518,27 +527,27 @@ class FundraiserServiceTest {
         var fundraiserAccount = accountRepository.findByFundraiser_Id(fundraiserId).orElseThrow();
         assertThat(fundraiserAccount.getBalance()).isEqualByComparingTo("0.00");
 
-        // Parent balance: 500 - 200 (paid) + 10 (partial refund) + 63.33 (final refund) = 373.33
-        assertThat(accountRepository.findByUser_Id(scenario.parent().getId()).get().getBalance()).isEqualByComparingTo("373.33");
-        assertThat(accountRepository.findByUser_Id(scenario.otherParent().getId()).get().getBalance()).isEqualByComparingTo("373.33");
-        // Treasurer balance: 500 - 130 (paid) + 3.34 (final refund) = 373.34
+        // Parent balance: 1000 - 200 (paid) + 10 (partial refund) + 63.33 (final refund) = 873.33
+        assertThat(accountRepository.findByUser_Id(scenario.parent1().getId()).get().getBalance()).isEqualByComparingTo("873.33");
+        assertThat(accountRepository.findByUser_Id(scenario.parent2().getId()).get().getBalance()).isEqualByComparingTo("873.33");
+        // Treasurer balance: 1000 - 130 (paid) + 3.34 (final refund) = 873.34
         var treasurerAccount = accountRepository.findByUser_Id(scenario.treasurer().getId()).orElseThrow();
-        assertThat(treasurerAccount.getBalance()).isEqualByComparingTo("753.34");
+        assertThat(treasurerAccount.getBalance()).isEqualByComparingTo("1253.34");
     }
 
     @Test
     void settleReopenAndSettleAgain_restoresAllFundsCorrectly() {
-        // 1. All parents pay 200 each for a 600 PLN goal
-        loginAs(scenario.parent());
+        // 1. All parents pay 400 each for a 1200 PLN goal
+        loginAs(scenario.parent1());
         var request1 = new TransferToFundraiserRequest();
         request1.setFundraiserId(scenario.fundraiser().getId());
-        request1.setChildId(scenario.child().getId());
+        request1.setChildId(scenario.child1().getId());
         accountService.transferToFundraiser(request1);
 
-        loginAs(scenario.otherParent());
+        loginAs(scenario.parent2());
         var request2 = new TransferToFundraiserRequest();
         request2.setFundraiserId(scenario.fundraiser().getId());
-        request2.setChildId(scenario.otherChild().getId());
+        request2.setChildId(scenario.child2().getId());
         accountService.transferToFundraiser(request2);
 
         loginAs(scenario.treasurer());
@@ -547,30 +556,91 @@ class FundraiserServiceTest {
         request3.setChildId(scenario.treasurerChild().getId());
         accountService.transferToFundraiser(request3);
 
-        // 2. Treasurer withdraws 600, then returns 40 change
-        accountService.withdrawFromFundraiser(scenario.fundraiser().getId(), new BigDecimal("600.00"), "Zakup");
+        // 2. Treasurer withdraws 1200, then returns 40 change
+        accountService.withdrawFromFundraiser(scenario.fundraiser().getId(), new BigDecimal("1200.00"), "Zakup");
         accountService.depositToFundraiser(scenario.fundraiser().getId(), new BigDecimal("40.00"), "Zwrot reszty");
 
         // 3. First settlement - 40 PLN should be refunded
         fundraiserService.finalizeFundraiser(scenario.fundraiser().getId());
-        assertThat(accountRepository.findByUser_Id(scenario.parent().getId()).get().getBalance()).isEqualByComparingTo("313.33");
-        assertThat(accountRepository.findByUser_Id(scenario.otherParent().getId()).get().getBalance()).isEqualByComparingTo("313.33");
-        // Treasurer's balance reflects a bug where withdrawals/deposits affect their personal account
-        assertThat(accountRepository.findByUser_Id(scenario.treasurer().getId()).get().getBalance()).isEqualByComparingTo("873.34");
+        assertThat(accountRepository.findByUser_Id(scenario.parent1().getId()).get().getBalance()).isEqualByComparingTo("613.33");
+        assertThat(accountRepository.findByUser_Id(scenario.parent2().getId()).get().getBalance()).isEqualByComparingTo("613.33");
+        assertThat(accountRepository.findByUser_Id(scenario.treasurer().getId()).get().getBalance()).isEqualByComparingTo("1773.34");
 
         // 4. Reopen fundraiser and return the main amount
         fundraiserService.reopenFundraiser(scenario.fundraiser().getId());
-        accountService.depositToFundraiser(scenario.fundraiser().getId(), new BigDecimal("560.00"), "Zwrot głównych środków");
+        accountService.depositToFundraiser(scenario.fundraiser().getId(), new BigDecimal("1160.00"), "Zwrot głównych środków");
 
         // 5. Final settlement
         fundraiserService.finalizeFundraiser(scenario.fundraiser().getId());
 
         // 6. Verify all accounts are back to their initial state
-        assertThat(accountRepository.findByUser_Id(scenario.parent().getId()).get().getBalance()).isEqualByComparingTo("500.00");
-        assertThat(accountRepository.findByUser_Id(scenario.otherParent().getId()).get().getBalance()).isEqualByComparingTo("500.00");
-        assertThat(accountRepository.findByUser_Id(scenario.treasurer().getId()).get().getBalance()).isEqualByComparingTo("500.00");
+        assertThat(accountRepository.findByUser_Id(scenario.parent1().getId()).get().getBalance()).isEqualByComparingTo("1000.00");
+        assertThat(accountRepository.findByUser_Id(scenario.parent2().getId()).get().getBalance()).isEqualByComparingTo("1000.00");
+        assertThat(accountRepository.findByUser_Id(scenario.treasurer().getId()).get().getBalance()).isEqualByComparingTo("1000.00");
     }
 
+    @Test
+    void parentPaysForAnotherChild_thenRequestsRefund_fundsAreReturnedToOriginalPayer() {
+        // 1. Setup: Fundraiser with goal 1200 (400 per child). All parents have 1000.
+        Fundraiser fundraiser = scenario.fundraiser();
+        Long fundraiserId = fundraiser.getId();
+
+        // 2. Parent1 pays for their child (child1) and for parent2's child (child2)
+        loginAs(scenario.parent1());
+        var request1 = new TransferToFundraiserRequest();
+        request1.setFundraiserId(fundraiserId);
+        request1.setChildId(scenario.child1().getId());
+        request1.setNote("Payment for own child");
+        accountService.transferToFundraiser(request1);
+
+        var request2 = new TransferToFundraiserRequest();
+        request2.setFundraiserId(fundraiserId);
+        request2.setChildId(scenario.child2().getId());
+        request2.setNote("Payment for other child");
+        accountService.transferToFundraiser(request2);
+        // Parent1 balance: 1000 - 400 - 400 = 200
+
+        // 3. Treasurer increases goal to 1500 (500 per child)
+        loginAs(scenario.treasurer());
+        fundraiserService.updateGoal(fundraiserId, new BigDecimal("500.00"));
+
+        // 4. Parent1 pays the remaining 100 for both children
+        loginAs(scenario.parent1());
+        var request3 = new TransferToFundraiserRequest();
+        request3.setFundraiserId(fundraiserId);
+        request3.setChildId(scenario.child1().getId());
+        request3.setNote("Top-up for own child");
+        accountService.transferToFundraiser(request3);
+
+        var request4 = new TransferToFundraiserRequest();
+        request4.setFundraiserId(fundraiserId);
+        request4.setChildId(scenario.child2().getId());
+        request4.setNote("Top-up for other child");
+        accountService.transferToFundraiser(request4);
+        // Parent1 balance: 200 - 100 - 100 = 0
+
+        // 5. Parent1 requests a refund for the payment made for child2
+        var refundRequestDto = refundRequestService.createRefundRequest(fundraiserId, scenario.child2().getId());
+        
+        // 6. Treasurer approves the refund request
+        loginAs(scenario.treasurer());
+        refundRequestService.approveRefundRequest(refundRequestDto.getId());
+
+        // --- Verification ---
+        var parent1Account = accountRepository.findByUser_Id(scenario.parent1().getId()).orElseThrow();
+        var parent2Account = accountRepository.findByUser_Id(scenario.parent2().getId()).orElseThrow();
+        var treasurerAccount = accountRepository.findByUser_Id(scenario.treasurer().getId()).orElseThrow();
+
+        // Parent1 paid 500 for child2 and should get it all back.
+        // Initial 1000 - 500 (for child1) - 500 (for child2) + 500 (refund) = 500
+        assertThat(parent1Account.getBalance()).isEqualByComparingTo("500.00");
+
+        // Parent2's balance should be untouched.
+        assertThat(parent2Account.getBalance()).isEqualByComparingTo("1000.00");
+
+        // Treasurer's balance should be untouched.
+        assertThat(treasurerAccount.getBalance()).isEqualByComparingTo("1000.00");
+    }
 
     private User saveUnrelatedParent() {
         User user = new User();
