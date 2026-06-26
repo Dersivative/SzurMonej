@@ -280,7 +280,12 @@ public class FundraiserService {
         SchoolClass schoolClass = schoolClassRepository.findById(classId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono klasy."));
 
-        if (!schoolClass.getTreasurer().getId().equals(currentUser.getId()) && !currentUser.isAdmin()) {
+        boolean isTreasurer = schoolClass.getTreasurer().getId().equals(currentUser.getId());
+        boolean isParentInClass = schoolClass.getMemberships().stream()
+                .anyMatch(membership -> membership.getChild().getParents().stream()
+                        .anyMatch(parent -> parent.getId().equals(currentUser.getId())));
+
+        if (!isTreasurer && !currentUser.isAdmin() && !isParentInClass) {
             throw new ForbiddenOperationException("Nie masz uprawnień do przeglądania zbiórek tej klasy.");
         }
 
