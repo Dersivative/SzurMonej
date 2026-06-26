@@ -1,5 +1,6 @@
 package org.game.szurmonej.service;
 
+import org.game.szurmonej.dto.AccountLookupResponse;
 import org.game.szurmonej.dto.MoneyOperationResponse;
 import org.game.szurmonej.dto.TransferToFundraiserRequest;
 import org.game.szurmonej.entity.*;
@@ -52,6 +53,16 @@ public class AccountService {
     @Transactional(readOnly = true)
     public BigDecimal getBalance(Account account) {
         return account.getBalance();
+    }
+
+    @Transactional(readOnly = true)
+    public AccountLookupResponse lookupUserByAccountNumber(String accountNumber) {
+        Account account = accountRepository.findByAccountNumber(accountNumber.trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Konto o podanym numerze nie istnieje"));
+        if (account.getUser() == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Konto o podanym numerze nie istnieje");
+        }
+        return AccountLookupResponse.from(account.getUser(), account);
     }
 
     @Transactional
