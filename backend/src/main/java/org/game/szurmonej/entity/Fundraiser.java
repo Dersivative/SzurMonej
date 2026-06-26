@@ -39,6 +39,8 @@ public class Fundraiser {
     private LocalDate startedAt;
 
     private LocalDate finishedAt;
+    
+    private LocalDate endsBy;
 
     @Enumerated(EnumType.STRING)
     private FundraiserStatus status = FundraiserStatus.ACTIVE;

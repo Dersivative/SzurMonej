@@ -6,6 +6,7 @@ import lombok.Setter;
 import org.game.szurmonej.entity.FundraiserType;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 @Getter
@@ -18,4 +19,5 @@ public class FundraiserCreateRequest {
     private BigDecimal goalAmount; // Used for TOTAL_GOAL
     private BigDecimal perChildAmount; // Used for PER_CHILD_GOAL
     private List<Long> participantIds; // Child IDs to include in the fundraiser
+    private LocalDate endsBy;
 }

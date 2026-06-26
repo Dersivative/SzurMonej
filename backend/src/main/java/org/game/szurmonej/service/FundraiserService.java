@@ -78,6 +78,7 @@ public class FundraiserService {
         fundraiser.setFundraiserType(request.getFundraiserType());
         fundraiser.setSchoolClass(schoolClass);
         fundraiser.setStartedAt(LocalDate.now());
+        fundraiser.setEndsBy(request.getEndsBy());
 
         List<ClassMembership> activeMemberships = schoolClass.getMemberships().stream()
                 .filter(m -> m.getLeftAt() == null)

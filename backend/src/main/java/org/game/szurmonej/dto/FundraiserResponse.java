@@ -27,6 +27,7 @@ public class FundraiserResponse {
     private BigDecimal suggestedContribution;
     private LocalDate startedAt;
     private LocalDate endedAt;
+    private LocalDate endsBy;
     private FundraiserStatus status;
     private FundraiserType fundraiserType;
     private BigDecimal perChildAmount;
@@ -76,6 +77,7 @@ public class FundraiserResponse {
         response.setPerChildAmount(fundraiser.getPerChildAmount());
         response.setStartedAt(fundraiser.getStartedAt());
         response.setEndedAt(fundraiser.getFinishedAt());
+        response.setEndsBy(fundraiser.getEndsBy());
         response.setStatus(fundraiser.getStatus());
 
         if (fundraiser.getSchoolClass() != null) {
@@ -147,6 +149,7 @@ public class FundraiserResponse {
         response.setPerChildAmount(fundraiser.getPerChildAmount());
         response.setStartedAt(fundraiser.getStartedAt());
         response.setEndedAt(fundraiser.getFinishedAt());
+        response.setEndsBy(fundraiser.getEndsBy());
         response.setStatus(fundraiser.getStatus());
         if (fundraiser.getSchoolClass() != null) {
             response.setClassId(fundraiser.getSchoolClass().getId());
