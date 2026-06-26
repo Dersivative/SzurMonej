@@ -35,6 +35,9 @@ public class User {
 
     private boolean isAdmin;
 
+    @Column(nullable = false)
+    private boolean enabled = false;
+
     @Column(columnDefinition = "BYTEA")
     @Basic(fetch = FetchType.EAGER)
     private byte[] avatar;

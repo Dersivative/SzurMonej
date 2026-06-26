@@ -9,6 +9,7 @@ import org.game.szurmonej.entity.ClassMembership;
 import org.game.szurmonej.entity.User;
 import org.game.szurmonej.exception.EmailAlreadyExistsException;
 import org.game.szurmonej.exception.ForbiddenOperationException;
+import org.game.szurmonej.exception.ResourceNotFoundException;
 import org.game.szurmonej.repository.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -18,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -81,5 +83,18 @@ public class UserService {
         User currentUser = currentUserService.getCurrentUser();
         currentUser.setBankAccountNumber(request.getBankAccountNumber());
         return UserResponse.from(userRepository.save(currentUser));
+    }
+
+    @Transactional(readOnly = true)
+    public List<User> getUnapprovedUsers() {
+        return userRepository.findByEnabled(false);
+    }
+
+    @Transactional
+    public void approveUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+        user.setEnabled(true);
+        userRepository.save(user);
     }
 }

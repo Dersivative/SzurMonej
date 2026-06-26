@@ -14,4 +14,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT u FROM User u LEFT JOIN FETCH u.children")
     List<User> findAllWithChildren();
+
+    List<User> findByEnabled(boolean enabled);
 }

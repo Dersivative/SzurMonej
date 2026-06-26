@@ -27,6 +27,10 @@ public class SecurityUserDetailsService implements UserDetailsService {
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
                 user.getPasswordHash(),
+                user.isEnabled(),
+                true,
+                true,
+                true,
                 Collections.singletonList(new SimpleGrantedAuthority(user.isAdmin() ? "ROLE_ADMIN" : "ROLE_USER"))
         );
     }

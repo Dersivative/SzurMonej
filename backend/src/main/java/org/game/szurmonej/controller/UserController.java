@@ -85,6 +85,22 @@ public class UserController {
         return ResponseEntity.ok(users);
     }
 
+    @GetMapping("/unapproved")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<UserResponse>> getUnapprovedUsers() {
+        List<UserResponse> users = userService.getUnapprovedUsers().stream()
+                .map(UserResponse::from)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(users);
+    }
+
+    @PatchMapping("/{id}/approve")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> approveUser(@PathVariable Long id) {
+        userService.approveUser(id);
+        return ResponseEntity.ok().build();
+    }
+
     @Transactional(readOnly = true)
     @GetMapping("/me")
     public ResponseEntity<UserResponse> me() {

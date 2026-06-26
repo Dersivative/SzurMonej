@@ -693,6 +693,7 @@ class FundraiserServiceTest {
         user.setLastName("Rodzic");
         user.setPasswordHash(passwordEncoder.encode("pass123"));
         user.setAdmin(false);
+        user.setEnabled(true);
         return userRepository.save(user);
     }
 

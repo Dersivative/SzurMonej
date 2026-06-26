@@ -17,6 +17,7 @@ public class UserResponse {
     private String lastName;
     private String fullName;
     private boolean isAdmin;
+    private boolean enabled;
     private BigDecimal balance;
     private String accountNumber;
     private String bankAccountNumber;
@@ -31,6 +32,7 @@ public class UserResponse {
         response.setLastName(user.getLastName());
         response.setFullName(user.getFullName());
         response.setAdmin(user.isAdmin());
+        response.setEnabled(user.isEnabled());
         response.setBankAccountNumber(user.getBankAccountNumber());
         if (user.getAccount() != null) {
             response.setBalance(user.getAccount().getBalance());

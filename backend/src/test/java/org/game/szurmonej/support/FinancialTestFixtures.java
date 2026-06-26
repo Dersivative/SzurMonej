@@ -115,6 +115,7 @@ public final class FinancialTestFixtures {
         user.setLastName(lastName);
         user.setPasswordHash(passwordEncoder.encode(rawPassword));
         user.setAdmin(false);
+        user.setEnabled(true);
         return repository.save(user);
     }
 
