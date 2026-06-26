@@ -69,6 +69,20 @@ public class AccountService {
     }
 
     @Transactional
+    public MoneyOperationResponse withdrawFromOwnAccount(BigDecimal amount) {
+        validatePositiveAmount(amount);
+        User currentUser = currentUserService.getCurrentUser();
+        Account account = accountRepository.findByUser_Id(currentUser.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("User account not found"));
+        assertUserAccount(account);
+
+        debit(account, amount);
+        Account savedAccount = accountRepository.save(account);
+
+        return MoneyOperationResponse.singleAccount(savedAccount.getId(), savedAccount.getBalance());
+    }
+
+    @Transactional
     public MoneyOperationResponse transferToFundraiser(TransferToFundraiserRequest request) {
         User currentUser = currentUserService.getCurrentUser();
 
