@@ -117,7 +117,6 @@ public class RefundRequestService {
         refundRequestRepository.save(refundRequest);
 
         FundraiserParticipant participant = refundRequest.getParticipant();
-        participant.setRemovedAt(LocalDate.now());
         participantRepository.save(participant);
 
         if (fundraiser.getFundraiserType() == FundraiserType.PER_CHILD_GOAL) {
