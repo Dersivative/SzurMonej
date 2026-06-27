@@ -506,12 +506,13 @@ public class FundraiserService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Zbiórka nie jest w trakcie rozliczania.");
         }
 
+        boolean isUserInClass = classMembershipRepository.existsBySchoolClassIdAndChild_Parents_Id(fundraiser.getSchoolClass().getId(), currentUser.getId());
+        if (!isUserInClass) {
+            throw new ForbiddenOperationException("Tylko członek klasy może spłacić dług.");
+        }
+
         FundraiserParticipant participant = participantRepository.findByFundraiser_IdAndChild_Id(fundraiserId, childId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Uczestnik nie został znaleziony."));
-
-        if (participant.getChild().getParents().stream().noneMatch(parent -> parent.getId().equals(currentUser.getId()))) {
-            throw new ForbiddenOperationException("Nie masz uprawnień do spłaty długu dla tego dziecka.");
-        }
 
         BigDecimal debtAmount = participant.getDebt();
         if (debtAmount == null || debtAmount.compareTo(BigDecimal.ZERO) <= 0) {
@@ -521,7 +522,7 @@ public class FundraiserService {
         TransferToFundraiserRequest request = new TransferToFundraiserRequest();
         request.setFundraiserId(fundraiserId);
         request.setChildId(childId);
-        request.setNote("Spłata długu");
+        request.setNote(String.format("Spłata długu za %s %s", participant.getChild().getName(), participant.getChild().getSurname()));
         accountService.transferToFundraiser(request);
 
         participant.setDebt(BigDecimal.ZERO);

@@ -317,7 +317,7 @@ class FundraiserServiceTest {
     }
     
     @Test
-    void payDebt_throwsWhenUserIsNotParentOfTheChild() {
+    void payDebt_throwsWhenParentIsFromOutsideTheClass() {
         loginAs(scenario.treasurer());
         Fundraiser fundraiser = fundraiserRepository.findById(scenario.fundraiser().getId()).orElseThrow();
         fundraiser.setStatus(FundraiserStatus.RECONCILING);
@@ -327,7 +327,9 @@ class FundraiserServiceTest {
         participant.setDebt(new BigDecimal("10.00"));
         participantRepository.save(participant);
 
-        loginAs(scenario.parent2());
+        User unrelatedParent = saveUnrelatedParent();
+        loginAs(unrelatedParent);
+
         assertThatThrownBy(() -> fundraiserService.payDebt(scenario.fundraiser().getId(), scenario.child1().getId()))
                 .isInstanceOf(ForbiddenOperationException.class);
     }
