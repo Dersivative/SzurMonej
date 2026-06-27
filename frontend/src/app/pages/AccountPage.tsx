@@ -2,9 +2,8 @@ import { useState } from "react";
 import { AccountChildGroup } from "@/components/AccountChildGroup";
 import { MyBankAccountCard } from "@/components/MyBankAccountCard";
 import { ProfileCard } from "@/components/ProfileCard";
-import { Menubar, MenubarMenu, MenubarTrigger } from "@/components/ui/menubar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  navLinkActiveClassName,
   navLinkInactiveClassName,
 } from "@/lib/nav-link";
 import { cn } from "@/lib/utils";
@@ -29,29 +28,38 @@ export function AccountPage() {
         </p>
       </header>
 
-      <Menubar className="h-auto w-fit gap-1 border-0 p-0">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as AccountTab)}
+        className="gap-0"
+      >
+        <TabsList className="h-auto w-fit gap-1 bg-transparent p-0">
         {accountTabs.map(({ id, label }) => {
-          const active = activeTab === id;
-
           return (
-            <MenubarMenu key={id}>
-              <MenubarTrigger
+              <TabsTrigger
+                key={id}
+                value={id}
                 className={cn(
-                  active ? navLinkActiveClassName : navLinkInactiveClassName,
-                  active ? "aria-expanded:bg-active" : "aria-expanded:bg-hover",
+                  navLinkInactiveClassName,
+                  "h-auto transition-none data-[state=active]:bg-emerald-500 data-[state=active]:font-medium data-[state=active]:text-white data-[state=active]:hover:bg-emerald-600",
                 )}
-                onClick={() => setActiveTab(id)}
               >
                 {label}
-              </MenubarTrigger>
-            </MenubarMenu>
+              </TabsTrigger>
           );
         })}
-      </Menubar>
+        </TabsList>
 
-      {activeTab === "profil" && <ProfileCard />}
-      {activeTab === "dzieci" && <AccountChildGroup />}
-      {activeTab === "finanse" && <MyBankAccountCard />}
+        <TabsContent value="profil" className="mt-4">
+          <ProfileCard />
+        </TabsContent>
+        <TabsContent value="dzieci" className="mt-4">
+          <AccountChildGroup />
+        </TabsContent>
+        <TabsContent value="finanse" className="mt-4">
+          <MyBankAccountCard />
+        </TabsContent>
+      </Tabs>
     </section>
   );
 }

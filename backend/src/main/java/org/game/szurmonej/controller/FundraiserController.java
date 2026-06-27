@@ -105,7 +105,7 @@ public class FundraiserController {
             @PathVariable Long fundraiserId,
             @RequestBody FundraiserActionRequest request
     ) {
-        return ResponseEntity.ok(accountService.depositToFundraiser(fundraiserId, request.getAmount(), request.getNote()));
+        return ResponseEntity.ok(fundraiserService.depositToFundraiser(fundraiserId, request.getAmount(), request.getNote()));
     }
 
     @Operation(summary = "Wypłata ze zbiórki przez skarbnika")
@@ -114,7 +114,7 @@ public class FundraiserController {
             @PathVariable Long fundraiserId,
             @RequestBody FundraiserActionRequest request
     ) {
-        return ResponseEntity.ok(accountService.withdrawFromFundraiser(fundraiserId, request.getAmount(), request.getNote()));
+        return ResponseEntity.ok(fundraiserService.withdrawFromFundraiser(fundraiserId, request.getAmount(), request.getNote()));
     }
 
     @Operation(summary = "Wypłać wszystkie środki i zakończ zbiórkę")

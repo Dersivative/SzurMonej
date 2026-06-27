@@ -6,7 +6,7 @@ import { FundraisingCard } from "@/components/FundraisingCard";
 import { PendingFundraiserApplicationCard } from "@/components/PendingFundraiserApplicationCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Menubar, MenubarMenu, MenubarTrigger } from "@/components/ui/menubar";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fetchClassesForFundraiserCreation } from "@/features/fundraisers/api/get-classes-for-fundraiser-creation";
 import { fetchMyFundraisers } from "@/features/fundraisers/api/get-my-fundraisers";
 import type {
@@ -16,7 +16,6 @@ import type {
 } from "@/features/fundraisers/api/types";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import {
-  navLinkActiveClassName,
   navLinkInactiveClassName,
 } from "@/lib/nav-link";
 import { cn } from "@/lib/utils";
@@ -194,25 +193,26 @@ export function FundraisingPage() {
         </Button>
       </header>
 
-      <Menubar className="h-auto w-fit gap-1 border-0 p-0">
-        {fundraisingTabs.map(({ id, label }) => {
-          const active = activeTab === id;
-
-          return (
-            <MenubarMenu key={id}>
-              <MenubarTrigger
-                className={cn(
-                  active ? navLinkActiveClassName : navLinkInactiveClassName,
-                  active ? "aria-expanded:bg-active" : "aria-expanded:bg-hover",
-                )}
-                onClick={() => setActiveTab(id)}
-              >
-                {label}
-              </MenubarTrigger>
-            </MenubarMenu>
-          );
-        })}
-      </Menubar>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as FundraisingTab)}
+        className="mb-4 gap-0"
+      >
+        <TabsList className="h-auto w-fit gap-1 bg-transparent p-0">
+          {fundraisingTabs.map(({ id, label }) => (
+            <TabsTrigger
+              key={id}
+              value={id}
+              className={cn(
+                navLinkInactiveClassName,
+                "h-auto transition-none data-[state=active]:bg-emerald-500 data-[state=active]:font-medium data-[state=active]:text-white data-[state=active]:hover:bg-emerald-600",
+              )}
+            >
+              {label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       <Card>
         <CardContent>

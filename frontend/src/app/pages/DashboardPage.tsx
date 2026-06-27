@@ -1,12 +1,12 @@
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FundraisingCard } from "@/components/FundraisingCard";
+import { UserAvatar } from "@/components/UserAvatar";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -191,11 +191,14 @@ export function DashboardPage() {
                       <AccordionTrigger className="py-4 hover:no-underline">
                         <span className="flex flex-1 items-center justify-between gap-4 pr-2">
                           <span className="flex items-center gap-4">
-                            <Avatar className="size-14 after:border-0">
-                              <AvatarFallback className="bg-violet-600 text-lg font-semibold text-white">
-                                {getChildInitials(child)}
-                              </AvatarFallback>
-                            </Avatar>
+                            <UserAvatar
+                              src={`/api/children/${child.id}/avatar`}
+                              alt={`${child.name} ${child.surname}`}
+                              initials={getChildInitials(child)}
+                              sizeClassName="size-14"
+                              fallbackClassName="text-lg"
+                              className="cursor-default"
+                            />
                             <span className="space-y-1 text-left">
                               <span className="block text-xl font-semibold leading-tight">
                                 {child.name} {child.surname}
