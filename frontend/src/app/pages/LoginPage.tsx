@@ -67,7 +67,7 @@ export function LoginPage() {
   }
 
   return (
-    <Card className="w-full max-w-sm bg-transparent shadow-sm ring-0 p-8">
+    <Card className="w-full max-w-sm shadow-sm p-8">
       <CardHeader className="px-0">
         <CardTitle>Zaloguj się</CardTitle>
         <CardDescription>
@@ -116,7 +116,7 @@ export function LoginPage() {
             )}
           </div>
         </CardContent>
-        <CardFooter className="flex-col gap-3 border-0 bg-transparent">
+        <CardFooter className="flex-col gap-3 border-0 bg-card px-0 pt-0">
           <Button type="submit" className="w-full" disabled={isPending}>
             {isPending ? "Logowanie..." : "Zaloguj się"}
           </Button>
