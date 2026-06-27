@@ -1,3 +1,4 @@
+import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ClassChildrenDialog } from "@/components/ClassChildrenDialog";
@@ -5,6 +6,7 @@ import { ClassEnrollmentLinkDialog } from "@/components/ClassEnrollmentLinkDialo
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { openClassChat } from "@/features/chat/lib/open-chat";
+import { downloadClassReport } from "@/features/classes/api/download-class-report";
 import type { SchoolClassResponseDTO } from "@/features/classes/api/types";
 
 interface ClassCardProps {
@@ -38,6 +40,18 @@ export function ClassCard({
   const isPending = Boolean(pendingLabel);
   const studentsCount = schoolClass?.children.length ?? 0;
   const treasurerName = schoolClass?.treasurer?.fullName;
+
+  const downloadReportMutation = useMutation({
+    mutationFn: () => {
+      if (!schoolClass) {
+        throw new Error("Brak klasy.");
+      }
+      return downloadClassReport(schoolClass.id);
+    },
+    onError: () => {
+      window.alert("Nie udało się pobrać raportu.");
+    },
+  });
 
   const handleOpenChat = async () => {
     if (!schoolClass) {
@@ -81,8 +95,7 @@ export function ClassCard({
           {!isPending && schoolClass && isTreasurer && (
             <Button
               type="button"
-              size="lg"
-              className="h-11 px-5 text-base"
+              variant="outline"
               onClick={() => setEnrollmentLinkDialogOpen(true)}
             >
               Link do zapisów
@@ -91,9 +104,17 @@ export function ClassCard({
           {!isPending && schoolClass && (
             <Button
               type="button"
-              size="lg"
               variant="outline"
-              className="h-11 px-5 text-base"
+              disabled={downloadReportMutation.isPending}
+              onClick={() => downloadReportMutation.mutate()}
+            >
+              {downloadReportMutation.isPending ? "Pobieranie..." : "Raport PDF"}
+            </Button>
+          )}
+          {!isPending && schoolClass && (
+            <Button
+              type="button"
+              variant="outline"
               disabled={isOpeningChat}
               onClick={() => void handleOpenChat()}
             >
@@ -103,8 +124,7 @@ export function ClassCard({
           {!isPending && schoolClass && (
             <Button
               type="button"
-              size="lg"
-              className="h-11 px-5 text-base"
+              variant="outline"
               onClick={() => setChildrenDialogOpen(true)}
             >
               Dzieci
