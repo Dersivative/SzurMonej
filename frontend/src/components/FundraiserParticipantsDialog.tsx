@@ -147,20 +147,22 @@ export function FundraiserParticipantsDialog({
     [isTreasurer, myChildIdSet, nonParticipants],
   );
 
-  const handleMutationSuccess = (updatedFundraiser?: FundraiserResponseDTO) => {
+  const handleMutationSuccess = async (
+    updatedFundraiser?: FundraiserResponseDTO,
+  ) => {
     setError(null);
     setPendingChildId(null);
     invalidateParticipantQueries(queryClient, fundraiserId);
-    if (updatedFundraiser) {
-      onUpdate?.(updatedFundraiser);
-    }
+    const fundraiser =
+      updatedFundraiser ?? (await fetchFundraiserDetails(fundraiserId));
+    onUpdate?.(fundraiser);
   };
 
   const { mutate: addParticipant, isPending: isAdding } = useMutation({
     mutationFn: (childId: number) =>
       addFundraiserParticipant(fundraiserId, childId),
-    onSuccess: (updatedFundraiser) => {
-      handleMutationSuccess(updatedFundraiser);
+    onSuccess: async (updatedFundraiser) => {
+      await handleMutationSuccess(updatedFundraiser);
     },
     onError: (mutationError) => {
       setPendingChildId(null);
@@ -176,9 +178,9 @@ export function FundraiserParticipantsDialog({
   const { mutate: removeParticipant, isPending: isRemoving } = useMutation({
     mutationFn: (childId: number) =>
       removeFundraiserParticipant(fundraiserId, childId),
-    onSuccess: () => {
+    onSuccess: async () => {
       setPendingRemove(null);
-      handleMutationSuccess();
+      await handleMutationSuccess();
     },
     onError: (mutationError) => {
       setPendingChildId(null);

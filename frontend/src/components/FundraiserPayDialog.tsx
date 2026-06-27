@@ -24,8 +24,14 @@ import {
 import { createRefundRequest } from "@/features/fundraisers/api/create-refund-request";
 import { fetchFundraiserDetails } from "@/features/fundraisers/api/get-fundraiser-details";
 import { fetchPendingRefundRequests } from "@/features/fundraisers/api/get-pending-refund-requests";
-import type { ParticipantResponseDTO } from "@/features/fundraisers/api/types";
-import { canUserRequestRefundForParticipant } from "@/features/fundraisers/lib/refund-request";
+import type {
+  FundraiserResponseDTO,
+  ParticipantResponseDTO,
+} from "@/features/fundraisers/api/types";
+import {
+  canUserRequestRefundForParticipant,
+  participantHasPendingRefundRequest,
+} from "@/features/fundraisers/lib/refund-request";
 import { fetchUserMe } from "@/features/users/api/get-me";
 import { fetchMyChildren } from "@/features/users/api/get-my-children";
 
@@ -34,6 +40,7 @@ interface FundraiserPayDialogProps {
   fundraiserTitle: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onUpdate?: (fundraiser: FundraiserResponseDTO) => void;
 }
 
 interface PendingPayParticipant {
@@ -85,11 +92,26 @@ function invalidateAfterPayment(
   userId?: number,
 ) {
   queryClient.invalidateQueries({ queryKey: ["user-me"] });
+  queryClient.invalidateQueries({ queryKey: ["my-fundraisers"] });
   queryClient.invalidateQueries({ queryKey: ["my-fundraisers", userId] });
+  queryClient.invalidateQueries({ queryKey: ["child-fundraisers"] });
+  queryClient.invalidateQueries({ queryKey: ["all-fundraisers"] });
   queryClient.invalidateQueries({ queryKey: ["fundraiser-details", fundraiserId] });
   queryClient.invalidateQueries({
     queryKey: ["fundraiser-refund-requests", fundraiserId],
   });
+}
+
+async function refreshFundraiserAfterPayment(
+  queryClient: ReturnType<typeof useQueryClient>,
+  fundraiserId: number,
+  userId: number | undefined,
+  onUpdate?: (fundraiser: FundraiserResponseDTO) => void,
+) {
+  const updated = await fetchFundraiserDetails(fundraiserId);
+  queryClient.setQueryData(["fundraiser-details", fundraiserId], updated);
+  onUpdate?.(updated);
+  invalidateAfterPayment(queryClient, fundraiserId, userId);
 }
 
 function invalidateAfterRefund(queryClient: ReturnType<typeof useQueryClient>) {
@@ -105,6 +127,7 @@ export function FundraiserPayDialog({
   fundraiserTitle,
   open,
   onOpenChange,
+  onUpdate,
 }: FundraiserPayDialogProps) {
   const user = useAuthStore((state) => state.user);
   const setAuth = useAuthStore((state) => state.setAuth);
@@ -168,7 +191,12 @@ export function FundraiserPayDialog({
     onSuccess: async () => {
       const refreshedUser = await fetchUserMe();
       setAuth(mapUserResponse(refreshedUser));
-      invalidateAfterPayment(queryClient, fundraiserId, user?.id);
+      await refreshFundraiserAfterPayment(
+        queryClient,
+        fundraiserId,
+        user?.id,
+        onUpdate,
+      );
       setPendingPay(null);
       setActionError(null);
     },
@@ -181,9 +209,17 @@ export function FundraiserPayDialog({
   const refundMutation = useMutation({
     mutationFn: (participant: PendingRefundParticipant) =>
       createRefundRequest(fundraiserId, participant.childId),
-    onSuccess: () => {
+    onSuccess: async () => {
       invalidateAfterRefund(queryClient);
-      invalidateAfterPayment(queryClient, fundraiserId, user?.id);
+      await queryClient.refetchQueries({
+        queryKey: ["fundraiser-refund-requests", fundraiserId],
+      });
+      await refreshFundraiserAfterPayment(
+        queryClient,
+        fundraiserId,
+        user?.id,
+        onUpdate,
+      );
       setPendingRefund(null);
       setActionError(null);
     },
@@ -258,6 +294,14 @@ export function FundraiserPayDialog({
         >
           Prośba o zwrot
         </Button>
+      );
+    }
+
+    if (
+      participantHasPendingRefundRequest(participant, pendingRefundRequests)
+    ) {
+      return (
+        <span className="text-sm text-muted-foreground">Wniosek o zwrot</span>
       );
     }
 

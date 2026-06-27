@@ -40,6 +40,20 @@ function getChildInitials(child: ChildResponseDTO): string {
   return `${child.name.charAt(0)}${child.surname.charAt(0)}`.toUpperCase();
 }
 
+function isVisibleOnDashboard(
+  status: FundraiserResponseDTO["status"],
+): boolean {
+  return status === "ACTIVE" || status === "RECONCILING";
+}
+
+function getDashboardFundraisers(
+  fundraisers: FundraiserResponseDTO[],
+): FundraiserResponseDTO[] {
+  return fundraisers.filter((fundraiser) =>
+    isVisibleOnDashboard(fundraiser.status),
+  );
+}
+
 export function DashboardPage() {
   const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
@@ -81,11 +95,19 @@ export function DashboardPage() {
 
         return {
           ...current,
-          activeFundraisers: current.activeFundraisers.map((fundraiser) =>
-            fundraiser.id === updatedFundraiser.id
-              ? updatedFundraiser
-              : fundraiser,
-          ),
+          activeFundraisers: isVisibleOnDashboard(updatedFundraiser.status)
+            ? current.activeFundraisers.some(
+                (fundraiser) => fundraiser.id === updatedFundraiser.id,
+              )
+              ? current.activeFundraisers.map((fundraiser) =>
+                  fundraiser.id === updatedFundraiser.id
+                    ? updatedFundraiser
+                    : fundraiser,
+                )
+              : [...current.activeFundraisers, updatedFundraiser]
+            : current.activeFundraisers.filter(
+                (fundraiser) => fundraiser.id !== updatedFundraiser.id,
+              ),
         };
       },
     );
@@ -158,9 +180,10 @@ export function DashboardPage() {
                 className="w-full"
               >
                 {children.map((child, index) => {
-                  const fundraisers =
+                  const fundraisers = getDashboardFundraisers(
                     childFundraiserQueries[index]?.data?.activeFundraisers ??
-                    [];
+                      [],
+                  );
                   const fundraiserCount = fundraisers.length;
 
                   return (
@@ -198,7 +221,7 @@ export function DashboardPage() {
                       <AccordionContent>
                         {fundraiserCount === 0 ? (
                           <p className="text-sm text-muted-foreground">
-                            Brak aktywnych zbiórek.
+                            Brak zbiórek w toku.
                           </p>
                         ) : (
                           <div

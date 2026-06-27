@@ -2,13 +2,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FundraiserParticipantsDialog } from "@/components/FundraiserParticipantsDialog";
 import { FundraiserPaymentsDialog } from "@/components/FundraiserPaymentsDialog";
-import { FundraiserWithdrawalsDialog } from "@/components/FundraiserWithdrawalsDialog";
+import { FundraiserServiceDialog } from "@/components/FundraiserServiceDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { formatMoney } from "@/features/finance/lib/format-money";
 import { openFundraiserChat } from "@/features/chat/lib/open-chat";
 import type { FundraiserResponseDTO } from "@/features/fundraisers/api/types";
+import { getFundraiserPlannedEndDate } from "@/features/fundraisers/lib/fundraiser-dates";
 
 interface AdminFundraisingCardProps {
   fundraiser: FundraiserResponseDTO;
@@ -53,7 +54,7 @@ export function AdminFundraisingCard({
   const navigate = useNavigate();
   const [participantsOpen, setParticipantsOpen] = useState(false);
   const [paymentsOpen, setPaymentsOpen] = useState(false);
-  const [withdrawalsOpen, setWithdrawalsOpen] = useState(false);
+  const [serviceOpen, setServiceOpen] = useState(false);
   const [isOpeningChat, setIsOpeningChat] = useState(false);
 
   const handleOpenChat = async () => {
@@ -94,21 +95,21 @@ export function AdminFundraisingCard({
 
           <p className="text-sm text-muted-foreground">
             Start: {formatDate(fundraiser.startedAt)} · Koniec:{" "}
-            {formatDate(fundraiser.endedAt)}
+            {formatDate(getFundraiserPlannedEndDate(fundraiser))}
           </p>
 
           <p className="text-xs text-muted-foreground">
-            Wypłaty i usunięcia uczestników są wykonywane z konta administratora.
+            Obsługa zbiórki i usunięcia uczestników są wykonywane z konta administratora.
             Edycja zbiórki i rozliczenia są dostępne tylko dla skarbnika.
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:min-w-56">
+        <div className="flex flex-wrap gap-2 sm:min-w-56 sm:justify-end">
           <Button type="button" variant="outline" onClick={() => setParticipantsOpen(true)}>
             Uczestnicy
           </Button>
-          <Button type="button" variant="outline" onClick={() => setWithdrawalsOpen(true)}>
-            Wypłaty
+          <Button type="button" variant="outline" onClick={() => setServiceOpen(true)}>
+            Obsługa zbiórki
           </Button>
           <Button type="button" variant="outline" onClick={() => setPaymentsOpen(true)}>
             Historia
@@ -142,11 +143,10 @@ export function AdminFundraisingCard({
         onOpenChange={setPaymentsOpen}
       />
 
-      <FundraiserWithdrawalsDialog
+      <FundraiserServiceDialog
         fundraiser={fundraiser}
-        isTreasurer
-        open={withdrawalsOpen}
-        onOpenChange={setWithdrawalsOpen}
+        open={serviceOpen}
+        onOpenChange={setServiceOpen}
       />
     </div>
   );

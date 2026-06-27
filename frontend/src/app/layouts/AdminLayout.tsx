@@ -4,7 +4,7 @@ import { AdminTopBar } from "@/components/AdminTopBar";
 
 export function AdminLayout() {
   return (
-    <div className="min-h-screen bg-muted/30 pt-16">
+    <div className="min-h-screen bg-linear-to-br from-white via-emerald-50 to-emerald-100 pt-16">
       <AdminTopBar />
       <AdminNavigation />
       <div className="pl-76 pr-4 pt-4">

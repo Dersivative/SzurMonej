@@ -75,6 +75,13 @@ function hasPendingRefundForParticipant(
   );
 }
 
+export function participantHasPendingRefundRequest(
+  participant: ParticipantResponseDTO,
+  pendingRefundRequests: RefundRequestResponseDTO[] = [],
+): boolean {
+  return hasPendingRefundForParticipant(participant, pendingRefundRequests);
+}
+
 export function canUserRequestRefundForParticipant(
   fundraiser: FundraiserResponseDTO,
   participant: ParticipantResponseDTO,

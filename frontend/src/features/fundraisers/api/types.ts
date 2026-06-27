@@ -32,6 +32,7 @@ export interface FundraiserResponseDTO {
   suggestedContribution?: number | null;
   startedAt: string;
   endedAt?: string | null;
+  endsBy?: string | null;
   status: FundraiserStatus;
   fundraiserType: FundraiserType;
   perChildAmount?: number | null;
@@ -50,6 +51,8 @@ export interface FundraiserCreateRequestDTO {
   goalAmount?: number;
   perChildAmount?: number;
   participantIds?: number[];
+  startedAt?: string;
+  endsBy?: string;
 }
 
 export interface UpdateGoalRequestDTO {
@@ -59,6 +62,8 @@ export interface UpdateGoalRequestDTO {
 export interface UpdateDetailsRequestDTO {
   title?: string;
   description?: string;
+  startedAt?: string;
+  endsBy?: string;
 }
 
 export interface FundraiserApplicationRequestDTO {

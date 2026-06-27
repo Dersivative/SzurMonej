@@ -25,6 +25,15 @@ export interface UserCreateRequestDTO {
   password: string;
 }
 
+export interface UnapprovedUserDTO {
+  id: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  enabled: boolean;
+}
+
 export interface ChildCreateRequestDTO {
   name: string;
   surname: string;

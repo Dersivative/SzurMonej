@@ -5,6 +5,7 @@ import {
   RemoveChildFromClassDialog,
   type RemoveChildAction,
 } from "@/components/RemoveChildFromClassDialog";
+import { InsufficientFundraiserFundsAlert } from "@/components/InsufficientFundraiserFundsAlert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +25,10 @@ import { rejectEnrollmentApplication } from "@/features/classes/api/reject-enrol
 import { removeClassMembership } from "@/features/classes/api/remove-class-membership";
 import { approveRefundRequest } from "@/features/fundraisers/api/approve-refund-request";
 import type { RefundRequestResponseDTO } from "@/features/fundraisers/api/types-refund";
+import {
+  getRefundApprovalErrorMessage,
+  isInsufficientFundraiserFundsError,
+} from "@/features/fundraisers/lib/refund-approval-error";
 import { fetchMyChildren } from "@/features/users/api/get-my-children";
 import { fetchMyEnrollmentApplications } from "@/features/users/api/get-my-enrollment-applications";
 import type {
@@ -59,6 +64,7 @@ export function ClassChildrenDialog({
 }: ClassChildrenDialogProps) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  const [insufficientFundsOpen, setInsufficientFundsOpen] = useState(false);
   const [childToRemove, setChildToRemove] = useState<ChildToRemove | null>(
     null,
   );
@@ -170,8 +176,15 @@ export function ClassChildrenDialog({
       invalidateClassData();
     },
     onError: (mutationError) => {
+      if (isInsufficientFundraiserFundsError(mutationError)) {
+        setInsufficientFundsOpen(true);
+        return;
+      }
       setError(
-        getErrorMessage(mutationError, "Nie udało się zatwierdzić zwrotu."),
+        getRefundApprovalErrorMessage(
+          mutationError,
+          "Nie udało się zatwierdzić zwrotu.",
+        ),
       );
     },
   });
@@ -382,6 +395,11 @@ export function ClassChildrenDialog({
           onConfirm={() => removeChild(childToRemove.membershipId)}
         />
       )}
+
+      <InsufficientFundraiserFundsAlert
+        open={insufficientFundsOpen}
+        onOpenChange={setInsufficientFundsOpen}
+      />
     </>
   );
 }
