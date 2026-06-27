@@ -259,7 +259,6 @@ export function FundraiserParticipantsDialog({
         isAdmin,
         myChildIdSet,
       )}
-      isMyChild={myChildIdSet.has(participant.childId)}
       isReconciling={fundraiserDetails?.status === "RECONCILING"}
       isActionPending={isActionPending}
       isPending={pendingChildId === participant.childId}
@@ -416,7 +415,6 @@ interface ParticipantRowProps {
   participant: ParticipantResponseDTO;
   canManage: boolean;
   canRemove: boolean;
-  isMyChild: boolean;
   isReconciling: boolean;
   isActionPending: boolean;
   isPending: boolean;
@@ -428,7 +426,6 @@ function ParticipantRow({
   participant,
   canManage,
   canRemove,
-  isMyChild,
   isReconciling,
   isActionPending,
   isPending,
@@ -464,7 +461,7 @@ function ParticipantRow({
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        {isReconciling && isMyChild && hasDebt && (
+        {isReconciling && hasDebt && (
           <Button
             type="button"
             size="sm"
