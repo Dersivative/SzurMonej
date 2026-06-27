@@ -231,7 +231,7 @@ public class StartupDataLoader implements ApplicationRunner {
             fundraiser1.setGoalAmount(new BigDecimal("600.00"));
             fundraiser1.setSchoolClass(managedClass);
             fundraiser1.setStartedAt(LocalDate.now());
-            fundraiser1.setEndsBy(LocalDate.of(2026, 7, random.nextInt(31) + 1));
+            fundraiser1.setEndsBy(LocalDate.now().plusDays(random.nextInt(30) + 1));
 
             Account fundraiserAccount1 = new Account();
             fundraiserAccount1.setAccountNumber(UUID.randomUUID().toString());
@@ -260,7 +260,7 @@ public class StartupDataLoader implements ApplicationRunner {
             fundraiser2.setGoalAmount(new BigDecimal("100.00").multiply(new BigDecimal(activeMembers)));
             fundraiser2.setSchoolClass(managedClass);
             fundraiser2.setStartedAt(LocalDate.now());
-            fundraiser2.setEndsBy(LocalDate.of(2026, 7, random.nextInt(31) + 1));
+            fundraiser2.setEndsBy(LocalDate.now().plusDays(random.nextInt(30) + 1));
 
             Account fundraiserAccount2 = new Account();
             fundraiserAccount2.setAccountNumber(UUID.randomUUID().toString());
