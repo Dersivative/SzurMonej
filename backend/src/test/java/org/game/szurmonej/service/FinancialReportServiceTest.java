@@ -125,8 +125,24 @@ class FinancialReportServiceTest {
     }
 
     @Test
-    void generateFundraiserReport_parentIsForbidden() {
+    void generateFundraiserReport_parentCanDownload() {
         loginAs(scenario.parent1());
+
+        byte[] pdf = financialReportService.generateFundraiserReport(scenario.fundraiser().getId());
+        assertThat(pdf).isNotEmpty();
+    }
+
+    @Test
+    void generateFundraiserReport_unrelatedParentIsForbidden() {
+        User unrelatedParent = new User();
+        unrelatedParent.setEmail("niepowiazany@example.com");
+        unrelatedParent.setFirstName("Niepowiazany");
+        unrelatedParent.setLastName("Rodzic");
+        unrelatedParent.setPasswordHash(passwordEncoder.encode("pass123"));
+        unrelatedParent.setEnabled(true);
+        unrelatedParent.setAdmin(false);
+        loginAs(userRepository.save(unrelatedParent));
+
         assertThatThrownBy(() -> financialReportService.generateFundraiserReport(scenario.fundraiser().getId()))
                 .isInstanceOf(ForbiddenOperationException.class);
     }
@@ -188,10 +204,11 @@ class FinancialReportServiceTest {
     }
 
     @Test
-    void generateClassReport_parentIsForbidden() {
+    void generateClassReport_parentCanDownload() {
         loginAs(scenario.parent1());
-        assertThatThrownBy(() -> financialReportService.generateClassReport(scenario.schoolClass().getId()))
-                .isInstanceOf(ForbiddenOperationException.class);
+
+        byte[] pdf = financialReportService.generateClassReport(scenario.schoolClass().getId());
+        assertThat(pdf).isNotEmpty();
     }
 
     private void fundFundraiser() {

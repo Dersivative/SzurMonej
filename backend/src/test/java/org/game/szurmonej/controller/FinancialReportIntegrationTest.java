@@ -119,11 +119,36 @@ class FinancialReportIntegrationTest {
     }
 
     @Test
-    void parentCannotDownloadFundraiserReport() throws Exception {
+    void parentCanDownloadFundraiserReport() throws Exception {
         loginAs(scenario.parent1());
 
         mockMvc.perform(get("/api/fundraisers/{id}/report", scenario.fundraiser().getId()))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF));
+    }
+
+    @Test
+    void unrelatedParentCannotDownloadFundraiserReport() throws Exception {
+        User unrelatedParent = new User();
+        unrelatedParent.setEmail("niepowiazany@example.com");
+        unrelatedParent.setFirstName("Niepowiazany");
+        unrelatedParent.setLastName("Rodzic");
+        unrelatedParent.setPasswordHash(passwordEncoder.encode("pass123"));
+        unrelatedParent.setEnabled(true);
+        unrelatedParent.setAdmin(false);
+        loginAs(userRepository.save(unrelatedParent));
+
+        mockMvc.perform(get("/api/fundraisers/{id}/report", scenario.fundraiser().getId()))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void parentCanDownloadClassReportPdf() throws Exception {
+        loginAs(scenario.parent1());
+
+        mockMvc.perform(get("/api/school-classes/{id}/report", scenario.schoolClass().getId()))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF));
     }
 
     @Test
