@@ -12,13 +12,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { mapUserResponse } from "@/features/auth/lib/map-user";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { formatMoney } from "@/features/finance/lib/format-money";
 import { partitionParticipants } from "@/features/finance/lib/fundraiser-payment";
-import { depositToFundraiser } from "@/features/fundraisers/api/deposit-to-fundraiser";
 import { fetchFundraiserDetails } from "@/features/fundraisers/api/get-fundraiser-details";
 import { payFundraiserDebt } from "@/features/fundraisers/api/pay-fundraiser-debt";
 import type { ParticipantResponseDTO } from "@/features/fundraisers/api/types";
@@ -28,7 +25,6 @@ import { fetchMyChildren } from "@/features/users/api/get-my-children";
 interface FundraiserSettlementDialogProps {
   fundraiserId: number;
   fundraiserTitle: string;
-  isTreasurer: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -102,7 +98,6 @@ function invalidateSettlementQueries(
 export function FundraiserSettlementDialog({
   fundraiserId,
   fundraiserTitle,
-  isTreasurer,
   open,
   onOpenChange,
 }: FundraiserSettlementDialogProps) {
@@ -113,8 +108,6 @@ export function FundraiserSettlementDialog({
   const [pendingDebtPay, setPendingDebtPay] = useState<PendingDebtPay | null>(
     null,
   );
-  const [depositAmount, setDepositAmount] = useState("");
-  const [depositNote, setDepositNote] = useState("Dopłata przy rozliczeniu");
   const [actionError, setActionError] = useState<string | null>(null);
 
   const {
@@ -164,33 +157,7 @@ export function FundraiserSettlementDialog({
     },
   });
 
-  const depositMutation = useMutation({
-    mutationFn: () => {
-      const amount = Number.parseFloat(depositAmount.replace(",", "."));
-      if (!Number.isFinite(amount) || amount <= 0) {
-        throw new Error("Podaj poprawną kwotę większą od zera.");
-      }
-
-      return depositToFundraiser(fundraiserId, {
-        amount,
-        note: depositNote.trim() || "Dopłata przy rozliczeniu",
-      });
-    },
-    onSuccess: async () => {
-      const refreshedUser = await fetchUserMe();
-      setAuth(mapUserResponse(refreshedUser));
-      invalidateSettlementQueries(queryClient, fundraiserId, user?.id);
-      setDepositAmount("");
-      setActionError(null);
-    },
-    onError: (error) => {
-      setActionError(
-        getErrorMessage(error, "Nie udało się wpłacić środków na zbiórkę."),
-      );
-    },
-  });
-
-  const isActionPending = payDebtMutation.isPending || depositMutation.isPending;
+  const isActionPending = payDebtMutation.isPending;
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!isActionPending && !nextOpen) {
@@ -261,10 +228,9 @@ export function FundraiserSettlementDialog({
             <AlertDialogDescription asChild>
               <div className="w-full min-w-0 space-y-4 pt-2 text-left text-foreground">
                 <p className="text-sm text-muted-foreground">
-                  Rodzice mogą spłacać należności za dowolne dziecko. Skarbnik
-                  może dopłacić pozostałe środki z własnego konta. Po spłacie
-                  wszystkich należności skarbnik może zakończyć rozliczenie i
-                  zwrócić nadpłaty.
+                  Rodzice mogą spłacać należności za dowolne dziecko. Po
+                  spłacie wszystkich należności skarbnik może zakończyć
+                  rozliczenie i zwrócić nadpłaty.
                 </p>
 
                 {isLoading && (
@@ -308,57 +274,6 @@ export function FundraiserSettlementDialog({
                       <p className="text-sm text-muted-foreground">
                         Brak uczestników w tej zbiórce.
                       </p>
-                    )}
-
-                    {isTreasurer && (
-                      <section className="space-y-3 rounded-lg border bg-muted/40 p-3">
-                        <p className="text-sm font-medium">
-                          Dopłać z konta skarbnika
-                        </p>
-                        <div className="space-y-2">
-                          <Label htmlFor={`deposit-amount-${fundraiserId}`}>
-                            Kwota (PLN)
-                          </Label>
-                          <Input
-                            id={`deposit-amount-${fundraiserId}`}
-                            type="number"
-                            min="0.01"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={depositAmount}
-                            disabled={isActionPending}
-                            onChange={(event) =>
-                              setDepositAmount(event.target.value)
-                            }
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor={`deposit-note-${fundraiserId}`}>
-                            Opis
-                          </Label>
-                          <Input
-                            id={`deposit-note-${fundraiserId}`}
-                            type="text"
-                            value={depositNote}
-                            disabled={isActionPending}
-                            onChange={(event) =>
-                              setDepositNote(event.target.value)
-                            }
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          disabled={isActionPending || depositAmount.trim() === ""}
-                          onClick={() => {
-                            setActionError(null);
-                            depositMutation.mutate();
-                          }}
-                        >
-                          {depositMutation.isPending
-                            ? "Wpłacanie..."
-                            : "Wpłać na zbiórkę"}
-                        </Button>
-                      </section>
                     )}
 
                     {!allDebtsPaid ? (

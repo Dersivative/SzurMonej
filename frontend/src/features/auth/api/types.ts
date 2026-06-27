@@ -5,6 +5,7 @@ export interface UserResponseDTO {
   lastName: string;
   fullName: string;
   admin: boolean;
+  avatar?: string;
   balance?: number;
   accountNumber?: string;
   bankAccountNumber?: string;

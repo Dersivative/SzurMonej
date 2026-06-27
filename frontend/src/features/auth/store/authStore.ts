@@ -9,6 +9,7 @@ export interface User {
   firstName: string;
   lastName: string;
   role: UserRole;
+  avatar: string | null;
   balance: number | null;
   accountNumber: string | null;
   bankAccountNumber: string | null;
