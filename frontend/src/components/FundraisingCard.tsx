@@ -202,7 +202,11 @@ export function FundraisingCard({
 
   return (
     <div className="h-full">
-      <div className="flex h-full flex-col gap-3 rounded-xl border bg-card p-5">
+      <div
+        className={`flex h-full flex-col gap-3 rounded-xl border p-5 ${
+          isTreasurer ? "bg-amber-50/70 dark:bg-amber-950/20" : "bg-card"
+        }`}
+      >
         <div className="flex flex-1 gap-4">
           <div className="flex min-w-0 flex-1 flex-col gap-3">
             <p className="text-xl font-semibold leading-snug">{fundraiser.title}</p>
@@ -333,7 +337,6 @@ export function FundraisingCard({
         <FundraiserSettlementDialog
           fundraiserId={fundraiser.id}
           fundraiserTitle={fundraiser.title}
-          isTreasurer={isTreasurer}
           open={settlementOpen}
           onOpenChange={setSettlementOpen}
         />
