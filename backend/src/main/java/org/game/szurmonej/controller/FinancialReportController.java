@@ -36,7 +36,7 @@ public class FinancialReportController {
         this.schoolClassRepository = schoolClassRepository;
     }
 
-    @Operation(summary = "Pobierz raport finansowy PDF dla zbiórki (skarbnik/admin)")
+    @Operation(summary = "Pobierz raport finansowy PDF dla zbiórki (skarbnik/admin/rodzic uczestnika)")
     @GetMapping("/fundraisers/{fundraiserId}/report")
     public ResponseEntity<byte[]> downloadFundraiserReport(@PathVariable Long fundraiserId) {
         Fundraiser fundraiser = fundraiserRepository.findById(fundraiserId)
@@ -45,7 +45,7 @@ public class FinancialReportController {
         return buildPdfResponse(pdf, financialReportService.buildFundraiserReportFilename(fundraiser));
     }
 
-    @Operation(summary = "Pobierz raport finansowy PDF dla klasy (skarbnik/admin)")
+    @Operation(summary = "Pobierz raport finansowy PDF dla klasy (skarbnik/admin/rodzic w klasie)")
     @GetMapping("/school-classes/{classId}/report")
     public ResponseEntity<byte[]> downloadClassReport(@PathVariable Long classId) {
         SchoolClass schoolClass = schoolClassRepository.findById(classId)

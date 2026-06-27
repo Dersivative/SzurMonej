@@ -24,6 +24,7 @@ public class FinancialReportService {
     private final ContributionRepository contributionRepository;
     private final AccountHistoryEntryRepository historyRepository;
     private final RefundRepository refundRepository;
+    private final ClassMembershipRepository classMembershipRepository;
     private final CurrentUserService currentUserService;
     private final FundraiserPdfGenerator fundraiserPdfGenerator;
     private final ClassReportPdfGenerator classReportPdfGenerator;
@@ -35,6 +36,7 @@ public class FinancialReportService {
             ContributionRepository contributionRepository,
             AccountHistoryEntryRepository historyRepository,
             RefundRepository refundRepository,
+            ClassMembershipRepository classMembershipRepository,
             CurrentUserService currentUserService,
             FundraiserPdfGenerator fundraiserPdfGenerator,
             ClassReportPdfGenerator classReportPdfGenerator
@@ -45,6 +47,7 @@ public class FinancialReportService {
         this.contributionRepository = contributionRepository;
         this.historyRepository = historyRepository;
         this.refundRepository = refundRepository;
+        this.classMembershipRepository = classMembershipRepository;
         this.currentUserService = currentUserService;
         this.fundraiserPdfGenerator = fundraiserPdfGenerator;
         this.classReportPdfGenerator = classReportPdfGenerator;
@@ -250,7 +253,15 @@ public class FinancialReportService {
     private void assertCanDownloadReport(Fundraiser fundraiser) {
         User user = currentUserService.getCurrentUser();
         boolean isTreasurer = fundraiser.getSchoolClass().getTreasurer().getId().equals(user.getId());
-        if (!isTreasurer && !user.isAdmin()) {
+        if (isTreasurer || user.isAdmin()) {
+            return;
+        }
+
+        List<FundraiserParticipant> participants = participantRepository
+                .findByFundraiser_IdAndRemovedAtIsNull(fundraiser.getId());
+        boolean isParent = participants.stream()
+                .anyMatch(participant -> isParentOfChild(user, participant.getChild()));
+        if (!isParent) {
             throw new ForbiddenOperationException("Nie masz uprawnień do pobrania raportu finansowego.");
         }
     }
@@ -258,8 +269,19 @@ public class FinancialReportService {
     private void assertCanDownloadClassReport(SchoolClass schoolClass) {
         User user = currentUserService.getCurrentUser();
         boolean isTreasurer = schoolClass.getTreasurer().getId().equals(user.getId());
-        if (!isTreasurer && !user.isAdmin()) {
+        if (isTreasurer || user.isAdmin()) {
+            return;
+        }
+
+        boolean isParentInClass = classMembershipRepository
+                .existsBySchoolClassIdAndChild_Parents_Id(schoolClass.getId(), user.getId());
+        if (!isParentInClass) {
             throw new ForbiddenOperationException("Nie masz uprawnień do pobrania raportu finansowego klasy.");
         }
+    }
+
+    private boolean isParentOfChild(User user, Child child) {
+        return child.getParents() != null
+                && child.getParents().stream().anyMatch(parent -> parent.getId().equals(user.getId()));
     }
 }
