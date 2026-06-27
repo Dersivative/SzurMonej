@@ -4,6 +4,7 @@ import org.game.szurmonej.dto.ChildFundraisersView;
 import org.game.szurmonej.dto.FundraiserApplicationResponse;
 import org.game.szurmonej.dto.FundraiserCreateRequest;
 import org.game.szurmonej.dto.FundraiserResponse;
+import org.game.szurmonej.dto.MoneyOperationResponse;
 import org.game.szurmonej.dto.TransferToFundraiserRequest;
 import org.game.szurmonej.dto.UpdateDetailsRequest;
 import org.game.szurmonej.entity.*;
@@ -498,6 +499,28 @@ public class FundraiserService {
     }
 
     @Transactional
+    public MoneyOperationResponse depositToFundraiser(Long fundraiserId, BigDecimal amount, String note) {
+        MoneyOperationResponse response = accountService.depositToFundraiser(fundraiserId, amount, note);
+        Fundraiser fundraiser = fundraiserRepository.findById(fundraiserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono zbiórki."));
+        if (fundraiser.getStatus() == FundraiserStatus.RECONCILING) {
+            recalculateFinalCredits(fundraiser);
+        }
+        return response;
+    }
+
+    @Transactional
+    public MoneyOperationResponse withdrawFromFundraiser(Long fundraiserId, BigDecimal amount, String note) {
+        MoneyOperationResponse response = accountService.withdrawFromFundraiser(fundraiserId, amount, note);
+        Fundraiser fundraiser = fundraiserRepository.findById(fundraiserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie znaleziono zbiórki."));
+        if (fundraiser.getStatus() == FundraiserStatus.RECONCILING) {
+            recalculateFinalCredits(fundraiser);
+        }
+        return response;
+    }
+
+    @Transactional
     public void payDebt(Long fundraiserId, Long childId) {
         User currentUser = currentUserService.getCurrentUser();
         Fundraiser fundraiser = fundraiserRepository.findById(fundraiserId)
@@ -707,6 +730,7 @@ public class FundraiserService {
                 participant.setDebt(difference.abs());
             }
         }
+        participantRepository.saveAll(participants);
     }
 
     private void distributeRefundToPayers(FundraiserParticipant participant, BigDecimal amountToRefund) {
