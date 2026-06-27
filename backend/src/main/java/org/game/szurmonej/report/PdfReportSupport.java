@@ -169,40 +169,53 @@ public class PdfReportSupport {
         }
 
         public void writeTableHeader(String[] headers, float[] columnWidths, float fontSize) throws IOException {
-            ensureSpace(TABLE_ROW_HEIGHT + 2f);
-            float x = MARGIN;
-            for (int i = 0; i < headers.length; i++) {
-                drawCellText(headers[i], x, y, columnWidths[i], fontSize, true);
-                x += columnWidths[i];
-            }
-            y -= TABLE_ROW_HEIGHT;
-            stream.setLineWidth(0.5f);
-            stream.moveTo(MARGIN, y + 4f);
-            stream.lineTo(MARGIN + CONTENT_WIDTH, y + 4f);
-            stream.stroke();
+            float rowHeight = measureRowHeight(headers, columnWidths, fontSize);
+            ensureSpace(rowHeight + 8f);
+            float rowTop = y;
+            drawRowCells(headers, columnWidths, fontSize, rowTop);
+            y -= rowHeight;
+            drawHorizontalRule(y);
+            y -= 6f;
         }
 
         public void writeTableRow(String[] cells, float[] columnWidths, float fontSize) throws IOException {
-            float rowHeight = TABLE_ROW_HEIGHT;
-            for (int i = 0; i < cells.length; i++) {
-                int lineCount = support.wrapText(cells[i], font, fontSize, columnWidths[i] - 4f).size();
-                rowHeight = Math.max(rowHeight, lineCount * LINE_HEIGHT);
-            }
-            ensureSpace(rowHeight);
-            float x = MARGIN;
+            float rowHeight = measureRowHeight(cells, columnWidths, fontSize);
+            ensureSpace(rowHeight + 2f);
             float rowTop = y;
-            for (int i = 0; i < cells.length; i++) {
-                drawWrappedCell(cells[i], x, rowTop, columnWidths[i], fontSize);
-                x += columnWidths[i];
-            }
+            drawRowCells(cells, columnWidths, fontSize, rowTop);
             y -= rowHeight;
         }
 
-        private void drawCellText(String text, float x, float topY, float width, float fontSize, boolean bold)
+        private float measureRowHeight(String[] cells, float[] columnWidths, float fontSize) throws IOException {
+            float rowHeight = TABLE_ROW_HEIGHT;
+            for (int i = 0; i < cells.length; i++) {
+                int lineCount = support.wrapText(cells[i], font, fontSize, columnWidths[i] - 4f).size();
+                rowHeight = Math.max(rowHeight, lineCount * LINE_HEIGHT + 4f);
+            }
+            return rowHeight;
+        }
+
+        private void drawRowCells(String[] cells, float[] columnWidths, float fontSize, float rowTop)
+                throws IOException {
+            float x = MARGIN;
+            for (int i = 0; i < cells.length; i++) {
+                drawCellText(cells[i], x, rowTop, columnWidths[i], fontSize);
+                x += columnWidths[i];
+            }
+        }
+
+        private void drawHorizontalRule(float lineY) throws IOException {
+            stream.setLineWidth(0.5f);
+            stream.moveTo(MARGIN, lineY);
+            stream.lineTo(MARGIN + CONTENT_WIDTH, lineY);
+            stream.stroke();
+        }
+
+        private void drawCellText(String text, float x, float topY, float width, float fontSize)
                 throws IOException {
             String value = text != null ? text : "";
             List<String> lines = support.wrapText(value, font, fontSize, width - 4f);
-            float cellY = topY;
+            float cellY = topY - fontSize - 2f;
             for (String line : lines) {
                 stream.beginText();
                 stream.setFont(font, fontSize);
@@ -211,10 +224,6 @@ public class PdfReportSupport {
                 stream.endText();
                 cellY -= LINE_HEIGHT;
             }
-        }
-
-        private void drawWrappedCell(String text, float x, float topY, float width, float fontSize) throws IOException {
-            drawCellText(text, x, topY, width, fontSize, false);
         }
 
         public PDPageContentStream getStream() {
