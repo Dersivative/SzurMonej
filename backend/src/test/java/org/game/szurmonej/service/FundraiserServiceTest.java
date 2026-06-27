@@ -717,6 +717,77 @@ class FundraiserServiceTest {
         assertThat(participantAfterRefund.getCredit()).isEqualByComparingTo("0.00");
     }
 
+    @Test
+    void withdrawAll_whenAllParentsPaid_treasurerEndsFundraiser_balancesAreCorrect() {
+        // 1. All parents pay their contributions
+        loginAs(scenario.parent1());
+        var request1 = new TransferToFundraiserRequest();
+        request1.setFundraiserId(scenario.fundraiser().getId());
+        request1.setChildId(scenario.child1().getId());
+        accountService.transferToFundraiser(request1);
+
+        loginAs(scenario.parent2());
+        var request2 = new TransferToFundraiserRequest();
+        request2.setFundraiserId(scenario.fundraiser().getId());
+        request2.setChildId(scenario.child2().getId());
+        accountService.transferToFundraiser(request2);
+
+        loginAs(scenario.treasurer());
+        var request3 = new TransferToFundraiserRequest();
+        request3.setFundraiserId(scenario.fundraiser().getId());
+        request3.setChildId(scenario.treasurerChild().getId());
+        accountService.transferToFundraiser(request3);
+
+        // 2. Treasurer withdraws all funds
+        fundraiserService.withdrawAll(scenario.fundraiser().getId());
+
+        // 3. Verify balances and fundraiser status
+        var fundraiser = fundraiserRepository.findById(scenario.fundraiser().getId()).orElseThrow();
+        var fundraiserAccount = fundraiser.getAccount();
+        var treasurerAccount = accountRepository.findByUser_Id(scenario.treasurer().getId()).orElseThrow();
+
+        assertThat(fundraiserAccount.getBalance()).isEqualByComparingTo("0.00");
+        assertThat(treasurerAccount.getBalance()).isEqualByComparingTo("1800.00"); // 1000 (initial) - 400 (paid) + 1200 (withdrawn)
+        assertThat(fundraiser.getStatus()).isEqualTo(FundraiserStatus.FINISHED);
+    }
+
+    @Test
+    void withdrawAll_afterManualWithdrawal_treasurerEndsFundraiser_balancesAreCorrect() {
+        // 1. All parents pay their contributions
+        loginAs(scenario.parent1());
+        var request1 = new TransferToFundraiserRequest();
+        request1.setFundraiserId(scenario.fundraiser().getId());
+        request1.setChildId(scenario.child1().getId());
+        accountService.transferToFundraiser(request1);
+
+        loginAs(scenario.parent2());
+        var request2 = new TransferToFundraiserRequest();
+        request2.setFundraiserId(scenario.fundraiser().getId());
+        request2.setChildId(scenario.child2().getId());
+        accountService.transferToFundraiser(request2);
+
+        loginAs(scenario.treasurer());
+        var request3 = new TransferToFundraiserRequest();
+        request3.setFundraiserId(scenario.fundraiser().getId());
+        request3.setChildId(scenario.treasurerChild().getId());
+        accountService.transferToFundraiser(request3);
+
+        // 2. Treasurer manually withdraws all funds
+        accountService.withdrawFromFundraiser(scenario.fundraiser().getId(), new BigDecimal("1200.00"), "Manual withdrawal");
+
+        // 3. Treasurer ends the fundraiser
+        fundraiserService.withdrawAll(scenario.fundraiser().getId());
+
+        // 4. Verify balances and fundraiser status
+        var fundraiser = fundraiserRepository.findById(scenario.fundraiser().getId()).orElseThrow();
+        var fundraiserAccount = fundraiser.getAccount();
+        var treasurerAccount = accountRepository.findByUser_Id(scenario.treasurer().getId()).orElseThrow();
+
+        assertThat(fundraiserAccount.getBalance()).isEqualByComparingTo("0.00");
+        assertThat(treasurerAccount.getBalance()).isEqualByComparingTo("1800.00"); // 1000 (initial) - 400 (paid) + 1200 (withdrawn)
+        assertThat(fundraiser.getStatus()).isEqualTo(FundraiserStatus.FINISHED);
+    }
+
 
     private User saveUnrelatedParent() {
         User user = new User();

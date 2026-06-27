@@ -453,9 +453,19 @@ public class FundraiserService {
             accountService.withdrawFromFundraiser(fundraiserId, currentBalance, "Zakończenie zbiórki - wypłata środków");
         }
 
-        fundraiser.setStatus(FundraiserStatus.RECONCILING);
-        fundraiserRepository.save(fundraiser);
         recalculateFinalCredits(fundraiser);
+
+        List<FundraiserParticipant> participants = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiserId);
+        boolean allDebtsPaid = participants.stream().allMatch(p -> p.getDebt() == null || p.getDebt().compareTo(BigDecimal.ZERO) == 0);
+        boolean allCreditsRefunded = participants.stream().allMatch(p -> p.getCredit() == null || p.getCredit().compareTo(BigDecimal.ZERO) == 0);
+
+        if (allDebtsPaid && allCreditsRefunded) {
+            fundraiser.setStatus(FundraiserStatus.FINISHED);
+            fundraiser.setFinishedAt(LocalDate.now());
+        } else {
+            fundraiser.setStatus(FundraiserStatus.RECONCILING);
+        }
+        fundraiserRepository.save(fundraiser);
     }
 
     @Transactional
