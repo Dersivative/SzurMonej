@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { login } from "@/features/auth/api/login";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import { Button } from "@/components/ui/button";
@@ -30,9 +30,13 @@ export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const defaultRedirect =
-    (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ??
-    "/app/dashboard";
+  const locationState = location.state as {
+    from?: { pathname?: string };
+    registrationSuccess?: string;
+  } | null;
+
+  const defaultRedirect = locationState?.from?.pathname ?? "/app/dashboard";
+  const registrationSuccess = locationState?.registrationSuccess;
 
   const { mutate, isPending, isError } = useMutation({
     mutationFn: login,
@@ -100,6 +104,11 @@ export function LoginPage() {
                 onChange={(event) => setPassword(event.target.value)}
               />
             </div>
+            {registrationSuccess && (
+              <p className="text-sm text-green-600 dark:text-green-400">
+                {registrationSuccess}
+              </p>
+            )}
             {isError && (
               <p className="text-sm text-destructive">
                 Nieprawidłowy e-mail lub hasło.
@@ -111,6 +120,12 @@ export function LoginPage() {
           <Button type="submit" className="w-full" disabled={isPending}>
             {isPending ? "Logowanie..." : "Zaloguj się"}
           </Button>
+          <p className="text-center text-sm text-muted-foreground">
+            Nie masz konta?{" "}
+            <Link to="/register" className="text-foreground hover:underline">
+              Zarejestruj się
+            </Link>
+          </p>
           <div className="w-full space-y-1 pt-3 text-center text-xs text-muted-foreground">
             <p>Konta testowe</p>
             {TEST_ACCOUNTS.map((account) => (

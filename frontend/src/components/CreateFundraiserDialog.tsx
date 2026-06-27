@@ -17,6 +17,10 @@ import { createFundraiserApplication } from "@/features/fundraisers/api/create-f
 import { createFundraiser } from "@/features/fundraisers/api/create-fundraiser";
 import { fetchClassesForFundraiserCreation } from "@/features/fundraisers/api/get-classes-for-fundraiser-creation";
 import type { FundraiserType } from "@/features/fundraisers/api/types";
+import {
+  getFundraiserDateRangeError,
+  getTodayDateInputValue,
+} from "@/features/fundraisers/lib/fundraiser-dates";
 
 const fundraiserInputClassName =
   "h-10 border-0 bg-muted text-base shadow-none focus-visible:border-0 focus-visible:ring-0 md:text-base";
@@ -38,6 +42,8 @@ export function CreateFundraiserDialog({
     useState<FundraiserType>("TOTAL_GOAL");
   const [goalAmount, setGoalAmount] = useState("");
   const [perChildAmount, setPerChildAmount] = useState("");
+  const [startedAt, setStartedAt] = useState(getTodayDateInputValue);
+  const [endsBy, setEndsBy] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const { data: classes = [] } = useQuery({
@@ -52,6 +58,10 @@ export function CreateFundraiserDialog({
   );
 
   const isParentApplication = selectedClass?.mode === "parent";
+  const dateRangeError = useMemo(
+    () => getFundraiserDateRangeError(startedAt, endsBy),
+    [startedAt, endsBy],
+  );
 
   const resetForm = () => {
     setClassId("");
@@ -60,6 +70,8 @@ export function CreateFundraiserDialog({
     setFundraiserType("TOTAL_GOAL");
     setGoalAmount("");
     setPerChildAmount("");
+    setStartedAt(getTodayDateInputValue());
+    setEndsBy("");
     setError(null);
   };
 
@@ -130,6 +142,14 @@ export function CreateFundraiserDialog({
       return;
     }
 
+    if (dateRangeError) {
+      setError(dateRangeError);
+      return;
+    }
+
+    const endsByValue = endsBy.trim() || undefined;
+    const startedAtValue = startedAt.trim() || undefined;
+
     if (fundraiserType === "TOTAL_GOAL") {
       const parsedGoal = Number(goalAmount.replace(",", "."));
       if (!goalAmount || Number.isNaN(parsedGoal) || parsedGoal <= 0) {
@@ -157,6 +177,8 @@ export function CreateFundraiserDialog({
           description: description.trim() || undefined,
           fundraiserType,
           goalAmount: parsedGoal,
+          startedAt: startedAtValue,
+          endsBy: endsByValue,
         },
       });
       return;
@@ -188,6 +210,8 @@ export function CreateFundraiserDialog({
         description: description.trim() || undefined,
         fundraiserType,
         perChildAmount: parsedPerChild,
+        startedAt: startedAtValue,
+        endsBy: endsByValue,
       },
     });
   };
@@ -204,7 +228,7 @@ export function CreateFundraiserDialog({
               <p className="text-sm text-muted-foreground">
                 {isParentApplication
                   ? "Wniosek trafi do skarbnika klasy. Po zatwierdzeniu zbiórka pojawi się na liście jako aktywna."
-                  : "Zbiórka zostanie przypisana do wybranej klasy. Wszyscy uczniowie klasy zostaną dodani automatycznie. Data startu ustawiana jest przy tworzeniu."}
+                  : "Zbiórka zostanie przypisana do wybranej klasy. Wszyscy uczniowie klasy zostaną dodani automatycznie."}
               </p>
 
               <div className="space-y-2">
@@ -298,6 +322,39 @@ export function CreateFundraiserDialog({
                 </div>
               )}
 
+              {!isParentApplication && (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="fundraiser-started-at">Data startu</Label>
+                    <Input
+                      id="fundraiser-started-at"
+                      type="date"
+                      value={startedAt}
+                      max={endsBy || undefined}
+                      onChange={(event) => setStartedAt(event.target.value)}
+                      className={fundraiserInputClassName}
+                      disabled={isPending}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="fundraiser-ends-by">Data końca</Label>
+                    <Input
+                      id="fundraiser-ends-by"
+                      type="date"
+                      value={endsBy}
+                      min={startedAt || undefined}
+                      onChange={(event) => setEndsBy(event.target.value)}
+                      className={fundraiserInputClassName}
+                      disabled={isPending}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {dateRangeError && !isParentApplication && (
+                <p className="text-sm text-destructive">{dateRangeError}</p>
+              )}
+
               {classes.length === 0 && (
                 <p className="text-sm text-muted-foreground">
                   Możesz utworzyć zbiórkę jako skarbnik klasy lub złożyć wniosek
@@ -312,7 +369,7 @@ export function CreateFundraiserDialog({
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isPending}>Anuluj</AlertDialogCancel>
           <AlertDialogAction
-            disabled={isPending || classes.length === 0}
+            disabled={isPending || classes.length === 0 || Boolean(dateRangeError)}
             onClick={(event) => {
               event.preventDefault();
               handleSubmit();

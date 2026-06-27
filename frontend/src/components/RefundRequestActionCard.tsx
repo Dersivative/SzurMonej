@@ -1,12 +1,17 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { useState } from "react";
+import { InsufficientFundraiserFundsAlert } from "@/components/InsufficientFundraiserFundsAlert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/features/finance/lib/format-money";
 import { approveRefundRequest } from "@/features/fundraisers/api/approve-refund-request";
 import { rejectRefundRequest } from "@/features/fundraisers/api/reject-refund-request";
 import type { RefundRequestListItemDTO } from "@/features/fundraisers/api/types-refund";
+import {
+  getRefundApprovalErrorMessage,
+  isInsufficientFundraiserFundsError,
+} from "@/features/fundraisers/lib/refund-approval-error";
 
 interface RefundRequestActionCardProps {
   request: RefundRequestListItemDTO;
@@ -53,6 +58,7 @@ function invalidateRefundQueries(
 export function RefundRequestActionCard({ request }: RefundRequestActionCardProps) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  const [insufficientFundsOpen, setInsufficientFundsOpen] = useState(false);
 
   const { mutate: approve, isPending: isApproving } = useMutation({
     mutationFn: () => approveRefundRequest(request.id),
@@ -61,8 +67,15 @@ export function RefundRequestActionCard({ request }: RefundRequestActionCardProp
       invalidateRefundQueries(queryClient);
     },
     onError: (mutationError) => {
+      if (isInsufficientFundraiserFundsError(mutationError)) {
+        setInsufficientFundsOpen(true);
+        return;
+      }
       setError(
-        getErrorMessage(mutationError, "Nie udało się zatwierdzić zwrotu."),
+        getRefundApprovalErrorMessage(
+          mutationError,
+          "Nie udało się zatwierdzić zwrotu.",
+        ),
       );
     },
   });
@@ -85,6 +98,7 @@ export function RefundRequestActionCard({ request }: RefundRequestActionCardProp
   const childName = `${request.participant.child.name} ${request.participant.child.surname}`;
 
   return (
+    <>
     <div className="h-full">
       <div className="flex h-full flex-col rounded-xl border bg-card p-5">
         <div className="flex items-start justify-between gap-3">
@@ -140,5 +154,11 @@ export function RefundRequestActionCard({ request }: RefundRequestActionCardProp
         </div>
       </div>
     </div>
+
+    <InsufficientFundraiserFundsAlert
+      open={insufficientFundsOpen}
+      onOpenChange={setInsufficientFundsOpen}
+    />
+    </>
   );
 }

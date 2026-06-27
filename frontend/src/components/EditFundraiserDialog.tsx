@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,6 +16,11 @@ import { Label } from "@/components/ui/label";
 import { updateFundraiserDetails } from "@/features/fundraisers/api/update-fundraiser-details";
 import { updateFundraiserGoal } from "@/features/fundraisers/api/update-fundraiser-goal";
 import type { FundraiserResponseDTO } from "@/features/fundraisers/api/types";
+import {
+  formatPolishDate,
+  getFundraiserDateRangeError,
+  toDateInputValue,
+} from "@/features/fundraisers/lib/fundraiser-dates";
 
 const fundraiserInputClassName =
   "h-10 border-0 bg-muted text-base shadow-none focus-visible:border-0 focus-visible:ring-0 md:text-base";
@@ -24,12 +29,18 @@ type FundraiserForm = {
   title: string;
   description: string;
   goalAmount: string;
+  perChildAmount: string;
+  startedAt: string;
+  endsBy: string;
 };
 
 const fieldLabels: Record<keyof FundraiserForm, string> = {
   title: "Cel zbiórki",
   description: "Opis",
   goalAmount: "Kwota docelowa",
+  perChildAmount: "Kwota na dziecko",
+  startedAt: "Data startu",
+  endsBy: "Data końca",
 };
 
 interface EditFundraiserDialogProps {
@@ -46,6 +57,17 @@ function formatMoney(amount: number | null | undefined): string {
   }).format(amount ?? 0);
 }
 
+function buildInitialForm(fundraiser: FundraiserResponseDTO): FundraiserForm {
+  return {
+    title: fundraiser.title,
+    description: fundraiser.description ?? "",
+    goalAmount: String(fundraiser.goalAmount),
+    perChildAmount: String(fundraiser.perChildAmount ?? ""),
+    startedAt: toDateInputValue(fundraiser.startedAt),
+    endsBy: toDateInputValue(fundraiser.endsBy),
+  };
+}
+
 function getChangedFields(
   values: FundraiserForm,
   fundraiser: FundraiserResponseDTO,
@@ -59,8 +81,23 @@ function getChangedFields(
         );
       }
 
+      if (field === "perChildAmount") {
+        return (
+          fundraiser.fundraiserType === "PER_CHILD_GOAL" &&
+          values.perChildAmount !== String(fundraiser.perChildAmount ?? "")
+        );
+      }
+
       if (field === "description") {
         return values.description !== (fundraiser.description ?? "");
+      }
+
+      if (field === "startedAt") {
+        return values.startedAt !== toDateInputValue(fundraiser.startedAt);
+      }
+
+      if (field === "endsBy") {
+        return values.endsBy !== toDateInputValue(fundraiser.endsBy);
       }
 
       return values[field] !== fundraiser[field];
@@ -71,13 +108,25 @@ function getChangedFields(
       from:
         field === "goalAmount"
           ? formatMoney(fundraiser.goalAmount)
-          : field === "description"
-            ? fundraiser.description || "—"
-            : fundraiser.title,
+          : field === "perChildAmount"
+            ? formatMoney(fundraiser.perChildAmount)
+            : field === "description"
+              ? fundraiser.description || "—"
+              : field === "startedAt" || field === "endsBy"
+                ? formatPolishDate(
+                    field === "startedAt"
+                      ? fundraiser.startedAt
+                      : fundraiser.endsBy,
+                  )
+                : fundraiser.title,
       to:
         field === "goalAmount"
           ? formatMoney(Number(values.goalAmount))
-          : values[field] || "—",
+          : field === "perChildAmount"
+            ? formatMoney(Number(values.perChildAmount))
+            : field === "startedAt" || field === "endsBy"
+              ? formatPolishDate(values[field] || null)
+              : values[field] || "—",
     }));
 }
 
@@ -87,21 +136,40 @@ export function EditFundraiserDialog({
   onOpenChange,
   onUpdate,
 }: EditFundraiserDialogProps) {
-  const [title, setTitle] = useState(fundraiser.title);
-  const [description, setDescription] = useState(fundraiser.description ?? "");
-  const [goalAmount, setGoalAmount] = useState(String(fundraiser.goalAmount));
+  const initialForm = buildInitialForm(fundraiser);
+  const [title, setTitle] = useState(initialForm.title);
+  const [description, setDescription] = useState(initialForm.description);
+  const [goalAmount, setGoalAmount] = useState(initialForm.goalAmount);
+  const [perChildAmount, setPerChildAmount] = useState(initialForm.perChildAmount);
+  const [startedAt, setStartedAt] = useState(initialForm.startedAt);
+  const [endsBy, setEndsBy] = useState(initialForm.endsBy);
   const [formError, setFormError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
-  const values: FundraiserForm = { title, description, goalAmount };
+  const values: FundraiserForm = {
+    title,
+    description,
+    goalAmount,
+    perChildAmount,
+    startedAt,
+    endsBy,
+  };
   const changedFields = getChangedFields(values, fundraiser);
   const hasChanges = changedFields.length > 0;
+  const dateRangeError = useMemo(
+    () => getFundraiserDateRangeError(startedAt, endsBy),
+    [startedAt, endsBy],
+  );
 
   const resetForm = () => {
-    setTitle(fundraiser.title);
-    setDescription(fundraiser.description ?? "");
-    setGoalAmount(String(fundraiser.goalAmount));
+    const nextForm = buildInitialForm(fundraiser);
+    setTitle(nextForm.title);
+    setDescription(nextForm.description);
+    setGoalAmount(nextForm.goalAmount);
+    setPerChildAmount(nextForm.perChildAmount);
+    setStartedAt(nextForm.startedAt);
+    setEndsBy(nextForm.endsBy);
     setFormError(null);
     setConfirmError(null);
   };
@@ -116,29 +184,45 @@ export function EditFundraiserDialog({
 
   const { mutate, isPending } = useMutation({
     mutationFn: async () => {
+      const rangeError = getFundraiserDateRangeError(startedAt, endsBy);
+      if (rangeError) {
+        throw new Error(rangeError);
+      }
+
       let updated = fundraiser;
       const detailsChanged =
         title.trim() !== fundraiser.title ||
-        description.trim() !== (fundraiser.description ?? "");
+        description.trim() !== (fundraiser.description ?? "") ||
+        startedAt !== toDateInputValue(fundraiser.startedAt) ||
+        endsBy !== toDateInputValue(fundraiser.endsBy);
       const goalChanged =
         fundraiser.fundraiserType === "TOTAL_GOAL" &&
         goalAmount !== String(fundraiser.goalAmount);
+      const perChildChanged =
+        fundraiser.fundraiserType === "PER_CHILD_GOAL" &&
+        perChildAmount !== String(fundraiser.perChildAmount ?? "");
 
       if (detailsChanged) {
         updated = await updateFundraiserDetails(fundraiser.id, {
           title: title.trim(),
           description: description.trim() || undefined,
+          startedAt: startedAt || undefined,
+          endsBy: endsBy || undefined,
         });
       }
 
-      if (goalChanged) {
-        const parsedGoal = Number(goalAmount.replace(",", "."));
-        if (Number.isNaN(parsedGoal) || parsedGoal < 0) {
-          throw new Error("Podaj prawidłową kwotę docelową.");
+      if (goalChanged || perChildChanged) {
+        const amountValue =
+          fundraiser.fundraiserType === "TOTAL_GOAL"
+            ? goalAmount
+            : perChildAmount;
+        const parsedAmount = Number(amountValue.replace(",", "."));
+        if (Number.isNaN(parsedAmount) || parsedAmount < 0) {
+          throw new Error("Podaj prawidłową kwotę.");
         }
 
         updated = await updateFundraiserGoal(fundraiser.id, {
-          newGoalAmount: parsedGoal,
+          newGoalAmount: parsedAmount,
         });
       }
 
@@ -180,6 +264,11 @@ export function EditFundraiserDialog({
   const handleSubmitClick = () => {
     if (!title.trim()) {
       setFormError("Podaj cel zbiórki.");
+      return;
+    }
+
+    if (dateRangeError) {
+      setFormError(dateRangeError);
       return;
     }
 
@@ -228,7 +317,7 @@ export function EditFundraiserDialog({
                   />
                 </div>
 
-                {fundraiser.fundraiserType === "TOTAL_GOAL" && (
+                {fundraiser.fundraiserType === "TOTAL_GOAL" ? (
                   <div className="space-y-2">
                     <Label htmlFor="edit-fundraiser-goal">
                       Kwota docelowa (PLN)
@@ -244,9 +333,58 @@ export function EditFundraiserDialog({
                       disabled={isPending}
                     />
                   </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-fundraiser-per-child">
+                      Kwota na dziecko (PLN)
+                    </Label>
+                    <Input
+                      id="edit-fundraiser-per-child"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={perChildAmount}
+                      onChange={(event) => setPerChildAmount(event.target.value)}
+                      className={fundraiserInputClassName}
+                      disabled={isPending}
+                    />
+                  </div>
                 )}
 
-                {formError && (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-fundraiser-started-at">
+                      Data startu
+                    </Label>
+                    <Input
+                      id="edit-fundraiser-started-at"
+                      type="date"
+                      value={startedAt}
+                      max={endsBy || undefined}
+                      onChange={(event) => setStartedAt(event.target.value)}
+                      className={fundraiserInputClassName}
+                      disabled={isPending}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-fundraiser-ends-by">Data końca</Label>
+                    <Input
+                      id="edit-fundraiser-ends-by"
+                      type="date"
+                      value={endsBy}
+                      min={startedAt || undefined}
+                      onChange={(event) => setEndsBy(event.target.value)}
+                      className={fundraiserInputClassName}
+                      disabled={isPending}
+                    />
+                  </div>
+                </div>
+
+                {dateRangeError && (
+                  <p className="text-sm text-destructive">{dateRangeError}</p>
+                )}
+
+                {formError && !dateRangeError && (
                   <p className="text-sm text-destructive">{formError}</p>
                 )}
               </div>
@@ -255,7 +393,7 @@ export function EditFundraiserDialog({
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isPending}>Anuluj</AlertDialogCancel>
             <AlertDialogAction
-              disabled={isPending}
+              disabled={isPending || Boolean(dateRangeError)}
               onClick={(event) => {
                 event.preventDefault();
                 handleSubmitClick();

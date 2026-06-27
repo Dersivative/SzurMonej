@@ -8,6 +8,7 @@ import { UserRoute } from "@/shared/components/UserRoute";
 import { ApplicationsPage } from "@/app/pages/ApplicationsPage";
 import { DashboardPage } from "@/app/pages/DashboardPage";
 import { LoginPage } from "@/app/pages/LoginPage";
+import { RegistrationPage } from "@/app/pages/RegistrationPage";
 import { AccountPage } from "./pages/AccountPage";
 import { AdminPage } from "./pages/AdminPage";
 import { AdminClassApplicationsPage } from "./pages/admin/AdminClassApplicationsPage";
@@ -31,6 +32,10 @@ export const router = createBrowserRouter([
       {
         path: "/login",
         element: <LoginPage />,
+      },
+      {
+        path: "/register",
+        element: <RegistrationPage />,
       },
       {
         path: "/enroll/:token",

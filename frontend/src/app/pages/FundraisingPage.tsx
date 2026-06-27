@@ -21,12 +21,35 @@ import {
 } from "@/lib/nav-link";
 import { cn } from "@/lib/utils";
 
-type FundraisingTab = "aktywne" | "oczekujace";
+type FundraisingTab = "aktywne" | "rozliczenie" | "oczekujace" | "zakonczone";
 
 const fundraisingTabs = [
   { id: "aktywne" as const, label: "Aktywne" },
+  { id: "rozliczenie" as const, label: "Rozliczenie" },
   { id: "oczekujace" as const, label: "Oczekujące" },
+  { id: "zakonczone" as const, label: "Zakończone" },
 ];
+
+function sortFundraisersByStartedAt(
+  fundraisers: FundraiserResponseDTO[],
+): FundraiserResponseDTO[] {
+  return [...fundraisers].sort((left, right) =>
+    right.startedAt.localeCompare(left.startedAt),
+  );
+}
+
+function getEmptyMessage(tab: FundraisingTab): string {
+  switch (tab) {
+    case "aktywne":
+      return "Nie masz jeszcze żadnych aktywnych zbiórek.";
+    case "rozliczenie":
+      return "Brak zbiórek w trakcie rozliczania.";
+    case "oczekujace":
+      return "Brak zbiórek oczekujących na zatwierdzenie.";
+    case "zakonczone":
+      return "Brak zakończonych zbiórek.";
+  }
+}
 
 function isFundraiserTreasurer(
   fundraiser: FundraiserResponseDTO,
@@ -83,10 +106,26 @@ export function FundraisingPage() {
     [availableClasses],
   );
 
-  const sortedFundraisers = useMemo(
+  const activeFundraisers = useMemo(
     () =>
-      [...fundraisers].sort((left, right) =>
-        right.startedAt.localeCompare(left.startedAt),
+      sortFundraisersByStartedAt(
+        fundraisers.filter((fundraiser) => fundraiser.status === "ACTIVE"),
+      ),
+    [fundraisers],
+  );
+
+  const reconcilingFundraisers = useMemo(
+    () =>
+      sortFundraisersByStartedAt(
+        fundraisers.filter((fundraiser) => fundraiser.status === "RECONCILING"),
+      ),
+    [fundraisers],
+  );
+
+  const finishedFundraisers = useMemo(
+    () =>
+      sortFundraisersByStartedAt(
+        fundraisers.filter((fundraiser) => fundraiser.status === "FINISHED"),
       ),
     [fundraisers],
   );
@@ -99,10 +138,19 @@ export function FundraisingPage() {
     [pendingApplications],
   );
 
-  const visibleItemCount =
+  const visibleFundraisers =
     activeTab === "aktywne"
-      ? sortedFundraisers.length
-      : sortedPendingApplications.length;
+      ? activeFundraisers
+      : activeTab === "rozliczenie"
+        ? reconcilingFundraisers
+        : activeTab === "zakonczone"
+          ? finishedFundraisers
+          : [];
+
+  const visibleItemCount =
+    activeTab === "oczekujace"
+      ? sortedPendingApplications.length
+      : visibleFundraisers.length;
 
   const handleFundraiserUpdate = (updatedFundraiser: FundraiserResponseDTO) => {
     queryClient.setQueryData<MyFundraisersResult>(
@@ -180,9 +228,7 @@ export function FundraisingPage() {
 
           {isEmpty && (
             <p className="text-sm text-muted-foreground">
-              {activeTab === "aktywne"
-                ? "Nie masz jeszcze żadnych aktywnych zbiórek."
-                : "Brak zbiórek oczekujących na zatwierdzenie."}
+              {getEmptyMessage(activeTab)}
             </p>
           )}
 
@@ -193,16 +239,8 @@ export function FundraisingPage() {
                 visibleItemCount > 1 && "lg:grid-cols-2",
               )}
             >
-              {activeTab === "aktywne"
-                ? sortedFundraisers.map((fundraiser) => (
-                    <FundraisingCard
-                      key={fundraiser.id}
-                      fundraiser={fundraiser}
-                      isTreasurer={isFundraiserTreasurer(fundraiser, user?.id)}
-                      onUpdate={handleFundraiserUpdate}
-                    />
-                  ))
-                : sortedPendingApplications.map((application) =>
+              {activeTab === "oczekujace"
+                ? sortedPendingApplications.map((application) =>
                     isApplicationTreasurer(application, treasurerClassIds) ? (
                       <FundraiserApplicationCard
                         key={application.id}
@@ -215,7 +253,15 @@ export function FundraisingPage() {
                         application={application}
                       />
                     ),
-                  )}
+                  )
+                : visibleFundraisers.map((fundraiser) => (
+                    <FundraisingCard
+                      key={fundraiser.id}
+                      fundraiser={fundraiser}
+                      isTreasurer={isFundraiserTreasurer(fundraiser, user?.id)}
+                      onUpdate={handleFundraiserUpdate}
+                    />
+                  ))}
             </div>
           )}
         </CardContent>

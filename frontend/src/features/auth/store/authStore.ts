@@ -10,6 +10,8 @@ export interface User {
   lastName: string;
   role: UserRole;
   balance: number | null;
+  accountNumber: string | null;
+  bankAccountNumber: string | null;
 }
 
 interface AuthState {

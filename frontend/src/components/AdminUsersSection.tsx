@@ -4,27 +4,60 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { removeClassMembership } from "@/features/classes/api/remove-class-membership";
+import { approveUser } from "@/features/users/api/approve-user";
 import { archiveChild } from "@/features/users/api/archive-child";
+import { fetchUnapprovedUsers } from "@/features/users/api/get-unapproved-users";
 import { fetchAllUsersWithChildren } from "@/features/users/api/get-users-all";
 import type { ChildResponseDTO } from "@/features/users/api/types";
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (isAxiosError(error)) {
-    const message = error.response?.data;
-    if (typeof message === "string" && message.length > 0) {
-      return message;
+    const data = error.response?.data;
+    if (typeof data === "string" && data.length > 0) {
+      return data;
+    }
+    if (data && typeof data === "object") {
+      const message = (data as { message?: string }).message;
+      if (typeof message === "string" && message.length > 0) {
+        return message;
+      }
     }
   }
   return fallback;
 }
 
+function getUserDisplayName(user: {
+  fullName?: string;
+  firstName?: string;
+  lastName?: string;
+  email: string;
+}): string {
+  if (user.fullName?.trim()) {
+    return user.fullName;
+  }
+
+  const name = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
+  return name || user.email;
+}
+
 export function AdminUsersSection() {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  const [approvalError, setApprovalError] = useState<string | null>(null);
   const [removingMembershipId, setRemovingMembershipId] = useState<number | null>(
     null,
   );
   const [archivingChildId, setArchivingChildId] = useState<number | null>(null);
+  const [approvingUserId, setApprovingUserId] = useState<number | null>(null);
+
+  const {
+    data: unapprovedUsers = [],
+    isLoading: isLoadingUnapproved,
+    isError: isUnapprovedError,
+  } = useQuery({
+    queryKey: ["unapproved-users"],
+    queryFn: fetchUnapprovedUsers,
+  });
 
   const {
     data: users = [],
@@ -50,6 +83,22 @@ export function AdminUsersSection() {
         getErrorMessage(mutationError, "Nie udało się usunąć dziecka z klasy."),
       );
       setRemovingMembershipId(null);
+    },
+  });
+
+  const { mutate: approveUserMutation, isPending: isApproving } = useMutation({
+    mutationFn: (userId: number) => approveUser(userId),
+    onSuccess: () => {
+      setApprovalError(null);
+      setApprovingUserId(null);
+      queryClient.invalidateQueries({ queryKey: ["unapproved-users"] });
+      queryClient.invalidateQueries({ queryKey: ["all-users-with-children"] });
+    },
+    onError: (mutationError) => {
+      setApprovalError(
+        getErrorMessage(mutationError, "Nie udało się zaakceptować użytkownika."),
+      );
+      setApprovingUserId(null);
     },
   });
 
@@ -82,6 +131,12 @@ export function AdminUsersSection() {
     removeFromClass(child.membershipId);
   };
 
+  const handleApprove = (userId: number) => {
+    setApprovalError(null);
+    setApprovingUserId(userId);
+    approveUserMutation(userId);
+  };
+
   const handleArchive = (child: ChildResponseDTO) => {
     if (child.schoolClassId != null) {
       setError("Usuń dziecko z klasy przed archiwizacją.");
@@ -100,11 +155,66 @@ export function AdminUsersSection() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Użytkownicy i dzieci</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Niezaakceptowani użytkownicy</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isLoadingUnapproved && (
+            <p className="text-sm text-muted-foreground">
+              Ładowanie oczekujących kont...
+            </p>
+          )}
+
+          {isUnapprovedError && (
+            <p className="text-sm text-destructive">
+              Nie udało się pobrać listy niezaakceptowanych użytkowników.
+            </p>
+          )}
+
+          {!isLoadingUnapproved &&
+            !isUnapprovedError &&
+            unapprovedUsers.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Brak kont oczekujących na akceptację.
+              </p>
+            )}
+
+          {!isLoadingUnapproved &&
+            !isUnapprovedError &&
+            unapprovedUsers.map((user) => (
+              <div
+                key={user.id}
+                className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p className="font-semibold">{getUserDisplayName(user)}</p>
+                  <p className="text-sm text-muted-foreground">{user.email}</p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={isApproving && approvingUserId === user.id}
+                  onClick={() => handleApprove(user.id)}
+                >
+                  {isApproving && approvingUserId === user.id
+                    ? "Akceptowanie..."
+                    : "Akceptuj"}
+                </Button>
+              </div>
+            ))}
+          {approvalError && (
+            <p className="text-sm text-destructive">{approvalError}</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Użytkownicy i dzieci</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
         {isLoading && (
           <p className="text-sm text-muted-foreground">Ładowanie użytkowników...</p>
         )}
@@ -190,7 +300,8 @@ export function AdminUsersSection() {
           ))}
 
         {error && <p className="text-sm text-destructive">{error}</p>}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

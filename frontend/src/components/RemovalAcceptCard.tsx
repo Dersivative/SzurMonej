@@ -1,12 +1,17 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
 import { useState } from "react";
+import { InsufficientFundraiserFundsAlert } from "@/components/InsufficientFundraiserFundsAlert";
 import { RemoveChildFromClassDialog } from "@/components/RemoveChildFromClassDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { TreasurerPendingRemovalItem } from "@/features/classes/api/get-treasurer-pending-removals";
 import { removeClassMembership } from "@/features/classes/api/remove-class-membership";
 import { approveRefundRequest } from "@/features/fundraisers/api/approve-refund-request";
+import {
+  getRefundApprovalErrorMessage,
+  isInsufficientFundraiserFundsError,
+} from "@/features/fundraisers/lib/refund-approval-error";
 
 interface RemovalAcceptCardProps {
   item: TreasurerPendingRemovalItem;
@@ -34,6 +39,7 @@ export function RemovalAcceptCard({ item }: RemovalAcceptCardProps) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
+  const [insufficientFundsOpen, setInsufficientFundsOpen] = useState(false);
 
   const invalidateQueries = () => {
     queryClient.invalidateQueries({
@@ -56,8 +62,15 @@ export function RemovalAcceptCard({ item }: RemovalAcceptCardProps) {
       invalidateQueries();
     },
     onError: (mutationError) => {
+      if (isInsufficientFundraiserFundsError(mutationError)) {
+        setInsufficientFundsOpen(true);
+        return;
+      }
       setError(
-        getErrorMessage(mutationError, "Nie udało się zatwierdzić zwrotu."),
+        getRefundApprovalErrorMessage(
+          mutationError,
+          "Nie udało się zatwierdzić zwrotu.",
+        ),
       );
     },
   });
@@ -158,6 +171,11 @@ export function RemovalAcceptCard({ item }: RemovalAcceptCardProps) {
         isPending={isFinalizing}
         action="finalize"
         onConfirm={() => finalizeRemoval()}
+      />
+
+      <InsufficientFundraiserFundsAlert
+        open={insufficientFundsOpen}
+        onOpenChange={setInsufficientFundsOpen}
       />
     </>
   );

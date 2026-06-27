@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { isAxiosError } from "axios";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { InsufficientFundraiserFundsAlert } from "@/components/InsufficientFundraiserFundsAlert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,11 +15,26 @@ import {
 } from "@/components/ui/alert-dialog";
 import { formatMoney } from "@/features/finance/lib/format-money";
 import { approveRefundRequest } from "@/features/fundraisers/api/approve-refund-request";
+import {
+  downloadAttachment,
+  previewAttachment,
+} from "@/features/fundraisers/api/download-attachment";
 import { fetchFundraiserDetails } from "@/features/fundraisers/api/get-fundraiser-details";
 import { fetchPendingRefundRequests } from "@/features/fundraisers/api/get-pending-refund-requests";
 import { rejectRefundRequest } from "@/features/fundraisers/api/reject-refund-request";
+import { uploadAttachment } from "@/features/fundraisers/api/upload-attachment";
 import type { FundraiserHistoryEntryDTO } from "@/features/fundraisers/api/types-history";
 import type { RefundRequestResponseDTO } from "@/features/fundraisers/api/types-refund";
+import {
+  getFundraiserAvailableBalance,
+  getTotalTreasurerWithdrawnAmount,
+  isTreasurerWithdrawalEntry,
+} from "@/features/fundraisers/lib/fundraiser-history";
+import { formatFundraiserHistoryDescription } from "@/features/fundraisers/lib/history-description";
+import {
+  getRefundApprovalErrorMessage,
+  isInsufficientFundraiserFundsError,
+} from "@/features/fundraisers/lib/refund-approval-error";
 import { fetchMyChildren } from "@/features/users/api/get-my-children";
 
 interface FundraiserPaymentsDialogProps {
@@ -105,7 +121,15 @@ export function FundraiserPaymentsDialog({
   onOpenChange,
 }: FundraiserPaymentsDialogProps) {
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [insufficientFundsOpen, setInsufficientFundsOpen] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [previewingId, setPreviewingId] = useState<number | null>(null);
+  const [uploadingId, setUploadingId] = useState<number | null>(null);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(
+    null,
+  );
 
   const {
     data: fundraiserDetails,
@@ -157,6 +181,80 @@ export function FundraiserPaymentsDialog({
     return [...history].sort((left, right) => right.date.localeCompare(left.date));
   }, [fundraiserDetails?.history]);
 
+  const collectedAmount = fundraiserDetails?.currentAmount ?? 0;
+  const withdrawnAmount = useMemo(
+    () => getTotalTreasurerWithdrawnAmount(fundraiserDetails?.history ?? []),
+    [fundraiserDetails?.history],
+  );
+  const availableBalance = useMemo(
+    () => getFundraiserAvailableBalance(fundraiserDetails?.history ?? []),
+    [fundraiserDetails?.history],
+  );
+
+  const invalidateDetails = () => {
+    queryClient.invalidateQueries({
+      queryKey: ["fundraiser-details", fundraiserId],
+    });
+    queryClient.invalidateQueries({ queryKey: ["my-fundraisers"] });
+    queryClient.invalidateQueries({ queryKey: ["all-fundraisers"] });
+  };
+
+  const downloadMutation = useMutation({
+    mutationFn: (historyId: number) => downloadAttachment(historyId),
+    onMutate: (historyId) => {
+      setDownloadingId(historyId);
+      setError(null);
+    },
+    onSettled: () => {
+      setDownloadingId(null);
+    },
+    onError: (mutationError) => {
+      setError(
+        getErrorMessage(mutationError, "Nie udało się pobrać pliku."),
+      );
+    },
+  });
+
+  const previewMutation = useMutation({
+    mutationFn: (historyId: number) => previewAttachment(historyId),
+    onMutate: (historyId) => {
+      setPreviewingId(historyId);
+      setError(null);
+    },
+    onSettled: () => {
+      setPreviewingId(null);
+    },
+    onError: (mutationError) => {
+      setError(
+        getErrorMessage(mutationError, "Nie udało się otworzyć podglądu pliku."),
+      );
+    },
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: ({ historyId, file }: { historyId: number; file: File }) =>
+      uploadAttachment(historyId, file),
+    onMutate: ({ historyId }) => {
+      setUploadingId(historyId);
+      setError(null);
+    },
+    onSuccess: () => {
+      invalidateDetails();
+    },
+    onSettled: () => {
+      setUploadingId(null);
+      setSelectedHistoryId(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    },
+    onError: (mutationError) => {
+      setError(
+        getErrorMessage(mutationError, "Nie udało się wgrać pliku."),
+      );
+    },
+  });
+
   const { mutate: approveRefund, isPending: isApproving } = useMutation({
     mutationFn: (requestId: number) => approveRefundRequest(requestId),
     onSuccess: () => {
@@ -164,8 +262,15 @@ export function FundraiserPaymentsDialog({
       invalidateAfterRefund(queryClient, fundraiserId);
     },
     onError: (mutationError) => {
+      if (isInsufficientFundraiserFundsError(mutationError)) {
+        setInsufficientFundsOpen(true);
+        return;
+      }
       setError(
-        getErrorMessage(mutationError, "Nie udało się zatwierdzić zwrotu."),
+        getRefundApprovalErrorMessage(
+          mutationError,
+          "Nie udało się zatwierdzić zwrotu.",
+        ),
       );
     },
   });
@@ -183,13 +288,33 @@ export function FundraiserPaymentsDialog({
     },
   });
 
-  const isActionPending = isApproving || isRejecting;
+  const isActionPending =
+    isApproving ||
+    isRejecting ||
+    downloadMutation.isPending ||
+    previewMutation.isPending ||
+    uploadMutation.isPending;
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
       setError(null);
+      setSelectedHistoryId(null);
     }
     onOpenChange(nextOpen);
+  };
+
+  const handlePickFile = (historyId: number) => {
+    setSelectedHistoryId(historyId);
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || selectedHistoryId == null) {
+      return;
+    }
+
+    uploadMutation.mutate({ historyId: selectedHistoryId, file });
   };
 
   const isLoading = isDetailsLoading || isRefundsLoading || isMyChildrenLoading;
@@ -198,6 +323,14 @@ export function FundraiserPaymentsDialog({
     visiblePendingRefunds.length > 0 || sortedHistory.length > 0;
 
   return (
+    <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogContent className="sm:max-w-lg">
         <AlertDialogHeader className="w-full sm:place-items-stretch">
@@ -212,6 +345,29 @@ export function FundraiserPaymentsDialog({
                 <p className="text-sm text-destructive">
                   Nie udało się pobrać listy wpłat.
                 </p>
+              )}
+
+              {!isLoading && !isError && fundraiserDetails && (
+                <div className="grid gap-3 rounded-lg border bg-muted/40 p-3 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Zebrano</p>
+                    <p className="text-base font-semibold">
+                      {formatMoney(collectedAmount)}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Wypłacono</p>
+                    <p className="text-base font-semibold">
+                      {formatMoney(withdrawnAmount)}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Zostało</p>
+                    <p className="text-base font-semibold">
+                      {formatMoney(availableBalance)}
+                    </p>
+                  </div>
+                </div>
               )}
 
               {!isLoading && !isError && !hasContent && (
@@ -236,6 +392,13 @@ export function FundraiserPaymentsDialog({
                     <PaymentHistoryRow
                       key={`${entry.type}-${entry.id}`}
                       entry={entry}
+                      isTreasurer={isTreasurer}
+                      isDownloading={downloadingId === entry.id}
+                      isPreviewing={previewingId === entry.id}
+                      isUploading={uploadingId === entry.id}
+                      onDownload={() => downloadMutation.mutate(entry.id)}
+                      onPreview={() => previewMutation.mutate(entry.id)}
+                      onPickFile={() => handlePickFile(entry.id)}
                     />
                   ))}
                 </ul>
@@ -251,6 +414,12 @@ export function FundraiserPaymentsDialog({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    <InsufficientFundraiserFundsAlert
+      open={insufficientFundsOpen}
+      onOpenChange={setInsufficientFundsOpen}
+    />
+    </>
   );
 }
 
@@ -316,22 +485,80 @@ function PendingRefundRow({
 
 interface PaymentHistoryRowProps {
   entry: FundraiserHistoryEntryDTO;
+  isTreasurer: boolean;
+  isDownloading: boolean;
+  isPreviewing: boolean;
+  isUploading: boolean;
+  onDownload: () => void;
+  onPreview: () => void;
+  onPickFile: () => void;
 }
 
-function PaymentHistoryRow({ entry }: PaymentHistoryRowProps) {
+function PaymentHistoryRow({
+  entry,
+  isTreasurer,
+  isDownloading,
+  isPreviewing,
+  isUploading,
+  onDownload,
+  onPreview,
+  onPickFile,
+}: PaymentHistoryRowProps) {
   const partyLabel = getPartyLabel(entry);
+  const showAttachmentActions = isTreasurerWithdrawalEntry(entry);
+  const isAttachmentActionPending = isDownloading || isPreviewing || isUploading;
 
   return (
     <li className="flex w-full flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 flex-1 space-y-1">
         <p className="text-sm font-medium">{entry.type}</p>
-        <p className="text-sm text-muted-foreground">{entry.description}</p>
+        <p className="text-sm text-muted-foreground">
+          {formatFundraiserHistoryDescription(entry.description)}
+        </p>
         {partyLabel && (
           <p className="text-xs text-muted-foreground">{partyLabel}</p>
         )}
         <p className="text-xs text-muted-foreground">
           {formatDateTime(entry.date)}
         </p>
+        {showAttachmentActions && (
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            {entry.hasAttachment ? (
+              <>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={isAttachmentActionPending}
+                  onClick={onPreview}
+                >
+                  {isPreviewing ? "Otwieranie..." : "Podgląd"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={isAttachmentActionPending}
+                  onClick={onDownload}
+                >
+                  {isDownloading ? "Pobieranie..." : "Pobierz"}
+                </Button>
+              </>
+            ) : isTreasurer ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={isAttachmentActionPending}
+                onClick={onPickFile}
+              >
+                {isUploading ? "Wgrywanie..." : "Wybierz plik"}
+              </Button>
+            ) : (
+              <span className="text-xs text-muted-foreground">Brak pliku</span>
+            )}
+          </div>
+        )}
       </div>
       <p className="shrink-0 text-sm font-semibold sm:text-right">
         {formatMoney(entry.amount)}
