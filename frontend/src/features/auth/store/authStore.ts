@@ -10,6 +10,7 @@ export interface User {
   lastName: string;
   role: UserRole;
   balance: number | null;
+  avatar?: string;
 }
 
 interface AuthState {

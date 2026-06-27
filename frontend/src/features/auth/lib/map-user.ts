@@ -10,5 +10,6 @@ export function mapUserResponse(dto: UserResponseDTO): User {
     lastName: dto.lastName,
     role: dto.admin ? "ADMIN" : "USER",
     balance: dto.balance ?? null,
+    avatar: dto.avatar,
   };
 }

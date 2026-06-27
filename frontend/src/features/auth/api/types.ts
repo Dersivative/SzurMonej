@@ -7,6 +7,7 @@ export interface UserResponseDTO {
   admin: boolean;
   balance?: number;
   accountNumber?: string;
+  avatar?: string;
 }
 
 export interface LoginRequestDTO {
