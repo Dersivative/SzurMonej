@@ -1,0 +1,28 @@
+@startuml
+title Aktywność — Zapis dziecka do klasy
+
+|Rodzic|
+start
+:Otrzymuje link zapisów\nod skarbnika;
+:Otwiera /enroll/:token;
+:System pokazuje klasę\ni listę dzieci bez klasy;
+
+:Wybiera dziecko;
+:Wysyła prośbę o zapis;
+:System zapisuje wniosek\n(status: oczekujący);
+
+:Sprawdza status\nna /app/applications;
+
+|Skarbnik|
+:Rozpatruje wniosek\n(moduł skarbnika 03);
+
+|Rodzic|
+if (Zaakceptowany?) then (tak)
+  :Dziecko pojawia się w klasie;
+else (nie)
+  :Wniosek odrzucony;
+endif
+
+stop
+
+@enduml

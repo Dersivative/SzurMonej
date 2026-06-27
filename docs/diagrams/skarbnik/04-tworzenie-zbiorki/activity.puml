@@ -1,0 +1,21 @@
+@startuml
+title Aktywność — Tworzenie zbiórki
+
+|Skarbnik|
+start
+:Przechodzi do /app/fundraisers;
+:Klika „Utwórz zbiórkę”;
+:Wybiera swoją klasę;
+
+:Podaje nazwę i opis;
+:Ustawia cel i typ\n(TOTAL_GOAL / PER_CHILD_GOAL);
+:Wybiera uczestników z klasy;
+
+:Zatwierdza formularz;
+:System tworzy zbiórkę\n(status: ACTIVE);
+
+:Zbiórka widoczna\nna liście aktywnych;
+
+stop
+
+@enduml

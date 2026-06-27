@@ -1,0 +1,28 @@
+@startuml
+title Aktywność — Wniosek o zbiórkę
+
+|Rodzic|
+start
+:Przechodzi do /app/fundraisers;
+:Klika „Utwórz zbiórkę”;
+:Wybiera klasę (tryb rodzica);
+:Wypełnia nazwę, cel i typ zbiórki;
+:Składa wniosek;
+
+:System zapisuje wniosek\n(status: oczekujący);
+
+:Sprawdza status\nna /app/applications;
+
+|Skarbnik|
+:Rozpatruje wniosek\n(moduł skarbnika 05);
+
+|Rodzic|
+if (Zaakceptowany?) then (tak)
+  :Zbiórka pojawia się jako ACTIVE;
+else (nie)
+  :Wniosek odrzucony;
+endif
+
+stop
+
+@enduml

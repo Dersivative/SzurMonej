@@ -1,0 +1,19 @@
+@startuml
+left to right direction
+title Moduł: Link zapisów
+
+actor "Skarbnik" as Treasurer
+
+rectangle "Link zapisów" {
+  usecase "Generowanie linku\nzapisów" as UC1
+  usecase "Dezaktywacja linku" as UC2
+  usecase "Udostępnienie linku\nrodzicom" as UC3
+}
+
+Treasurer --> UC1
+Treasurer --> UC2
+Treasurer --> UC3
+
+UC3 ..> UC1 : <<include>>
+
+@enduml

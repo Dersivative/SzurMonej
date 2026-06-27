@@ -1,0 +1,35 @@
+@startuml
+title Aktywność — Zakończenie i rozliczenie zbiórki
+
+|Skarbnik|
+start
+:Otwiera aktywną zbiórkę ACTIVE;
+:Klika „Zakończ zbiórkę”;
+:System zmienia status\nna RECONCILING;
+
+|Rodzic|
+:Wpłaca zaległości\nlub składa wniosek o zwrot;
+
+|Skarbnik|
+:Otwiera dialog rozliczenia\n(FundraiserSettlementDialog);
+:Sprawdza salda uczestników;
+
+if (Wniosek o zwrot?) then (tak)
+  :Weryfikuje nadpłatę;
+  if (Zasadny?) then (tak)
+    :Zatwierdza zwrot;
+  else (nie)
+    :Odrzuca zwrot;
+  endif
+endif
+
+if (Wszyscy rozliczeni?) then (tak)
+  :Kończy rozliczenie;
+  :Status → FINISHED;
+else (nie)
+  :Oczekuje na wpłaty/zwroty;
+endif
+
+stop
+
+@enduml

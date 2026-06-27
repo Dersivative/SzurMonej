@@ -1,0 +1,21 @@
+@startuml
+title Aktywność — Link zapisów
+
+|Skarbnik|
+start
+:Otwiera kartę klasy\n(/app/classes);
+
+:Klika „Link do zapisów”;
+:System generuje token\ni URL /enroll/:token;
+
+:Kopiuje link;
+:Udostępnia rodzicom\n(e-mail, komunikator);
+
+if (Dezaktywacja?) then (tak)
+  :Wyłącza link zapisów;
+  :Nowe zgłoszenia niemożliwe;
+endif
+
+stop
+
+@enduml

@@ -1,0 +1,23 @@
+@startuml
+left to right direction
+title Moduł: Rejestracja i logowanie
+
+actor "Gość / Rodzic" as User
+actor "Administrator" as Admin
+
+rectangle "Rejestracja i logowanie" {
+  usecase "Rejestracja konta" as UC1
+  usecase "Logowanie" as UC2
+  usecase "Wylogowanie" as UC3
+  usecase "Zatwierdzenie konta\nprzez admina" as UC4
+}
+
+User --> UC1
+User --> UC2
+User --> UC3
+Admin --> UC4
+
+UC1 ..> UC4 : <<include>>
+UC1 ..> UC2 : <<include>>
+
+@enduml

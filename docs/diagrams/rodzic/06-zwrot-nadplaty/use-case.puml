@@ -1,0 +1,22 @@
+@startuml
+left to right direction
+title Moduł: Zwrot nadpłaty
+
+actor "Rodzic" as Parent
+actor "Skarbnik" as Treasurer
+
+rectangle "Zwrot nadpłaty (RECONCILING)" {
+  usecase "Wykrycie nadpłaty\nu uczestnika" as UC1
+  usecase "Złożenie wniosku o zwrot" as UC2
+  usecase "Śledzenie statusu zwrotu" as UC3
+  usecase "Rozpatrzenie zwrotu" as UC4
+}
+
+Parent --> UC1
+Parent --> UC2
+Parent --> UC3
+Treasurer --> UC4
+
+UC2 ..> UC1 : <<include>>
+
+@enduml

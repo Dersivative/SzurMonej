@@ -1,0 +1,23 @@
+@startuml
+left to right direction
+title Moduł: Zapis dziecka do klasy
+
+actor "Rodzic" as Parent
+actor "Skarbnik" as Treasurer
+
+rectangle "Zapis do klasy" {
+  usecase "Otwarcie linku zapisów" as UC1
+  usecase "Wybór dziecka\ni wysłanie wniosku" as UC2
+  usecase "Śledzenie statusu wniosku" as UC3
+  usecase "Rozpatrzenie zapisu" as UC4
+}
+
+Parent --> UC1
+Parent --> UC2
+Parent --> UC3
+Treasurer --> UC4
+
+UC2 ..> UC1 : <<include>>
+UC3 ..> UC2 : <<extend>>
+
+@enduml

@@ -1,0 +1,21 @@
+@startuml
+left to right direction
+title Moduł: Rozpatrywanie wypisania
+
+actor "Skarbnik" as Treasurer
+actor "Rodzic" as Parent
+
+rectangle "Rozpatrywanie wypisania" {
+  usecase "Podgląd wniosku\no wypisanie" as UC1
+  usecase "Weryfikacja rozliczenia\nzbiórek i zwrotów" as UC2
+  usecase "Zatwierdzenie wypisania" as UC3
+}
+
+Treasurer --> UC1
+Treasurer --> UC2
+Treasurer --> UC3
+Parent --> UC1 : <<złożył wniosek>>
+
+UC3 ..> UC2 : <<include>>
+
+@enduml

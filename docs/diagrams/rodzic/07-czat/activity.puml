@@ -1,0 +1,22 @@
+@startuml
+title Aktywność — Czat
+
+|Rodzic|
+start
+:Przechodzi do /app/chats;
+:System pokazuje czaty klasowe,\nzbiórkowe i bezpośrednie;
+
+:Wybiera wątek;
+:Przegląda historię wiadomości;
+
+:Wpisuje treść wiadomości;
+:Wysyła wiadomość;
+
+:System zapisuje wiadomość;
+:System odświeża listę\n(polling);
+
+:Odbiera odpowiedzi innych uczestników;
+
+stop
+
+@enduml

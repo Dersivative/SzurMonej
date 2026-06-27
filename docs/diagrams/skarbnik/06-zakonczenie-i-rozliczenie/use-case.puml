@@ -1,0 +1,22 @@
+@startuml
+left to right direction
+title Moduł: Zakończenie i rozliczenie zbiórki
+
+actor "Skarbnik" as Treasurer
+actor "Rodzic" as Parent
+
+rectangle "Zakończenie i rozliczenie" {
+  usecase "Zakończenie zbiórki\n(→ RECONCILING)" as UC1
+  usecase "Rozpatrzenie wniosków\no zwrot" as UC2
+  usecase "Zakończenie rozliczenia\n(→ FINISHED)" as UC3
+}
+
+Treasurer --> UC1
+Treasurer --> UC2
+Treasurer --> UC3
+Parent --> UC2 : <<składa wniosek>>
+
+UC1 ..> UC3 : <<include>>
+UC2 ..> UC3 : <<extend>>
+
+@enduml

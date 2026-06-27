@@ -1,0 +1,19 @@
+@startuml
+left to right direction
+title Moduł: Wpłata na zbiórkę
+
+actor "Rodzic" as Parent
+
+rectangle "Wpłata na zbiórkę (ACTIVE)" {
+  usecase "Wpłata środków\nna konto wirtualne" as UC1
+  usecase "Wpłata na zbiórkę\nza dziecko" as UC2
+  usecase "Podgląd historii wpłat" as UC3
+}
+
+Parent --> UC1
+Parent --> UC2
+Parent --> UC3
+
+UC2 ..> UC1 : <<extend>>
+
+@enduml

@@ -1,0 +1,27 @@
+@startuml
+title Aktywność — Rejestracja i logowanie
+
+|Rodzic|
+start
+:Otwiera /register;
+:Wypełnia e-mail i hasło;
+:Wysyła formularz rejestracji;
+:System tworzy konto\n(oczekuje na zatwierdzenie);
+
+|Administrator|
+:Zatwierdza konto\n(/admin/users);
+
+|Rodzic|
+:Przechodzi do /login;
+:Podaje e-mail i hasło;
+:System tworzy sesję (SESSION);
+:Przekierowanie do /app/dashboard;
+
+if (Wylogowanie?) then (tak)
+  :Klika wyloguj;
+  :System kończy sesję;
+endif
+
+stop
+
+@enduml

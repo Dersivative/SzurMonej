@@ -1,0 +1,25 @@
+@startuml
+title Aktywność — Rozpatrywanie wypisania
+
+|Rodzic|
+:Składa wniosek o wypisanie\n(moduł rodzica 08);
+
+|Skarbnik|
+start
+:Otrzymuje wniosek o wypisanie;
+:Otwiera /app/applications\nlub dialog Dzieci;
+
+:Sprawdza rozliczenie zbiórek\ndziecka w klasie;
+:Sprawdza oczekujące zwroty;
+
+if (Wszystko rozliczone?) then (tak)
+  :Zatwierdza wypisanie;
+  :Dziecko opuszcza klasę;
+else (nie)
+  :Odrzaca lub wstrzymuje;
+  :Informuje o zaległościach;
+endif
+
+stop
+
+@enduml

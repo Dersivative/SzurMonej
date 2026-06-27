@@ -1,0 +1,24 @@
+@startuml
+title Aktywność — Rozpatrywanie zapisów
+
+|Rodzic|
+:Wysyła wniosek o zapis\n(moduł rodzica 03);
+
+|Skarbnik|
+start
+:Otrzymuje powiadomienie\no nowym zapisie;
+:Otwiera /app/applications\nlub dialog Dzieci;
+
+:Przegląda dane dziecka\ni rodzica;
+
+if (Decyzja?) then (akceptacja)
+  :Zatwierdza zapis;
+  :Dziecko dołącza do klasy;
+else (odrzucenie)
+  :Odrzuca zgłoszenie;
+  :Rodzic widzi odrzucenie\nna /app/applications;
+endif
+
+stop
+
+@enduml

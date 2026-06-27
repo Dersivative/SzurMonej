@@ -1,0 +1,19 @@
+@startuml
+left to right direction
+title Moduł: Czat
+
+actor "Rodzic" as Parent
+
+rectangle "Czat (/app/chats)" {
+  usecase "Przegląd listy czatów" as UC1
+  usecase "Wysłanie wiadomości" as UC2
+  usecase "Odbiór wiadomości\n(polling)" as UC3
+}
+
+Parent --> UC1
+Parent --> UC2
+Parent --> UC3
+
+UC2 ..> UC1 : <<include>>
+
+@enduml

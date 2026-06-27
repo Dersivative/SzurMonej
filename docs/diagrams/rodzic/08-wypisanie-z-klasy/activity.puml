@@ -1,0 +1,27 @@
+@startuml
+title Aktywność — Wypisanie z klasy
+
+|Rodzic|
+start
+:Otwiera klasę dziecka\n(/app/classes);
+:Klika „Wypisz dziecko”;
+:Potwierdza wniosek o wypisanie;
+
+:System zapisuje wniosek\n(status: oczekujący);
+
+:Sprawdza status\nna /app/applications;
+
+|Skarbnik|
+:Weryfikuje rozliczenie zbiórek\ni oczekujące zwroty;
+:Rozpatruje wypisanie\n(moduł skarbnika 07);
+
+|Rodzic|
+if (Zaakceptowane?) then (tak)
+  :Dziecko opuszcza klasę;
+else (nie)
+  :Oczekiwanie na rozliczenie;
+endif
+
+stop
+
+@enduml

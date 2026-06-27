@@ -1,0 +1,26 @@
+@startuml
+title Aktywność — Zarządzanie kontem i dziećmi
+
+|Rodzic|
+start
+:Loguje się i przechodzi\ndo /app/account;
+
+if (Edycja profilu?) then (tak)
+  :Zmienia dane lub avatar;
+  :Zapisuje profil;
+else (nie)
+endif
+
+
+:Klika „Dodaj dziecko”;
+:Wypełnia imię i nazwisko;
+:Opcjonalnie dodaje avatar;
+:Zapisuje dziecko;
+
+:System dodaje dziecko\ndo konta rodzica;
+
+:Dziecko widoczne na pulpicie\ni w formularzach zapisu;
+
+stop
+
+@enduml

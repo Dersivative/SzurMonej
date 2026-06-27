@@ -1,0 +1,19 @@
+@startuml
+left to right direction
+title Moduł: Rozpatrywanie zapisów
+
+actor "Skarbnik" as Treasurer
+actor "Rodzic" as Parent
+
+rectangle "Rozpatrywanie zapisów" {
+  usecase "Podgląd oczekujących\nzapisów" as UC1
+  usecase "Akceptacja zapisu" as UC2
+  usecase "Odrzucenie zapisu" as UC3
+}
+
+Treasurer --> UC1
+Treasurer --> UC2
+Treasurer --> UC3
+Parent --> UC1 : <<złożył wniosek>>
+
+@enduml

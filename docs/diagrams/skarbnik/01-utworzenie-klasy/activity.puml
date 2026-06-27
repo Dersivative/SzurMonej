@@ -1,0 +1,27 @@
+@startuml
+title Aktywność — Utworzenie klasy i rola skarbnika
+
+|Rodzic|
+start
+:Składa wniosek o klasę\n(/app/classes);
+
+|Administrator|
+:Otwiera /admin/class-applications;
+:Przegląda szczegóły wniosku;
+
+if (Akceptuje?) then (tak)
+  :Zatwierdza wniosek;
+  :System tworzy klasę;
+  :Przypisuje wnioskodawcę\njako skarbnika;
+else (nie)
+  :Odrzuca wniosek;
+  stop
+endif
+
+|Skarbnik|
+:Klasa widoczna na /app/classes;
+:Może generować link zapisów\n(moduł 02);
+
+stop
+
+@enduml

@@ -1,0 +1,20 @@
+@startuml
+left to right direction
+title Moduł: Wypisanie z klasy
+
+actor "Rodzic" as Parent
+actor "Skarbnik" as Treasurer
+
+rectangle "Wypisanie z klasy" {
+  usecase "Złożenie wniosku\no wypisanie dziecka" as UC1
+  usecase "Śledzenie statusu wypisania" as UC2
+  usecase "Rozpatrzenie wypisania" as UC3
+}
+
+Parent --> UC1
+Parent --> UC2
+Treasurer --> UC3
+
+UC2 ..> UC1 : <<extend>>
+
+@enduml

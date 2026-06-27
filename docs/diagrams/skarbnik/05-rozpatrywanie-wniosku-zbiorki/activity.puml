@@ -1,0 +1,23 @@
+@startuml
+title Aktywność — Rozpatrywanie wniosku o zbiórkę
+
+|Rodzic|
+:Składa wniosek o zbiórkę\n(moduł rodzica 06);
+
+|Skarbnik|
+start
+:Otrzymuje wniosek;
+:Otwiera /app/applications\nlub zakładkę Oczekujące;
+
+:Przegląda parametry zbiórki\n(nazwa, cel, typ);
+
+if (Decyzja?) then (zatwierdzenie)
+  :Zatwierdza wniosek;
+  :System tworzy zbiórkę ACTIVE;
+else (odrzucenie)
+  :Odrzuca wniosek;
+endif
+
+stop
+
+@enduml

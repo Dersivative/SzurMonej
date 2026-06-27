@@ -1,0 +1,15 @@
+@startuml
+left to right direction
+title Moduł: Raporty
+
+actor "Skarbnik" as Treasurer
+
+rectangle "Raporty PDF" {
+  usecase "Pobranie raportu PDF\nklasy" as UC1
+  usecase "Pobranie raportu PDF\nzbiórki" as UC2
+}
+
+Treasurer --> UC1
+Treasurer --> UC2
+
+@enduml

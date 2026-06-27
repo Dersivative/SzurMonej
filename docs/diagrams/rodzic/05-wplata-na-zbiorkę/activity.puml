@@ -1,0 +1,24 @@
+@startuml
+title Aktywność — Wpłata na zbiórkę
+
+|Rodzic|
+start
+:Otwiera zbiórkę ACTIVE\n(/app/fundraisers lub pulpit);
+
+if (Wystarczające saldo konta?) then (nie)
+  :Przechodzi do /app/account;
+  :Wpłaca środki na konto wirtualne;
+endif
+
+:Otwiera dialog wpłaty\n(FundraiserPayDialog);
+:Wybiera dziecko i kwotę;
+:Potwierdza wpłatę;
+
+:System pobiera środki z konta;
+:System aktualizuje debt/credit\nuczestnika zbiórki;
+
+:Wpłata widoczna w historii zbiórki;
+
+stop
+
+@enduml

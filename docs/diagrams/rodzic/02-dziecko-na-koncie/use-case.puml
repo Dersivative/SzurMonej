@@ -1,0 +1,19 @@
+@startuml
+left to right direction
+title Moduł: Zarządzanie kontem i dziećmi
+
+actor "Rodzic" as Parent
+
+rectangle "Zarządzanie kontem (/app/account)" {
+  usecase "Edycja profilu\ni avatara" as UC1
+  usecase "Dodanie dziecka" as UC2
+  usecase "Edycja danych dziecka" as UC3
+}
+
+Parent --> UC1
+Parent --> UC2
+Parent --> UC3
+
+UC2 ..> UC1 : <<extend>>
+
+@enduml

@@ -1,0 +1,29 @@
+@startuml
+title Aktywność — Zwrot nadpłaty
+
+|Rodzic|
+start
+:Otwiera zbiórkę w statusie\nRECONCILING;
+
+:System pokazuje saldo uczestnika\n(nadpłata = credit);
+
+:Otwiera dialog wpłaty/zwrotu;
+:Składa wniosek o zwrot kwoty;
+
+:System zapisuje wniosek\n(status: oczekujący);
+
+:Sprawdza status\nna /app/applications;
+
+|Skarbnik|
+:Rozpatruje zwrot\n(moduł skarbnika 06);
+
+|Rodzic|
+if (Zaakceptowany?) then (tak)
+  :Środki wracają na konto wirtualne;
+else (nie)
+  :Wniosek odrzucony;
+endif
+
+stop
+
+@enduml

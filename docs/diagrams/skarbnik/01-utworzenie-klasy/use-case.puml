@@ -1,0 +1,21 @@
+@startuml
+left to right direction
+title Moduł: Utworzenie klasy i rola skarbnika
+
+actor "Rodzic" as Parent
+actor "Administrator" as Admin
+
+rectangle "Utworzenie klasy" {
+  usecase "Złożenie wniosku\no klasę" as UC1
+  usecase "Rozpatrzenie wniosku" as UC2
+  usecase "Przypisanie roli skarbnika" as UC3
+}
+
+Parent --> UC1
+Admin --> UC2
+Admin --> UC3
+
+UC1 ..> UC2 : <<include>>
+UC2 ..> UC3 : <<extend>>
+
+@enduml

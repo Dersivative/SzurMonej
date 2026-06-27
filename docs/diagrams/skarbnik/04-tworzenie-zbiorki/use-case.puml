@@ -1,0 +1,20 @@
+@startuml
+left to right direction
+title Moduł: Tworzenie zbiórki
+
+actor "Skarbnik" as Treasurer
+
+rectangle "Tworzenie zbiórki" {
+  usecase "Utworzenie zbiórki\n(bez zatwierdzania)" as UC1
+  usecase "Wybór uczestników" as UC2
+  usecase "Ustawienie celu\ni typu zbiórki" as UC3
+}
+
+Treasurer --> UC1
+Treasurer --> UC2
+Treasurer --> UC3
+
+UC1 ..> UC2 : <<include>>
+UC1 ..> UC3 : <<include>>
+
+@enduml

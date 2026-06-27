@@ -1,0 +1,50 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+title Mapa modułów — SzurMonej
+
+package "Rodzic" {
+  usecase "01 Rejestracja" as R01
+  usecase "02 Dziecko na koncie" as R02
+  usecase "03 Zapis do klasy" as R03
+  usecase "04 Wniosek o klasę" as R04
+  usecase "05 Wpłata na zbiórkę" as R05
+  usecase "06 Wniosek o zbiórkę" as R06
+  usecase "07 Zwrot nadpłaty" as R07
+  usecase "08 Wypisanie z klasy" as R08
+  usecase "09 Czat" as R09
+}
+
+package "Skarbnik" {
+  usecase "01 Utworzenie klasy" as S01
+  usecase "02 Link zapisów" as S02
+  usecase "03 Rozpatrywanie zapisów" as S03
+  usecase "04 Tworzenie zbiórki" as S04
+  usecase "05 Wniosek o zbiórkę" as S05
+  usecase "06 Zakończenie i rozliczenie" as S06
+  usecase "07 Rozpatrywanie wypisania" as S07
+  usecase "08 Raporty" as S08
+}
+
+R01 --> R02
+R02 --> R03
+R03 --> R05
+R05 --> R07
+R04 --> S01
+R04 ..> S02 : po zatwierdzeniu
+S01 --> S02
+S02 --> S03
+R03 ..> S03 : wniosek o zapis
+S04 --> S06
+R06 ..> S05 : wniosek o zbiórkę
+R07 ..> S06 : wniosek o zwrot
+R08 ..> S07 : wniosek o wypisanie
+
+note bottom of R04
+  Moduły rodzica i skarbnika
+  są w docs/diagrams/rodzic/
+  i docs/diagrams/skarbnik/
+end note
+
+@enduml

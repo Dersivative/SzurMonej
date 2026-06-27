@@ -1,0 +1,21 @@
+@startuml
+title Aktywność — Raporty
+
+|Skarbnik|
+start
+:Otwiera /app/classes\nlub /app/fundraisers;
+
+if (Raport klasy?) then (tak)
+  :Klika „Pobierz raport”\nna karcie klasy;
+  :System generuje PDF klasy;
+  :Pobiera plik;
+else (raport zbiórki)
+  :Otwiera szczegóły zbiórki;
+  :Klika „Pobierz raport”;
+  :System generuje PDF zbiórki;
+  :Pobiera plik;
+endif
+
+stop
+
+@enduml

@@ -1,0 +1,19 @@
+@startuml
+left to right direction
+title Moduł: Rozpatrywanie wniosku o zbiórkę
+
+actor "Skarbnik" as Treasurer
+actor "Rodzic" as Parent
+
+rectangle "Rozpatrywanie wniosku o zbiórkę" {
+  usecase "Podgląd wniosku\nrodzica" as UC1
+  usecase "Zatwierdzenie\ni utworzenie zbiórki" as UC2
+  usecase "Odrzucenie wniosku" as UC3
+}
+
+Treasurer --> UC1
+Treasurer --> UC2
+Treasurer --> UC3
+Parent --> UC1 : <<złożył wniosek>>
+
+@enduml
