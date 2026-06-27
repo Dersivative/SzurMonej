@@ -320,6 +320,39 @@ class FundraiserServiceTest {
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("Nie wszyscy uczestnicy spłacili swoje długi.");
     }
+
+    @Test
+    void withdrawDuringReconciling_recalculatesParticipantDebts() {
+        loginAs(scenario.parent1());
+        var request1 = new TransferToFundraiserRequest();
+        request1.setFundraiserId(scenario.fundraiser().getId());
+        request1.setChildId(scenario.child1().getId());
+        accountService.transferToFundraiser(request1);
+
+        loginAs(scenario.parent2());
+        var request2 = new TransferToFundraiserRequest();
+        request2.setFundraiserId(scenario.fundraiser().getId());
+        request2.setChildId(scenario.child2().getId());
+        accountService.transferToFundraiser(request2);
+
+        loginAs(scenario.treasurer());
+        fundraiserService.withdrawFromFundraiser(scenario.fundraiser().getId(), new BigDecimal("300.00"), "Pierwszy zakup");
+        fundraiserService.reconcileFundraiser(scenario.fundraiser().getId(), "Rozliczenie");
+
+        var treasurerChildBefore = participantRepository.findByFundraiser_IdAndChild_Id(
+                scenario.fundraiser().getId(), scenario.treasurerChild().getId()).orElseThrow();
+        assertThat(treasurerChildBefore.getDebt()).isEqualByComparingTo("100.00");
+
+        fundraiserService.withdrawFromFundraiser(scenario.fundraiser().getId(), new BigDecimal("300.00"), "Drugi zakup");
+
+        var treasurerChildAfter = participantRepository.findByFundraiser_IdAndChild_Id(
+                scenario.fundraiser().getId(), scenario.treasurerChild().getId()).orElseThrow();
+        var child1After = participantRepository.findByFundraiser_IdAndChild_Id(
+                scenario.fundraiser().getId(), scenario.child1().getId()).orElseThrow();
+
+        assertThat(treasurerChildAfter.getDebt()).isEqualByComparingTo("200.00");
+        assertThat(child1After.getCredit()).isEqualByComparingTo("200.00");
+    }
     
     @Test
     void payDebt_throwsWhenParentIsFromOutsideTheClass() {
