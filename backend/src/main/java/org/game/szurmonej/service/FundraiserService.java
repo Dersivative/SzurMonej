@@ -269,8 +269,9 @@ public class FundraiserService {
 
             RefundRequest refundRequest = new RefundRequest();
             refundRequest.setParticipant(participant);
-            refundRequest.setRequester(payer); // The requester is the one who paid
+            refundRequest.setRequester(payer);
             refundRequest.setAmount(amountToRefund);
+            refundRequest.setType(RefundRequestType.PERSONAL_CONTRIBUTION);
             refundRequest.setRequestedAt(LocalDateTime.now());
             refundRequest.setStatus(EnrollmentStatus.PENDING);
             refundRequestRepository.save(refundRequest);

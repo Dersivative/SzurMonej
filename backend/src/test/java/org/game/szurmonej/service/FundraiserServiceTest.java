@@ -3,10 +3,12 @@ package org.game.szurmonej.service;
 import org.game.szurmonej.dto.FundraiserCreateRequest;
 import org.game.szurmonej.dto.FundraiserResponse;
 import org.game.szurmonej.dto.TransferToFundraiserRequest;
+import org.game.szurmonej.entity.EnrollmentStatus;
 import org.game.szurmonej.entity.Fundraiser;
 import org.game.szurmonej.entity.FundraiserParticipant;
 import org.game.szurmonej.entity.FundraiserStatus;
 import org.game.szurmonej.entity.FundraiserType;
+import org.game.szurmonej.entity.RefundRequestType;
 import org.game.szurmonej.entity.User;
 import org.game.szurmonej.exception.ForbiddenOperationException;
 import org.game.szurmonej.repository.*;
@@ -65,6 +67,9 @@ class FundraiserServiceTest {
 
     @Autowired
     private ClassMembershipRepository classMembershipRepository;
+
+    @Autowired
+    private RefundRequestRepository refundRequestRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -650,6 +655,31 @@ class FundraiserServiceTest {
 
         // Treasurer's balance should be untouched.
         assertThat(treasurerAccount.getBalance()).isEqualByComparingTo("1000.00");
+    }
+
+    @Test
+    void removeParticipant_afterContribution_createsPendingRefundRequests() {
+        Fundraiser fundraiser = scenario.fundraiser();
+        Long fundraiserId = fundraiser.getId();
+
+        loginAs(scenario.parent1());
+        var request = new TransferToFundraiserRequest();
+        request.setFundraiserId(fundraiserId);
+        request.setChildId(scenario.child1().getId());
+        accountService.transferToFundraiser(request);
+
+        assertDoesNotThrow(() -> fundraiserService.removeParticipant(fundraiserId, scenario.child1().getId()));
+
+        var participant = participantRepository
+                .findByFundraiser_IdAndChild_Id(fundraiserId, scenario.child1().getId())
+                .orElseThrow();
+        assertThat(participant.getStatus()).isEqualTo(EnrollmentStatus.REMOVAL_PENDING);
+
+        var refundRequests = refundRequestRepository.findByParticipant_Fundraiser_IdAndStatus(
+                fundraiserId, EnrollmentStatus.PENDING);
+        assertThat(refundRequests).hasSize(1);
+        assertThat(refundRequests.get(0).getType()).isEqualTo(RefundRequestType.PERSONAL_CONTRIBUTION);
+        assertThat(refundRequests.get(0).getAmount()).isEqualByComparingTo("400.00");
     }
 
     @Test
