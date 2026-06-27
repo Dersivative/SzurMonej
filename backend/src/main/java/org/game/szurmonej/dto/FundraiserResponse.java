@@ -38,29 +38,6 @@ public class FundraiserResponse {
     private List<ChildResponse> nonParticipants;
     private List<FundraiserHistoryEntryResponse> history;
 
-    public static FundraiserResponse from(Fundraiser fundraiser, BigDecimal suggestedContribution, List<Contribution> contributions, List<AccountHistoryEntry> historyEntries, List<Refund> refunds) {
-        FundraiserResponse response = from(fundraiser, fundraiser.getParticipants(), contributions, historyEntries, refunds);
-        response.setSuggestedContribution(suggestedContribution);
-        return response;
-    }
-
-    public static FundraiserResponse from(
-            Fundraiser fundraiser,
-            List<FundraiserParticipant> participants,
-            BigDecimal suggestedContribution,
-            List<Contribution> contributions,
-            List<AccountHistoryEntry> historyEntries,
-            List<Refund> refunds
-    ) {
-        FundraiserResponse response = from(fundraiser, participants, contributions, historyEntries, refunds);
-        response.setSuggestedContribution(suggestedContribution);
-        return response;
-    }
-
-    public static FundraiserResponse from(Fundraiser fundraiser, List<Contribution> contributions, List<AccountHistoryEntry> historyEntries, List<Refund> refunds) {
-        return from(fundraiser, fundraiser.getParticipants(), contributions, historyEntries, refunds);
-    }
-
     public static FundraiserResponse from(
             Fundraiser fundraiser,
             List<FundraiserParticipant> participants,

@@ -104,8 +104,8 @@ public class AccountService {
         Fundraiser fundraiser = fundraiserRepository.findById(request.getFundraiserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Fundraiser not found: " + request.getFundraiserId()));
 
-        if (fundraiser.getStatus() != FundraiserStatus.ACTIVE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Można wpłacać tylko na aktywne zbiórki.");
+        if (fundraiser.getStatus() != FundraiserStatus.ACTIVE && fundraiser.getStatus() != FundraiserStatus.RECONCILING) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Można wpłacać tylko na aktywne lub rozliczane zbiórki.");
         }
 
         Account fundraiserAccount = accountRepository.findByFundraiser_Id(fundraiser.getId())
@@ -119,7 +119,16 @@ public class AccountService {
             throw new IllegalArgumentException("Child is no longer an active participant");
         }
 
-        BigDecimal amountToPay = calculateAmountToPay(fundraiser, participant);
+        BigDecimal amountToPay;
+        if (fundraiser.getStatus() == FundraiserStatus.RECONCILING) {
+            amountToPay = participant.getDebt();
+            if (amountToPay == null || amountToPay.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Uczestnik nie ma długu do spłacenia w tej zbiórce.");
+            }
+        } else {
+            amountToPay = calculateAmountToPay(fundraiser, participant);
+        }
+        
         validatePositiveAmount(amountToPay);
 
         debit(payerAccount, amountToPay);
@@ -236,9 +245,16 @@ public class AccountService {
 
     @Transactional
     public MoneyOperationResponse refundFromFundraiser(Long fundraiserId, Long participantId, Long targetUserId, BigDecimal amount, String note) {
-        validatePositiveAmount(amount);
         User currentUser = currentUserService.getCurrentUser();
-        Fundraiser fundraiser = assertTreasurerAndGetFundraiser(fundraiserId, currentUser);
+        assertTreasurerAndGetFundraiser(fundraiserId, currentUser);
+        return internalRefundFromFundraiser(fundraiserId, participantId, targetUserId, amount, note);
+    }
+
+    @Transactional
+    public MoneyOperationResponse internalRefundFromFundraiser(Long fundraiserId, Long participantId, Long targetUserId, BigDecimal amount, String note) {
+        validatePositiveAmount(amount);
+        Fundraiser fundraiser = fundraiserRepository.findById(fundraiserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Fundraiser not found: " + fundraiserId));
         Account fundraiserAccount = fundraiser.getAccount();
 
         User targetUser = userRepository.findById(targetUserId)
@@ -269,7 +285,6 @@ public class AccountService {
         refund.setRefundedAt(LocalDateTime.now());
         refund.setNote(finalNote);
 
-        // Link to the specific contribution being refunded
         contributionRepository.findByParticipant_IdAndPayer_Id(participantId, targetUserId)
                 .stream().findFirst().ifPresent(refund::setContribution);
 
