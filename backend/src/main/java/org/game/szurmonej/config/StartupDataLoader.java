@@ -121,7 +121,8 @@ public class StartupDataLoader implements ApplicationRunner {
 
         log.info("Seeding test data...");
 
-        List<SchoolClass> classes = new ArrayList<>();
+        // 1. Create Treasurers first
+        List<User> treasurers = new ArrayList<>();
         for (int i = 1; i <= 2; i++) {
             User treasurer = new User();
             treasurer.setEmail("skarbnik" + i + "@example.com");
@@ -138,36 +139,51 @@ public class StartupDataLoader implements ApplicationRunner {
             account.setBalance(new BigDecimal("500.00"));
             treasurer.setAccount(account);
             
-            userRepository.save(treasurer);
-
-            Child treasurerChild = new Child();
-            treasurerChild.setName("DzieckoSkarbnika" + i);
-            treasurerChild.setSurname("Skarbnikowski" + i);
-            treasurerChild.setDateOfBirth(LocalDate.of(2011, 1, 1));
-            treasurerChild.setAvatar(defaultAvatarBytes);
-            treasurerChild.setAvatarContentType("image/png");
-            
-            childRepository.save(treasurerChild);
-
-            treasurer.setChildren(new HashSet<>(Set.of(treasurerChild)));
-            treasurerChild.setParents(new HashSet<>(Set.of(treasurer)));
-            
-            userRepository.save(treasurer);
-            childRepository.save(treasurerChild);
-
-            SchoolClass schoolClass = new SchoolClass();
-            schoolClass.setLabel("Klasa " + i);
-            schoolClass.setTreasurer(treasurer);
-            schoolClassRepository.save(schoolClass);
-            classes.add(schoolClass);
-            
-            ClassMembership membership = new ClassMembership();
-            membership.setChild(treasurerChild);
-            membership.setSchoolClass(schoolClass);
-            membership.setJoinedAt(LocalDate.now());
-            classMembershipRepository.save(membership);
+            treasurers.add(userRepository.save(treasurer));
         }
 
+        // 2. Create Classes and assign treasurers
+        List<SchoolClass> classes = new ArrayList<>();
+        for (int i = 1; i <= 2; i++) {
+            SchoolClass schoolClass = new SchoolClass();
+            schoolClass.setLabel("Klasa " + i);
+            schoolClass.setTreasurer(treasurers.get(i - 1));
+            classes.add(schoolClassRepository.save(schoolClass));
+        }
+
+        // 3. Create children for treasurers
+        for (int i = 0; i < treasurers.size(); i++) {
+            User treasurer = treasurers.get(i);
+            SchoolClass treasurerClass = classes.get(i);
+            SchoolClass otherClass = classes.get((i + 1) % classes.size());
+
+            Set<Child> treasurerChildren = new HashSet<>();
+            for (int j = 1; j <= 2; j++) {
+                Child treasurerChild = new Child();
+                treasurerChild.setName("DzieckoSkarbnika" + (i + 1) + "_" + j);
+                treasurerChild.setSurname("Skarbnikowski" + (i + 1));
+                treasurerChild.setDateOfBirth(LocalDate.of(2011, 1, 1));
+                treasurerChild.setAvatar(defaultAvatarBytes);
+                treasurerChild.setAvatarContentType("image/png");
+                childRepository.save(treasurerChild);
+
+                treasurerChildren.add(treasurerChild);
+                treasurerChild.setParents(new HashSet<>(Set.of(treasurer)));
+                childRepository.save(treasurerChild);
+
+                // First child goes to treasurer's class, second child to the other class
+                SchoolClass assignedClass = (j == 1) ? treasurerClass : otherClass;
+                ClassMembership membership = new ClassMembership();
+                membership.setChild(treasurerChild);
+                membership.setSchoolClass(assignedClass);
+                membership.setJoinedAt(LocalDate.now());
+                classMembershipRepository.save(membership);
+            }
+            treasurer.setChildren(treasurerChildren);
+            userRepository.save(treasurer);
+        }
+
+        // 4. Create other parents and their children
         int childCounter = 1;
         for (int i = 1; i <= 4; i++) {
             User parent = new User();
