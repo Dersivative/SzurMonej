@@ -502,10 +502,23 @@ public class FundraiserService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Zbiórka nie jest aktywna.");
         }
 
-        fundraiser.setStatus(FundraiserStatus.RECONCILING);
-        fundraiserRepository.save(fundraiser);
-        
         recalculateFinalCredits(fundraiser);
+
+        List<FundraiserParticipant> participants = participantRepository.findByFundraiser_IdAndRemovedAtIsNull(fundraiserId);
+        boolean allDebtsPaid = participants.stream().allMatch(p -> p.getDebt() == null || p.getDebt().compareTo(BigDecimal.ZERO) == 0);
+        BigDecimal totalCredit = participants.stream()
+                .map(p -> p.getCredit() == null ? BigDecimal.ZERO : p.getCredit())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal availableBalance = accountService.getBalance(fundraiser.getAccount());
+
+        if (allDebtsPaid && availableBalance.compareTo(totalCredit) >= 0) {
+            distributeAvailableBalanceToCredits(fundraiser);
+            fundraiser.setStatus(FundraiserStatus.FINISHED);
+            fundraiser.setFinishedAt(LocalDate.now());
+        } else {
+            fundraiser.setStatus(FundraiserStatus.RECONCILING);
+        }
+        fundraiserRepository.save(fundraiser);
     }
 
     @Transactional

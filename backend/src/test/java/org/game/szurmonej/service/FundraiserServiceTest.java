@@ -605,8 +605,8 @@ class FundraiserServiceTest {
         // 3. First settlement - 40 PLN should be refunded
         fundraiserService.finalizeFundraiser(scenario.fundraiser().getId());
         assertThat(accountRepository.findByUser_Id(scenario.parent1().getId()).get().getBalance()).isEqualByComparingTo("613.33");
-        assertThat(accountRepository.findByUser_Id(scenario.parent2().getId()).get().getBalance()).isEqualByComparingTo("613.33");
-        assertThat(accountRepository.findByUser_Id(scenario.treasurer().getId()).get().getBalance()).isEqualByComparingTo("1773.34");
+        assertThat(accountRepository.findByUser_Id(scenario.parent2().getId()).get().getBalance()).isEqualByComparingTo("613.34");
+        assertThat(accountRepository.findByUser_Id(scenario.treasurer().getId()).get().getBalance()).isEqualByComparingTo("1773.33");
 
         // 4. Reopen fundraiser and return the main amount
         fundraiserService.reopenFundraiser(scenario.fundraiser().getId());
@@ -819,6 +819,48 @@ class FundraiserServiceTest {
         assertThat(fundraiserAccount.getBalance()).isEqualByComparingTo("0.00");
         assertThat(treasurerAccount.getBalance()).isEqualByComparingTo("1800.00"); // 1000 (initial) - 400 (paid) + 1200 (withdrawn)
         assertThat(fundraiser.getStatus()).isEqualTo(FundraiserStatus.FINISHED);
+    }
+
+    @Test
+    void cancelFundraiser_whenAllParentsPaid_fundsAreReturnedAndStatusIsFinished() {
+        // 1. All parents pay their contributions
+        loginAs(scenario.parent1());
+        var request1 = new TransferToFundraiserRequest();
+        request1.setFundraiserId(scenario.fundraiser().getId());
+        request1.setChildId(scenario.child1().getId());
+        accountService.transferToFundraiser(request1);
+
+        loginAs(scenario.parent2());
+        var request2 = new TransferToFundraiserRequest();
+        request2.setFundraiserId(scenario.fundraiser().getId());
+        request2.setChildId(scenario.child2().getId());
+        accountService.transferToFundraiser(request2);
+
+        loginAs(scenario.treasurer());
+        var request3 = new TransferToFundraiserRequest();
+        request3.setFundraiserId(scenario.fundraiser().getId());
+        request3.setChildId(scenario.treasurerChild().getId());
+        accountService.transferToFundraiser(request3);
+
+        // 2. Treasurer cancels the fundraiser by reconciling
+        fundraiserService.reconcileFundraiser(scenario.fundraiser().getId(), "Anulowanie zbiórki");
+
+        // 3. Verify funds are returned to parents
+        var parent1Account = accountRepository.findByUser_Id(scenario.parent1().getId()).orElseThrow();
+        var parent2Account = accountRepository.findByUser_Id(scenario.parent2().getId()).orElseThrow();
+        var treasurerAccount = accountRepository.findByUser_Id(scenario.treasurer().getId()).orElseThrow();
+
+        assertThat(parent1Account.getBalance()).isEqualByComparingTo("1000.00");
+        assertThat(parent2Account.getBalance()).isEqualByComparingTo("1000.00");
+        assertThat(treasurerAccount.getBalance()).isEqualByComparingTo("1000.00");
+
+        // 4. Verify fundraiser status is FINISHED
+        var fundraiser = fundraiserRepository.findById(scenario.fundraiser().getId()).orElseThrow();
+        assertThat(fundraiser.getStatus()).isEqualTo(FundraiserStatus.FINISHED);
+
+        // 5. Verify fundraiser account balance is zero
+        var fundraiserAccount = fundraiser.getAccount();
+        assertThat(fundraiserAccount.getBalance()).isCloseTo(BigDecimal.ZERO, org.assertj.core.api.Assertions.within(new BigDecimal("0.01")));
     }
 
 
