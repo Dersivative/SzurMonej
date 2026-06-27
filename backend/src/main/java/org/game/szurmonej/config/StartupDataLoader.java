@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
 import java.time.LocalDate;
 import java.util.List;
@@ -217,6 +218,7 @@ public class StartupDataLoader implements ApplicationRunner {
         entityManager.flush();
         entityManager.clear();
         
+        Random random = new Random();
         for (SchoolClass schoolClass : classes) {
             SchoolClass managedClass = schoolClassRepository.findById(schoolClass.getId()).orElseThrow();
             log.info("Found class '{}' with {} members. Creating fundraisers...", managedClass.getLabel(), managedClass.getMemberships().size());
@@ -229,6 +231,7 @@ public class StartupDataLoader implements ApplicationRunner {
             fundraiser1.setGoalAmount(new BigDecimal("600.00"));
             fundraiser1.setSchoolClass(managedClass);
             fundraiser1.setStartedAt(LocalDate.now());
+            fundraiser1.setEndsBy(LocalDate.of(2026, 7, random.nextInt(31) + 1));
 
             Account fundraiserAccount1 = new Account();
             fundraiserAccount1.setAccountNumber(UUID.randomUUID().toString());
@@ -257,6 +260,7 @@ public class StartupDataLoader implements ApplicationRunner {
             fundraiser2.setGoalAmount(new BigDecimal("100.00").multiply(new BigDecimal(activeMembers)));
             fundraiser2.setSchoolClass(managedClass);
             fundraiser2.setStartedAt(LocalDate.now());
+            fundraiser2.setEndsBy(LocalDate.of(2026, 7, random.nextInt(31) + 1));
 
             Account fundraiserAccount2 = new Account();
             fundraiserAccount2.setAccountNumber(UUID.randomUUID().toString());
