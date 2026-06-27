@@ -26,6 +26,7 @@ import { openFundraiserChat } from "@/features/chat/lib/open-chat";
 import { fetchFundraiserDetails } from "@/features/fundraisers/api/get-fundraiser-details";
 import { getFundraiserPlannedEndDate } from "@/features/fundraisers/lib/fundraiser-dates";
 import { reconcileFundraiser } from "@/features/fundraisers/api/reconcile-fundraiser";
+import { downloadFundraiserReport } from "@/features/fundraisers/api/download-fundraiser-report";
 import { reopenFundraiser } from "@/features/fundraisers/api/reopen-fundraiser";
 import { withdrawAllFundraiser } from "@/features/fundraisers/api/withdraw-all-fundraiser";
 import type { FundraiserResponseDTO } from "@/features/fundraisers/api/types";
@@ -170,6 +171,13 @@ export function FundraisingCard({
     },
   });
 
+  const downloadReportMutation = useMutation({
+    mutationFn: () => downloadFundraiserReport(fundraiser.id),
+    onError: () => {
+      window.alert("Nie udało się pobrać raportu.");
+    },
+  });
+
   const isLifecyclePending =
     finishFundraiserMutation.isPending || reopenFundraiserMutation.isPending;
 
@@ -269,6 +277,14 @@ export function FundraisingCard({
             >
               Historia
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={downloadReportMutation.isPending}
+              onClick={() => downloadReportMutation.mutate()}
+            >
+              {downloadReportMutation.isPending ? "Pobieranie..." : "Raport PDF"}
+            </Button>
             {isTreasurer && isActive && (
               <Button
                 type="button"
@@ -308,11 +324,11 @@ export function FundraisingCard({
         </div>
 
         <div className="space-y-2.5">
-          <Progress value={progressValue} className="h-2.5 w-full" />
           <Badge variant="outline" className={fundraiserBadgeClassName}>
             {formatMoney(fundraiser.currentAmount)} /{" "}
             {formatMoney(fundraiser.goalAmount)}
           </Badge>
+          <Progress value={progressValue} className="h-2.5 w-full" />
           <p className="text-base text-foreground">
             Start: {formatDate(fundraiser.startedAt)} · Koniec:{" "}
             {formatDate(getFundraiserPlannedEndDate(fundraiser))}
