@@ -39,6 +39,7 @@ interface FundraiserDetails {
     currentAmount: number;
     startedAt?: string;
     endedAt?: string;
+    endsBy?: string;
     status: 'ACTIVE' | 'RECONCILING' | 'FINISHED';
     fundraiserType: 'TOTAL_GOAL' | 'PER_CHILD_GOAL';
     perChildAmount?: number;
@@ -210,6 +211,16 @@ const FundraiserDetailsPage: React.FC = () => {
         }
     };
 
+    const handlePayDebt = async (childId: number) => {
+        try {
+            await axios.post(`/api/fundraisers/${fundraiserId}/children/${childId}/pay-debt`);
+            alert('Dług został spłacony.');
+            fetchData();
+        } catch (err: any) {
+            alert(err.response?.data?.error || err.response?.data?.message || 'Wystąpił błąd podczas spłacania długu.');
+        }
+    };
+
     const handleRemoveParticipant = async (childId: number) => {
         if (!window.confirm("Czy na pewno chcesz usunąć to dziecko ze zbiórki? Spowoduje to utworzenie prośby o zwrot wpłaconych środków.")) return;
         try {
@@ -280,8 +291,8 @@ const FundraiserDetailsPage: React.FC = () => {
         try {
             await axios.post(`/api/fundraisers/${fundraiserId}/reconcile`, { note: 'Rozliczenie zbiórki' });
             fetchData();
-        } catch {
-            setActionError('Wystąpił błąd podczas rozliczania zbiórki.');
+        } catch (err: any) {
+            setActionError(err.response?.data?.error || err.response?.data?.message || 'Wystąpił błąd podczas rozliczania zbiórki.');
         } finally {
             setShowFinishConfirmation(false);
         }
@@ -358,6 +369,7 @@ const FundraiserDetailsPage: React.FC = () => {
             <p><strong>Zebrano łącznie:</strong> {fundraiser.currentAmount.toFixed(2)} PLN</p>
             <p><strong>Status:</strong> {STATUS_LABELS[fundraiser.status]}</p>
             <p><strong>Rozpoczęcie:</strong> {formatDate(fundraiser.startedAt)}</p>
+            <p><strong>Planowane zakończenie:</strong> {formatDate(fundraiser.endsBy)}</p>
             <p><strong>Zakończenie:</strong> {fundraiser.endedAt ? formatDate(fundraiser.endedAt) : (fundraiser.status === 'ACTIVE' ? 'Trwa' : '—')}</p>
             
             {isEditing ? (
@@ -367,19 +379,6 @@ const FundraiserDetailsPage: React.FC = () => {
                 </div>
             ) : (
                 fundraiser.description && <p><strong>Opis:</strong> {fundraiser.description}</p>
-            )}
-
-            {isTreasurer && fundraiser.status === 'ACTIVE' && (
-                <div style={{ marginTop: '20px', borderTop: '1px solid #dee2e6', paddingTop: '15px' }}>
-                    {isEditing ? (
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <button onClick={handleUpdateDetails} style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>Zapisz zmiany</button>
-                            <button onClick={() => setIsEditing(false)} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '4px' }}>Anuluj</button>
-                        </div>
-                    ) : (
-                        <button onClick={() => setIsEditing(true)} style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}>Edytuj Tytuł/Opis</button>
-                    )}
-                </div>
             )}
         </div>
     );
@@ -444,6 +443,7 @@ const FundraiserDetailsPage: React.FC = () => {
                                             {(isTreasurer || isOwnChild) && !isPendingRemoval && <button onClick={() => handleRemoveParticipant(p.childId)}>Usuń</button>}
                                             {isOwnChild && p.totalContribution > 0 && fundraiser.fundraiserType === 'PER_CHILD_GOAL' && !isPendingRemoval && <button onClick={() => handleRequestRefund(p.childId)}>Zwróć</button>}
                                             {!isPaid && fundraiser.status === 'ACTIVE' && !isPendingRemoval && <button onClick={() => handlePayForOther(p.childId)}>Wpłać</button>}
+                                            {isOwnChild && p.debt && p.debt > 0 && fundraiser.status === 'RECONCILING' && <button onClick={() => handlePayDebt(p.childId)}>Spłać dług</button>}
                                         </td>
                                     </tr>
                                 );
@@ -505,77 +505,107 @@ const FundraiserDetailsPage: React.FC = () => {
                 </div>
             </div>
 
-            <button
-                onClick={handleOpenFundraiserChat}
-                style={{ marginBottom: '20px', padding: '10px 16px', backgroundColor: '#6f42c1', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
-            >
-                Otwórz czat zbiórki
-            </button>
-
             {renderAllParticipants()}
             {isTreasurer && renderRefundRequests()}
 
             {actionError && <div style={{ color: 'red', marginTop: '10px', padding: '10px', border: '1px solid red', borderRadius: '4px', whiteSpace: 'pre-wrap' }}>{actionError}</div>}
 
             {isTreasurer && (
-                <>
+                <div style={{ padding: '20px', border: '1px solid #ccc', borderRadius: '8px', backgroundColor: '#f8f9fa', margin: '30px 0' }}>
+                    <h4>Akcje Skarbnika</h4>
+
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #dee2e6' }}>
+                        {isEditing ? (
+                            <>
+                                <button onClick={handleUpdateDetails} style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>Zapisz zmiany</button>
+                                <button onClick={() => setIsEditing(false)} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '4px' }}>Anuluj</button>
+                            </>
+                        ) : (
+                            <button onClick={() => setIsEditing(true)} style={{ padding: '8px 16px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px' }}>
+                                Edytuj Tytuł/Opis
+                            </button>
+                        )}
+
+                        <button onClick={handleOpenFundraiserChat} style={{ padding: '8px 16px', backgroundColor: '#6f42c1', color: 'white', border: 'none', borderRadius: '4px' }}>
+                            Otwórz czat zbiórki
+                        </button>
+
+                        {fundraiser.status === 'ACTIVE' && (
+                            <button onClick={() => setShowFinishConfirmation(true)} style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px' }}>
+                                Zakończ zbiórkę
+                            </button>
+                        )}
+                        {fundraiser.status === 'FINISHED' && (
+                            <button onClick={handleReopen} style={{ padding: '8px 16px', backgroundColor: '#ffc107', color: 'black', border: 'none', borderRadius: '4px' }}>
+                                Wznów zbiórkę
+                            </button>
+                        )}
+                    </div>
+
                     {fundraiser.status === 'ACTIVE' && (
-                        <div style={{ display: 'flex', gap: '20px', margin: '30px 0' }}>
-                            <div style={{ flex: 1, padding: '20px', border: '1px solid #ccc', borderRadius: '8px', backgroundColor: '#f8f9fa' }}>
-                                <h4>Akcje Skarbnika</h4>
+                        <>
+                            <div style={{ marginBottom: '20px' }}>
+                                <h5 style={{ marginTop: 0 }}>Wpłaty / Wypłaty</h5>
                                 <input type="number" placeholder="Kwota (PLN)" value={actionAmount} onChange={e => setActionAmount(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px', boxSizing: 'border-box' }} />
                                 <input type="text" placeholder="Opis operacji (np. zakup materiałów)" value={actionNote} onChange={e => setActionNote(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '15px', boxSizing: 'border-box' }} />
                                 <div style={{ display: 'flex', gap: '10px' }}>
                                     <button onClick={() => handleAction('deposit')} style={{ flex: 1, padding: '10px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>Wpłać</button>
                                     <button onClick={() => handleAction('withdraw')} style={{ flex: 1, padding: '10px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px' }}>Wypłać</button>
                                 </div>
-                                <div style={{ marginTop: '20px' }}>
-                                    <input type="number" placeholder="Nowa kwota docelowa" value={newGoalAmount} onChange={e => setNewGoalAmount(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px', boxSizing: 'border-box' }} />
-                                    <button onClick={handleUpdateGoal} style={{ width: '100%', padding: '10px', backgroundColor: '#17a2b8', color: 'white', border: 'none', borderRadius: '4px' }}>
-                                        Zaktualizuj kwotę docelową
-                                    </button>
-                                </div>
-                                <div style={{ marginTop: '20px' }}>
-                                    <label htmlFor="childToAdd">Dodaj dziecko do zbiórki:</label>
-                                    <select
-                                        id="childToAdd"
-                                        value={selectedChildToAdd || ''}
-                                        onChange={(e) => setSelectedChildToAdd(Number(e.target.value))}
-                                        style={{ width: '100%', padding: '8px', marginTop: '5px', marginBottom: '10px' }}
-                                    >
-                                        <option value="">-- Wybierz dziecko --</option>
-                                        {fundraiser.nonParticipants.map(child => (
-                                            <option key={child.id} value={child.id}>
-                                                {child.name} {child.surname}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <button onClick={handleAddParticipant} disabled={!selectedChildToAdd} style={{ width: '100%', padding: '10px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}>
-                                        Dodaj uczestnika
-                                    </button>
-                                </div>
-                                <button onClick={() => setShowFinishConfirmation(true)} style={{ width: '100%', padding: '10px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', marginTop: '10px' }}>
-                                    Zakończ zbiórkę
+                            </div>
+
+                            <div style={{ marginBottom: '20px' }}>
+                                <h5 style={{ marginTop: 0 }}>Zarządzanie celem</h5>
+                                <input type="number" placeholder="Nowa kwota docelowa" value={newGoalAmount} onChange={e => setNewGoalAmount(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px', boxSizing: 'border-box' }} />
+                                <button onClick={handleUpdateGoal} style={{ width: '100%', padding: '10px', backgroundColor: '#17a2b8', color: 'white', border: 'none', borderRadius: '4px' }}>
+                                    Zaktualizuj kwotę docelową
                                 </button>
                             </div>
-                        </div>
-                    )}
 
-                    {fundraiser.status === 'FINISHED' && (
-                        <button onClick={handleReopen} style={{ marginTop: '20px', padding: '10px 15px', backgroundColor: '#ffc107', color: 'black', border: 'none', borderRadius: '4px' }}>
-                            Wznów zbiórkę
-                        </button>
+                            <div>
+                                <h5 style={{ marginTop: 0 }}>Zarządzanie uczestnikami</h5>
+                                <label htmlFor="childToAdd">Dodaj dziecko do zbiórki:</label>
+                                <select
+                                    id="childToAdd"
+                                    value={selectedChildToAdd || ''}
+                                    onChange={(e) => setSelectedChildToAdd(Number(e.target.value))}
+                                    style={{ width: '100%', padding: '8px', marginTop: '5px', marginBottom: '10px' }}
+                                >
+                                    <option value="">-- Wybierz dziecko --</option>
+                                    {fundraiser.nonParticipants.map(child => (
+                                        <option key={child.id} value={child.id}>
+                                            {child.name} {child.surname}
+                                        </option>
+                                    ))}
+                                </select>
+                                <button onClick={handleAddParticipant} disabled={!selectedChildToAdd} style={{ width: '100%', padding: '10px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}>
+                                    Dodaj uczestnika
+                                </button>
+                            </div>
+                        </>
                     )}
 
                     {showFinishConfirmation && (
                         <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', backgroundColor: 'white', padding: '20px', border: '1px solid #ccc', zIndex: 1000, borderRadius: '8px', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
                             <h4 style={{ marginTop: 0 }}>Zakończ zbiórkę</h4>
-                            <p>Czy chcesz wypłacić zebrane środki czy je rozliczyć?</p>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
-                                <button onClick={() => setShowFinishConfirmation(false)} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '4px' }}>Anuluj</button>
-                                <button onClick={handleReconcile} style={{ padding: '8px 16px', backgroundColor: '#ffc107', color: 'black', border: 'none', borderRadius: '4px' }}>Rozlicz</button>
-                                <button onClick={handleWithdrawAll} style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>Wypłać</button>
-                            </div>
+                            {fundraiser.currentAmount > 0 ? (
+                                <>
+                                    <p>Na koncie zbiórki znajdują się środki. Co chcesz zrobić?</p>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+                                        <button onClick={() => setShowFinishConfirmation(false)} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '4px' }}>Anuluj</button>
+                                        <button onClick={handleReconcile} style={{ padding: '8px 16px', backgroundColor: '#ffc107', color: 'black', border: 'none', borderRadius: '4px' }}>Rozlicz</button>
+                                        <button onClick={handleWithdrawAll} style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>Wypłać wszystko i zamknij</button>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <p>Na koncie zbiórki nie ma żadnych środków. Zbiórka zostanie zamknięta i przejdziesz do etapu rozliczania.</p>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+                                        <button onClick={() => setShowFinishConfirmation(false)} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '4px' }}>Anuluj</button>
+                                        <button onClick={handleReconcile} style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>Rozlicz</button>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     )}
 

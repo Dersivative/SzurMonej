@@ -19,12 +19,14 @@ import { canRemoveParticipant } from "@/features/fundraisers/lib/admin-fundraise
 import { addFundraiserParticipant } from "@/features/fundraisers/api/add-fundraiser-participant";
 import { fetchFundraiserDetails } from "@/features/fundraisers/api/get-fundraiser-details";
 import { removeFundraiserParticipant } from "@/features/fundraisers/api/remove-fundraiser-participant";
+import { payFundraiserDebt } from "@/features/fundraisers/api/pay-fundraiser-debt";
 import type {
   FundraiserResponseDTO,
   ParticipantResponseDTO,
 } from "@/features/fundraisers/api/types";
 import type { ChildResponseDTO } from "@/features/users/api/types";
 import { fetchMyChildren } from "@/features/users/api/get-my-children";
+import { formatMoney } from "@/features/finance/lib/format-money";
 
 interface FundraiserParticipantsDialogProps {
   fundraiserId: number;
@@ -192,7 +194,20 @@ export function FundraiserParticipantsDialog({
     },
   });
 
-  const isActionPending = isAdding || isRemoving;
+  const { mutate: payDebt, isPending: isPayingDebt } = useMutation({
+    mutationFn: (childId: number) => payFundraiserDebt(fundraiserId, childId),
+    onSuccess: () => {
+      handleMutationSuccess();
+    },
+    onError: (mutationError) => {
+      setPendingChildId(null);
+      setError(
+        getErrorMessage(mutationError, "Nie udało się spłacić długu."),
+      );
+    },
+  });
+
+  const isActionPending = isAdding || isRemoving || isPayingDebt;
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!isActionPending && !nextOpen) {
@@ -213,6 +228,11 @@ export function FundraiserParticipantsDialog({
   const handleRemoveParticipant = (participant: ParticipantResponseDTO) => {
     setError(null);
     setPendingRemove(participant);
+  };
+
+  const handlePayDebt = (childId: number) => {
+    setPendingChildId(childId);
+    payDebt(childId);
   };
 
   const confirmRemoveParticipant = () => {
@@ -239,9 +259,12 @@ export function FundraiserParticipantsDialog({
         isAdmin,
         myChildIdSet,
       )}
+      isMyChild={myChildIdSet.has(participant.childId)}
+      isReconciling={fundraiserDetails?.status === "RECONCILING"}
       isActionPending={isActionPending}
       isPending={pendingChildId === participant.childId}
       onRemove={() => handleRemoveParticipant(participant)}
+      onPayDebt={() => handlePayDebt(participant.childId)}
     />
   );
 
@@ -393,20 +416,27 @@ interface ParticipantRowProps {
   participant: ParticipantResponseDTO;
   canManage: boolean;
   canRemove: boolean;
+  isMyChild: boolean;
+  isReconciling: boolean;
   isActionPending: boolean;
   isPending: boolean;
   onRemove: () => void;
+  onPayDebt: () => void;
 }
 
 function ParticipantRow({
   participant,
   canManage,
   canRemove,
+  isMyChild,
+  isReconciling,
   isActionPending,
   isPending,
   onRemove,
+  onPayDebt,
 }: ParticipantRowProps) {
   const isPendingRemoval = participant.status === "REMOVAL_PENDING";
+  const hasDebt = participant.debt != null && participant.debt > 0;
 
   return (
     <li className="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2">
@@ -417,19 +447,46 @@ function ParticipantRow({
             Oczekuje na zwrot
           </Badge>
         )}
+        {isReconciling && (
+          <div className="flex gap-2 text-xs">
+            {hasDebt && (
+              <p className="font-medium text-destructive">
+                Dług: {formatMoney(participant.debt)}
+              </p>
+            )}
+            {participant.credit != null && participant.credit > 0 && (
+              <p className="font-medium text-green-600">
+                Nadpłata: {formatMoney(participant.credit)}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
-      {canManage && canRemove && (
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={isActionPending}
-          onClick={onRemove}
-        >
-          {isPending ? "Usuwanie..." : "Usuń"}
-        </Button>
-      )}
+      <div className="flex shrink-0 items-center gap-2">
+        {isReconciling && isMyChild && hasDebt && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={isActionPending}
+            onClick={onPayDebt}
+          >
+            {isPending ? "Spłacanie..." : "Spłać dług"}
+          </Button>
+        )}
+        {canManage && canRemove && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={isActionPending}
+            onClick={onRemove}
+          >
+            {isPending ? "Usuwanie..." : "Usuń"}
+          </Button>
+        )}
+      </div>
     </li>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { EditFundraiserDialog } from "@/components/EditFundraiserDialog";
 import { FundraiserParticipantsDialog } from "@/components/FundraiserParticipantsDialog";
 import { FundraiserPayDialog } from "@/components/FundraiserPayDialog";
@@ -11,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { formatMoney } from "@/features/finance/lib/format-money";
 import { openFundraiserChat } from "@/features/chat/lib/open-chat";
 import type { FundraiserResponseDTO } from "@/features/fundraisers/api/types";
+import axios from "axios";
 
 const fundraiserBadgeClassName = "h-7 px-3 py-1 text-sm";
 
@@ -64,12 +66,14 @@ export function FundraisingCard({
   onUpdate,
 }: FundraisingCardProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [participantsOpen, setParticipantsOpen] = useState(false);
   const [paymentsOpen, setPaymentsOpen] = useState(false);
   const [withdrawalsOpen, setWithdrawalsOpen] = useState(false);
   const [isOpeningChat, setIsOpeningChat] = useState(false);
+  const [showFinishConfirmation, setShowFinishConfirmation] = useState(false);
 
   const progressValue = getProgressValue(
     fundraiser.currentAmount,
@@ -88,6 +92,44 @@ export function FundraisingCard({
     } finally {
       setIsOpeningChat(false);
     }
+  };
+
+  const invalidateFundraiserQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ["my-fundraisers"] });
+    queryClient.invalidateQueries({
+      queryKey: ["fundraiser-details", fundraiser.id],
+    });
+  };
+
+  const handleWithdrawAll = async () => {
+    try {
+        await axios.post(`/api/fundraisers/${fundraiser.id}/withdraw-all`);
+        invalidateFundraiserQueries();
+    } catch {
+        window.alert('Wystąpił błąd podczas wypłacania środków.');
+    } finally {
+        setShowFinishConfirmation(false);
+    }
+  };
+
+  const handleReopen = async () => {
+      try {
+          await axios.post(`/api/fundraisers/${fundraiser.id}/reopen`);
+          invalidateFundraiserQueries();
+      } catch (err: any) {
+          alert(err.response?.data?.error || err.response?.data?.message || 'Wystąpił błąd.');
+      }
+  };
+
+  const handleReconcile = async () => {
+      try {
+          await axios.post(`/api/fundraisers/${fundraiser.id}/reconcile`, { note: 'Rozliczenie zbiórki' });
+          invalidateFundraiserQueries();
+      } catch (err: any) {
+          window.alert(err.response?.data?.error || err.response?.data?.message || 'Wystąpił błąd podczas rozliczania zbiórki.');
+      } finally {
+          setShowFinishConfirmation(false);
+      }
   };
 
   return (
@@ -165,6 +207,28 @@ export function FundraisingCard({
                 </Button>
               )}
             </div>
+            {isTreasurer && (
+              <div className="grid grid-cols-1 gap-2">
+                {fundraiser.status === 'ACTIVE' && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => setShowFinishConfirmation(true)}
+                  >
+                    Zakończ
+                  </Button>
+                )}
+                {fundraiser.status === 'FINISHED' && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleReopen}
+                  >
+                    Wznów
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -221,6 +285,30 @@ export function FundraisingCard({
           onOpenChange={setEditOpen}
           onUpdate={onUpdate}
         />
+      )}
+
+      {showFinishConfirmation && (
+        <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', backgroundColor: 'white', padding: '20px', border: '1px solid #ccc', zIndex: 1000, borderRadius: '8px', boxShadow: '0 4px 8px rgba(0,0,0,0.1)' }}>
+            <h4 style={{ marginTop: 0 }}>Zakończ zbiórkę</h4>
+            {(fundraiser.currentAmount ?? 0) > 0 ? (
+                <>
+                    <p>Na koncie zbiórki znajdują się środki. Co chcesz zrobić?</p>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+                        <button onClick={() => setShowFinishConfirmation(false)} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '4px' }}>Anuluj</button>
+                        <button onClick={handleReconcile} style={{ padding: '8px 16px', backgroundColor: '#ffc107', color: 'black', border: 'none', borderRadius: '4px' }}>Rozlicz</button>
+                        <button onClick={handleWithdrawAll} style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>Wypłać wszystko i zamknij</button>
+                    </div>
+                </>
+            ) : (
+                <>
+                    <p>Na koncie zbiórki nie ma żadnych środków. Zbiórka zostanie zamknięta i przejdziesz do etapu rozliczania.</p>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+                        <button onClick={() => setShowFinishConfirmation(false)} style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '4px' }}>Anuluj</button>
+                        <button onClick={handleReconcile} style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>Rozlicz</button>
+                    </div>
+                </>
+            )}
+        </div>
       )}
     </div>
   );

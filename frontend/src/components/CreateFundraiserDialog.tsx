@@ -17,6 +17,12 @@ import { createFundraiserApplication } from "@/features/fundraisers/api/create-f
 import { createFundraiser } from "@/features/fundraisers/api/create-fundraiser";
 import { fetchClassesForFundraiserCreation } from "@/features/fundraisers/api/get-classes-for-fundraiser-creation";
 import type { FundraiserType } from "@/features/fundraisers/api/types";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Button } from "./ui/button";
+import { cn } from "@/lib/utils";
+import { CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { Calendar } from "./ui/calendar";
 
 const fundraiserInputClassName =
   "h-10 border-0 bg-muted text-base shadow-none focus-visible:border-0 focus-visible:ring-0 md:text-base";
@@ -38,6 +44,7 @@ export function CreateFundraiserDialog({
     useState<FundraiserType>("TOTAL_GOAL");
   const [goalAmount, setGoalAmount] = useState("");
   const [perChildAmount, setPerChildAmount] = useState("");
+  const [endsBy, setEndsBy] = useState<Date | undefined>();
   const [error, setError] = useState<string | null>(null);
 
   const { data: classes = [] } = useQuery({
@@ -60,6 +67,7 @@ export function CreateFundraiserDialog({
     setFundraiserType("TOTAL_GOAL");
     setGoalAmount("");
     setPerChildAmount("");
+    setEndsBy(undefined);
     setError(null);
   };
 
@@ -157,6 +165,7 @@ export function CreateFundraiserDialog({
           description: description.trim() || undefined,
           fundraiserType,
           goalAmount: parsedGoal,
+          endsBy: endsBy ? format(endsBy, "yyyy-MM-dd") : undefined,
         },
       });
       return;
@@ -188,6 +197,7 @@ export function CreateFundraiserDialog({
         description: description.trim() || undefined,
         fundraiserType,
         perChildAmount: parsedPerChild,
+        endsBy: endsBy ? format(endsBy, "yyyy-MM-dd") : undefined,
       },
     });
   };
@@ -248,6 +258,31 @@ export function CreateFundraiserDialog({
                   disabled={isPending}
                   className="w-full resize-none rounded-md border-0 bg-muted px-3 py-2 text-base shadow-none outline-none focus-visible:ring-0"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Data Zakończenia</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !endsBy && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {endsBy ? format(endsBy, "PPP") : <span>Wybierz datę</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={endsBy}
+                      onSelect={setEndsBy}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-2">
